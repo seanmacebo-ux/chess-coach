@@ -14,6 +14,19 @@
 
 export type Pillar = 'tactics' | 'endgame' | 'positional' | 'strategy' | 'opening'
 
+/**
+ * How a tier is actually trained.
+ *
+ * `puzzle`  — find the move. Served from the Lichess corpus.
+ * `playout` — convert or hold the position against the engine. Theoretical
+ *             endgames are technique, not shots: a Lucena is "now win this",
+ *             not "spot the tactic", and serving it as a puzzle trains
+ *             nothing. This distinction is why endgame-3 was quietly broken.
+ * `quiz`    — judge rather than move (which imbalance favours whom, is this
+ *             a win or a draw). No engine needed.
+ */
+export type TierKind = 'puzzle' | 'playout' | 'quiz'
+
 export interface Tier {
   id: string
   pillar: Pillar
@@ -26,6 +39,7 @@ export interface Tier {
   themes: string[]
   /** What clears the tier. */
   clear: { solved: number; accuracy: number }
+  kind: TierKind
 }
 
 const T = (
@@ -37,6 +51,7 @@ const T = (
   themes: string[],
   solved = 20,
   accuracy = 0.8,
+  kind: TierKind = 'puzzle',
 ): Tier => ({
   id: `${pillar}-${index}`,
   pillar,
@@ -46,6 +61,7 @@ const T = (
   band,
   themes,
   clear: { solved, accuracy },
+  kind,
 })
 
 /**
@@ -70,15 +86,42 @@ export const TACTICS_TIERS: Tier[] = [
  * gates on purpose: do not study rook endings before you can mate with a
  * queen without thinking.
  */
+/*
+ * Rebuilt 2026-07-26 against Silman's actual rating bands after a structural
+ * read of the Complete Endgame Course. The previous ladder was guessed and was
+ * wrong in three ways that mattered:
+ *
+ *   - Lucena/Philidor was gated 1200+; Silman puts it at 1400-1599.
+ *   - Queen vs pawn was gated 1600+; it belongs at 1400-1599, meaning it was
+ *     LOCKED for Sean despite sitting squarely in his band.
+ *   - King-and-pawn compressed three of Silman's bands into one tier, so
+ *     square-of-the-pawn (a 1400 topic) was being served from 900.
+ *
+ * Silman's own rule is "Unified Field": you may not study band N until you own
+ * every band below it. The hard gates here encode that. His 1400-1599 part is
+ * roughly double any other pre-master section, which is why that band now
+ * carries three tiers rather than sharing one.
+ *
+ * Everything theoretical is `playout` — you convert or hold it against the
+ * engine. A Lucena served as a "find the move" puzzle teaches nothing, which
+ * is precisely how the old endgame-3 stayed broken without anyone noticing.
+ */
 export const ENDGAME_TIERS: Tier[] = [
-  T('endgame', 1, 'Basic mates', 'K+Q and K+R against a lone king, every time, no stalemate.', [600, 1000], ['mate-kq', 'mate-kr'], 10, 0.9),
-  T('endgame', 2, 'King and pawn', 'Opposition, key squares, the square of the pawn.', [900, 1300], ['pawnEndgame', 'opposition', 'key-squares'], 15, 0.85),
-  T('endgame', 3, 'Rook endings I', 'Lucena and Philidor. The two you cannot skip.', [1200, 1600], ['rookEndgame', 'lucena', 'philidor'], 15, 0.85),
-  T('endgame', 4, 'Minor pieces', 'Bishop versus knight, and when each is better.', [1300, 1700], ['bishopEndgame', 'knightEndgame']),
-  T('endgame', 5, 'Passers and races', 'Outside passed pawns, counting a race.', [1400, 1800], ['advancedPawn', 'pawn-race']),
-  T('endgame', 6, 'Rook endings II', 'Active rook, cutting the king off, building a bridge.', [1500, 1900], ['rookEndgame', 'rook-activity']),
-  T('endgame', 7, 'Queen endings', 'Queen versus pawn on the seventh. Perpetual awareness.', [1600, 2000], ['queenEndgame']),
-  T('endgame', 8, 'Conversion', 'Turning a small edge into a point.', [1700, 2200], ['queenRookEndgame', 'conversion']),
+  T('endgame', 1, 'Overkill mates', 'Two rooks, queen and rook, the staircase. Mechanical — no theory needed.', [600, 900], ['mate-staircase', 'mate-2r', 'mate-qr'], 10, 0.9, 'playout'),
+  T('endgame', 2, 'The box', 'K+Q and K+R against a lone king. Bring your king. Never stalemate.', [600, 1000], ['mate-kq', 'mate-kr'], 10, 0.9, 'playout'),
+  T('endgame', 3, 'What cannot mate', 'Two knights cannot force it. Knowing the draws saves you points.', [900, 1100], ['insufficient-material'], 8, 0.9, 'quiz'),
+  T('endgame', 4, 'Use your king', 'In the endgame the king is a fighting piece. Basic opposition.', [1000, 1199], ['opposition', 'king-activity'], 12, 0.85, 'playout'),
+  T('endgame', 5, 'King and pawn', 'K+P vs K in full. King in front of the pawn, and the rook-pawn exception.', [1200, 1399], ['pawnEndgame', 'key-squares'], 15, 0.85, 'playout'),
+  T('endgame', 6, 'Piece vs lone pawn', 'Can the bishop, knight or rook stop the runner?', [1200, 1399], ['piece-vs-pawn'], 12, 0.85, 'playout'),
+  T('endgame', 7, 'Pawn endings, properly', 'Square of the pawn, outside passers, the trébuchet.', [1400, 1599], ['pawnEndgame', 'advancedPawn', 'trebuchet'], 15, 0.85, 'playout'),
+  T('endgame', 8, 'Rook endings I', 'Lucena and Philidor. The two you cannot skip.', [1400, 1599], ['rookEndgame', 'lucena', 'philidor'], 15, 0.85, 'playout'),
+  T('endgame', 9, 'Queen vs pawn', 'On the seventh: bishop- and rook-pawns draw, the others lose.', [1400, 1599], ['queenEndgame', 'q-vs-pawn'], 12, 0.85, 'playout'),
+  T('endgame', 10, 'Awkward bishops', 'Wrong-coloured rook-pawn is a draw. Opposite bishops save you.', [1400, 1799], ['bishopEndgame', 'wrong-bishop', 'opposite-bishops'], 12, 0.85, 'playout'),
+  T('endgame', 11, 'Tempo tricks', 'Triangulation and outflanking — winning the move you need.', [1600, 1799], ['triangulation', 'outflanking'], 12, 0.85, 'playout'),
+  T('endgame', 12, 'Rook endings II', 'Two connected pawns, the seventh rank, the active rook.', [1600, 1799], ['rookEndgame', 'rook-activity'], 15, 0.8, 'playout'),
+  T('endgame', 13, 'Rook and pawn vs rook', 'The rook in front of its own pawn, and when Philidor fails.', [1800, 1999], ['rookEndgame', 'r-and-p'], 15, 0.8, 'playout'),
+  T('endgame', 14, 'Fortresses', 'Down material and still drawing. Knowing which ones hold.', [1800, 1999], ['fortress'], 10, 0.8, 'quiz'),
+  T('endgame', 15, 'Two weaknesses', 'One target is never enough. Create a second, then switch.', [2000, 2200], ['two-weaknesses', 'conversion'], 12, 0.8, 'playout'),
 ]
 
 /**

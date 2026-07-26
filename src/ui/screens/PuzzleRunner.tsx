@@ -43,6 +43,8 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
   const [step, setStep] = useState(0)
   const [phase, setPhase] = useState<Phase>('solving')
   const [solvedCount, setSolvedCount] = useState(0)
+  /** The move in algebraic, once revealed. */
+  const [answerSan, setAnswerSan] = useState<string | null>(null)
   // Failing once sticks, even if the next attempt is right.
   const failedRef = useRef(false)
   const startedAt = useRef(Date.now())
@@ -55,6 +57,7 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
     setLastMove(undefined)
     setStep(0)
     setPhase('solving')
+    setAnswerSan(null)
     failedRef.current = false
     startedAt.current = Date.now()
   }, [puzzle])
@@ -157,21 +160,35 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
   const showSolution = useCallback(() => {
     if (!puzzle) return
     failedRef.current = true
-    // Replay the whole line from the start so the user sees the idea.
-    const board = new Chess(puzzle.fen)
-    for (const m of puzzle.line) {
+
+    // Show the KEY MOVE, not the finished position.
+    //
+    // This used to replay the entire line and leave the board on the final
+    // position — so "Solution shown" showed you the aftermath and never told
+    // you which move was the point. Play only the move that was due, name it
+    // in algebraic, and leave the rest of the line to step through.
+    const board = new Chess(chess.current.fen())
+    const due = puzzle.line[step]
+    let san: string | null = null
+    if (due) {
       try {
-        board.move({ from: m.slice(0, 2), to: m.slice(2, 4), promotion: m[4] })
+        san =
+          board.move({
+            from: due.slice(0, 2),
+            to: due.slice(2, 4),
+            promotion: due[4],
+          })?.san ?? null
       } catch {
-        break
+        san = null
       }
     }
+
     chess.current = board
     setFen(board.fen())
-    const last = puzzle.line[puzzle.line.length - 1]
-    setLastMove(last ? [last.slice(0, 2) as Key, last.slice(2, 4) as Key] : undefined)
+    setLastMove(due ? [due.slice(0, 2) as Key, due.slice(2, 4) as Key] : undefined)
+    setAnswerSan(san)
     void finish(false)
-  }, [puzzle, finish])
+  }, [puzzle, step, finish])
 
   const next = useCallback(() => {
     if (index + 1 >= puzzles.length) {
@@ -222,9 +239,15 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
         )}
         {phase === 'shown' && (
           <div>
-            <strong>Solution shown.</strong>{' '}
+            {answerSan ? (
+              <>
+                <strong>The move was {answerSan}.</strong>{' '}
+              </>
+            ) : (
+              <strong>Solution shown.</strong>
+            )}{' '}
             <span className="muted">
-              {describeThemes(puzzle.themes)} — this one goes in your log.
+              {describeThemes(puzzle.themes)} Logged as missed.
             </span>
           </div>
         )}
