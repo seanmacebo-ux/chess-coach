@@ -24,6 +24,8 @@ const ROLE_OF: Record<string, string> = {
   p: 'P', n: 'N', b: 'B', r: 'R', q: 'Q', k: 'K',
 }
 
+const FILES = 'abcdefgh'
+
 /** Expand the placement field of a FEN into 64 entries, rank 8 first. */
 function squares(placement: string): (string | null)[] {
   const out: (string | null)[] = []
@@ -57,11 +59,19 @@ export function ThemePreview({ board, pieces, caption = true }: ThemePreviewProp
         role="img"
         aria-label={`${board.name} board with ${pieces.name} pieces`}
       >
-        {cells.map((code, i) => (
-          <div key={i} className="tp-sq">
-            {code && <img src={pieceSrc(pieces, code)} alt="" aria-hidden="true" />}
-          </div>
-        ))}
+        {cells.map((code, i) => {
+          const col = i % 8
+          const row = Math.floor(i / 8)
+          // file index + rank, even = light (a1 dark, a8 light).
+          const isLight = (col + (8 - row)) % 2 === 0
+          return (
+            <div key={i} className={'tp-sq ' + (isLight ? 'sq-light' : 'sq-dark')}>
+              {col === 0 && <span className="co rank">{8 - row}</span>}
+              {row === 7 && <span className="co file">{FILES[col]}</span>}
+              {code && <img src={pieceSrc(pieces, code)} alt="" aria-hidden="true" />}
+            </div>
+          )
+        })}
       </div>
       {caption && (
         <div className="small muted" style={{ marginTop: 6 }}>

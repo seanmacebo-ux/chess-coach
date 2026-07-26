@@ -22,105 +22,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Chess } from 'chess.js'
-import type { Square } from 'chess.js'
-
 import { Board } from '../Board'
-import { buildThreatExercise, loosePieces } from '../../coach/exercises'
 import { db } from '../../data/db'
-import type { Puzzle } from '../../data/puzzles'
-
-export interface ThreatQuestion {
-  id: string
-  fen: string
-  /** Side the user is playing — the one under threat. */
-  colour: 'w' | 'b'
-  /** Square the opponent's free move lands on. */
-  answer: Square
-  /** That move in algebraic, for the explanation. */
-  san: string
-  /** How much it is worth, in centipawns. */
-  swingCp: number
-  options: Square[]
-}
-
-/** Search depth. Low on purpose — a threat is a one-move idea. */
-const DEPTH = 10
-/** Only bother with positions where something is actually loose. */
-const MIN_LOOSE_VALUE = 300
-const OPTION_COUNT = 6
-
-const VALUE: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 }
-
-/**
- * Build threat questions from candidate positions.
- *
- * `onProgress` fires per position attempted, not per question produced, so the
- * bar moves even when a candidate is rejected.
- */
-export async function buildThreatQuestions(
-  puzzles: Puzzle[],
-  want: number,
-  onProgress?: (done: number, total: number) => void,
-): Promise<ThreatQuestion[]> {
-  const out: ThreatQuestion[] = []
-
-  // Cheap filter first: if nothing of yours is hanging there is usually no
-  // threat worth asking about, and finding that out costs two searches.
-  const candidates = puzzles.filter((p) => {
-    const colour: 'w' | 'b' = p.colour === 'white' ? 'w' : 'b'
-    const board = new Chess(p.fen)
-    return loosePieces(p.fen, colour).some((sq) => {
-      const piece = board.get(sq)
-      return piece ? (VALUE[piece.type] ?? 0) >= MIN_LOOSE_VALUE : false
-    })
-  })
-
-  const budget = Math.min(candidates.length, want * 4)
-
-  for (let i = 0; i < budget && out.length < want; i++) {
-    const p = candidates[i]!
-    onProgress?.(i + 1, budget)
-
-    let ex
-    try {
-      ex = await buildThreatExercise(p.fen, { depth: DEPTH, minSwingCp: 150 })
-    } catch {
-      continue
-    }
-    if (!ex) continue
-
-    const board = new Chess(p.fen)
-    const colour: 'w' | 'b' = p.colour === 'white' ? 'w' : 'b'
-
-    // Decoys are squares their own pieces occupy, so the choice is "where is
-    // the danger coming from" rather than "which square looks out of place".
-    const theirSquares = new Set<string>()
-    for (const row of board.board()) {
-      for (const cell of row) {
-        if (!cell || cell.color === colour) continue
-        theirSquares.add(cell.square)
-      }
-    }
-    theirSquares.delete(ex.answerSquare)
-
-    const decoys = [...theirSquares].slice(0, OPTION_COUNT - 1) as Square[]
-    const options = [ex.answerSquare, ...decoys].sort() as Square[]
-    if (options.length < 3) continue
-
-    out.push({
-      id: p.id,
-      fen: ex.fen,
-      colour,
-      answer: ex.answerSquare,
-      san: ex.threatSan,
-      swingCp: ex.swingCp,
-      options,
-    })
-  }
-
-  return out
-}
+// Question generation lives in coach/drills.ts so it can be sandboxed from
+// Node. This file keeps only rendering and scoring.
+import type { ThreatQuestion } from '../../coach/drills'
+export { buildThreatQuestions, type ThreatQuestion } from '../../coach/drills'
 
 export interface ThreatRunnerProps {
   questions: ThreatQuestion[]

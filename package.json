@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Daily chess training PWA — adaptive ladder, human-like opponents, simulation.",
+  "description": "Daily chess training PWA \u2014 adaptive ladder, human-like opponents, simulation.",
   "license": "UNLICENSED",
   "scripts": {
     "predev": "node scripts/sync-engine.mjs",
@@ -14,7 +14,8 @@
     "puzzles": "node scripts/build-puzzles.mjs",
     "calibrate": "tsx scripts/calibrate.ts",
     "verify:endgames": "tsx scripts/verify-endgames.ts",
-    "sandbox:puzzles": "tsx scripts/sandbox-puzzles.ts"
+    "sandbox:puzzles": "tsx scripts/sandbox-puzzles.ts",
+    "sandbox:drills": "tsx scripts/sandbox-drills.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

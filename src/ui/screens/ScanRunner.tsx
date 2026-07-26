@@ -20,76 +20,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Chess } from 'chess.js'
-import type { Square } from 'chess.js'
-
 import { Board } from '../Board'
-import { loosePieces } from '../../coach/exercises'
 import { db } from '../../data/db'
-import type { Puzzle } from '../../data/puzzles'
-
-/** A position worth asking about, with its answer worked out. */
-export interface ScanQuestion {
-  id: string
-  fen: string
-  /** Whose pieces you are scanning. */
-  colour: 'w' | 'b'
-  /** Squares holding an attacked, undefended piece. */
-  answers: Square[]
-  /** Everything shown as an option — answers plus safe decoys. */
-  options: Square[]
-}
-
-const VALUE: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 }
-/** Ignore loose pawns. At club level a hanging pawn is rarely the game. */
-const MIN_VALUE = 300
-/** How many squares to offer. Enough to be a scan, few enough to fit a thumb. */
-const OPTION_COUNT = 6
-
-/**
- * Turn puzzle positions into scan questions.
- *
- * Uses the puzzle corpus purely as a supply of realistic middlegame positions —
- * the puzzle's own tactic is irrelevant here. Rejects positions with nothing
- * loose, because "nothing is hanging" as an answer teaches the wrong reflex
- * when it is the only case you ever see.
- */
-export function buildScanQuestions(puzzles: Puzzle[], want: number): ScanQuestion[] {
-  const out: ScanQuestion[] = []
-
-  for (const p of puzzles) {
-    if (out.length >= want) break
-    const colour: 'w' | 'b' = p.colour === 'white' ? 'w' : 'b'
-    const board = new Chess(p.fen)
-
-    const answers = loosePieces(p.fen, colour).filter((sq) => {
-      const piece = board.get(sq)
-      return piece ? (VALUE[piece.type] ?? 0) >= MIN_VALUE : false
-    })
-    if (answers.length === 0 || answers.length > 3) continue
-
-    // Decoys are your OWN other pieces — the discrimination being trained is
-    // loose versus defended, not "which square has a piece on it".
-    const decoys: Square[] = []
-    for (const row of board.board()) {
-      for (const cell of row) {
-        if (!cell || cell.color !== colour || cell.type === 'k') continue
-        const sq = cell.square as Square
-        if (answers.includes(sq)) continue
-        if ((VALUE[cell.type] ?? 0) < MIN_VALUE) continue
-        decoys.push(sq)
-      }
-    }
-    if (decoys.length === 0) continue
-
-    const options = [...answers, ...decoys.slice(0, OPTION_COUNT - answers.length)].sort()
-    if (options.length < 2) continue
-
-    out.push({ id: p.id, fen: p.fen, colour, answers, options })
-  }
-
-  return out
-}
+// Question generation lives in coach/drills.ts so it can be sandboxed from
+// Node. This file keeps only rendering and scoring.
+import type { ScanQuestion } from '../../coach/drills'
+export { buildScanQuestions, type ScanQuestion } from '../../coach/drills'
 
 export interface ScanRunnerProps {
   questions: ScanQuestion[]

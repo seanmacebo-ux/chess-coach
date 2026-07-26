@@ -1117,21 +1117,79 @@ input[type='email'] {
  * rather than a fixed height so it never causes layout shift while the piece
  * SVGs load — the box is the right shape before anything is in it.
  */
+/*
+ * Diagrams get the same frame as the real board, scaled down. Consistency
+ * matters: a diagram that looks like a different kind of object than the board
+ * you play on makes the two harder to connect.
+ */
 .theme-preview {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  width: 100%;
+  width: calc(100% - 12px);
+  margin: 6px;
   aspect-ratio: 1;
-  border-radius: var(--radius);
+  border-radius: 8px;
   overflow: hidden;
   background-size: 100% 100%;
   background-repeat: no-repeat;
-  box-shadow: var(--shadow-board);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--sq-dark, var(--surface)) 82%, #000),
+    0 0 0 6px rgb(0 0 0 / 25%),
+    0 4px 14px rgb(0 0 0 / 22%);
 }
 
 .tp-sq {
   display: grid;
   place-items: center;
+  position: relative;
+}
+
+/*
+ * Coordinates on the diagrams.
+ *
+ * The step-through boards had none, which made every opening explanation
+ * unusable — "the bishop on c4" is meaningless if you cannot find c4. Always
+ * shown rather than optional: a diagram you cannot name squares on is a
+ * picture, not a diagram.
+ *
+ * White text with a dark shadow rather than alternating colours per square,
+ * for the same reason the real board does it: which shade a given square is
+ * depends on orientation, and colouring by position gets half of them wrong.
+ */
+.tp-sq .co {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+/*
+ * Contrast by square shade, not one colour for all.
+ *
+ * The first version was 8px white with a shadow on every square, which
+ * disappeared entirely on the light ones. The theme already publishes the two
+ * correct colours, so use the dark-square colour on light squares and vice
+ * versa — exactly how a printed diagram does it.
+ */
+.tp-sq.sq-light .co {
+  color: var(--coord-light, #6b665f);
+}
+
+.tp-sq.sq-dark .co {
+  color: var(--coord-dark, #fff);
+}
+
+.tp-sq .co.rank {
+  top: 2px;
+  left: 2px;
+}
+
+.tp-sq .co.file {
+  right: 2px;
+  bottom: 1px;
+  text-transform: uppercase;
 }
 
 .tp-sq img {

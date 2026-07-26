@@ -82,17 +82,36 @@ export function LineBoard({ line, orientation = 'white', caption }: LineBoardPro
         role="img"
         aria-label={`Position after ${ply} half-moves`}
       >
-        {cells.map((c) => (
-          <div
-            key={c.square}
-            className={
-              'tp-sq' +
-              (lastMove && (c.square === lastMove.from || c.square === lastMove.to) ? ' lit' : '')
-            }
-          >
-            {c.code && <img src={pieceSrc(theme.pieces, c.code)} alt="" aria-hidden="true" />}
-          </div>
-        ))}
+        {cells.map((c, i) => {
+          // Rank down the left edge, file along the bottom — the same
+          // convention as the real board, so a diagram and a game read
+          // identically. Always on: a diagram you cannot name squares on is
+          // just a picture.
+          const col = i % 8
+          const row = Math.floor(i / 8)
+          // Square shade from the square NAME, not the grid index — the grid
+          // flips with orientation and the shade does not.
+          const file = FILES.indexOf(c.square[0]!)
+          const rank = Number(c.square[1])
+          // a1 is dark and a8 is light, so file+rank EVEN is a light square.
+          // Had this inverted first time: every label was drawn in the colour
+          // meant for the opposite shade, which made all 16 invisible.
+          const isLight = (file + rank) % 2 === 0
+          return (
+            <div
+              key={c.square}
+              className={
+                'tp-sq ' +
+                (isLight ? 'sq-light' : 'sq-dark') +
+                (lastMove && (c.square === lastMove.from || c.square === lastMove.to) ? ' lit' : '')
+              }
+            >
+              {col === 0 && <span className="co rank">{c.square[1]}</span>}
+              {row === 7 && <span className="co file">{c.square[0]}</span>}
+              {c.code && <img src={pieceSrc(theme.pieces, c.code)} alt="" aria-hidden="true" />}
+            </div>
+          )
+        })}
       </div>
 
       {/* Controls. Big enough for thumbs; the move list is the real navigation. */}

@@ -13,7 +13,7 @@
 import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import { getEngine } from '../engine/uci'
-import { lineScore } from '../engine/types'
+import { lineScore, type Analysis } from '../engine/types'
 
 export type ExerciseKind = 'threat' | 'safety'
 
@@ -77,7 +77,19 @@ export interface ThreatExercise {
  */
 export async function buildThreatExercise(
   fen: string,
-  opts: { depth?: number; minSwingCp?: number } = {},
+  opts: {
+    depth?: number
+    minSwingCp?: number
+    /**
+     * Engine to search with. Defaults to the browser worker.
+     *
+     * Injectable so the sandbox can drive this exact function from Node using
+     * the same code path the app uses. Without it, the only way to check that
+     * a threat exercise names the right square was to click through the app
+     * and believe the answer it gave you.
+     */
+    engine?: { analyse(fen: string, o?: { depth?: number; multipv?: number }): Promise<Analysis> }
+  } = {},
 ): Promise<ThreatExercise | null> {
   const depth = opts.depth ?? 12
   const minSwing = opts.minSwingCp ?? 120
@@ -85,7 +97,7 @@ export async function buildThreatExercise(
   const passed = nullMoveFen(fen)
   if (!passed) return null
 
-  const engine = getEngine()
+  const engine = opts.engine ?? getEngine()
 
   // What the position is worth to the opponent right now...
   const base = await engine.analyse(fen, { depth, multipv: 1 })

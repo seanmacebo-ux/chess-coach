@@ -15,46 +15,19 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Chess } from 'chess.js'
-
 import { Board } from '../Board'
-import { getEngine } from '../../engine/uci'
-import { lineScore } from '../../engine/types'
 import { db } from '../../data/db'
-import type { Puzzle } from '../../data/puzzles'
-
-/** How many of the engine's moves count as "the good ones". */
-const TOP_N = 3
-/** How many options you choose from. */
-const OPTION_COUNT = 8
-/** How many you are allowed to pick. */
-const PICK_LIMIT = 3
-const DEPTH = 12
-
-export interface CandidateOption {
-  uci: string
-  san: string
-  /** Score from the mover's point of view, if the engine ranked it. */
-  cp: number | null
-  good: boolean
-}
-
-export interface CandidateQuestion {
-  id: string
-  fen: string
-  colour: 'w' | 'b'
-  options: CandidateOption[]
-  /** The engine's ranked best, in SAN. */
-  best: string[]
-}
+// Question generation lives in coach/drills.ts so it can be sandboxed from
+// Node. This file keeps only rendering and scoring.
+import { CANDIDATE_PICK_LIMIT, CANDIDATE_TOP_N, type CandidateQuestion } from '../../coach/drills'
+export { buildCandidateQuestions, type CandidateQuestion } from '../../coach/drills'
 
 /**
  * Show a score the way a human reads one.
  *
- * `lineScore` maps mates onto ±100,000 so they sort correctly, which is right
- * for ranking and useless for display — a forced mate was rendering as
- * "+996.0", which looks like a bug because it is one. Anything past the mate
- * threshold is a mate, not a number of pawns.
+ * lineScore maps mates onto plus/minus 100,000 so they sort correctly, which
+ * is right for ranking and useless for display — a forced mate was rendering
+ * as "+996.0", which looks like a bug because it is one.
  */
 const MATE_THRESHOLD = 90_000
 
@@ -64,86 +37,8 @@ function formatScore(cp: number): string {
   return `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(1)}`
 }
 
-function toSan(fen: string, uci: string): string | null {
-  const board = new Chess(fen)
-  try {
-    return (
-      board.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })?.san ?? null
-    )
-  } catch {
-    return null
-  }
-}
-
-/**
- * Build candidate questions.
- *
- * Decoys are real legal moves, not nonsense — the discrimination being trained
- * is "plausible and worth a look" versus "plausible and pointless", and a list
- * padded with obviously silly moves would train nothing.
- */
-export async function buildCandidateQuestions(
-  puzzles: Puzzle[],
-  want: number,
-  onProgress?: (done: number, total: number) => void,
-): Promise<CandidateQuestion[]> {
-  const out: CandidateQuestion[] = []
-  const budget = Math.min(puzzles.length, want * 3)
-
-  for (let i = 0; i < budget && out.length < want; i++) {
-    const p = puzzles[i]!
-    onProgress?.(i + 1, budget)
-
-    const board = new Chess(p.fen)
-    const legal = board.moves({ verbose: true })
-    // Too few legal moves and "which would you consider" is not a question.
-    if (legal.length < OPTION_COUNT + 1) continue
-
-    let analysis
-    try {
-      analysis = await getEngine().analyse(p.fen, { depth: DEPTH, multipv: TOP_N })
-    } catch {
-      continue
-    }
-    if (analysis.lines.length < TOP_N) continue
-
-    const ranked = analysis.lines
-      .map((l) => ({ uci: l.pv[0] ?? '', cp: lineScore(l) }))
-      .filter((r) => r.uci !== '')
-    if (ranked.length < TOP_N) continue
-
-    const goodUcis = new Set(ranked.slice(0, TOP_N).map((r) => r.uci))
-
-    const decoys = legal
-      .map((m) => `${m.from}${m.to}${m.promotion ?? ''}`)
-      .filter((u) => !goodUcis.has(u))
-      .slice(0, OPTION_COUNT - TOP_N)
-
-    const options: CandidateOption[] = []
-    for (const r of ranked.slice(0, TOP_N)) {
-      const san = toSan(p.fen, r.uci)
-      if (san) options.push({ uci: r.uci, san, cp: r.cp, good: true })
-    }
-    for (const u of decoys) {
-      const san = toSan(p.fen, u)
-      if (san) options.push({ uci: u, san, cp: null, good: false })
-    }
-    if (options.filter((o) => o.good).length < TOP_N) continue
-
-    // Sort alphabetically so the good ones are not clustered at the front.
-    options.sort((a, b) => a.san.localeCompare(b.san))
-
-    out.push({
-      id: p.id,
-      fen: p.fen,
-      colour: p.colour === 'white' ? 'w' : 'b',
-      options,
-      best: ranked.slice(0, TOP_N).map((r) => toSan(p.fen, r.uci) ?? r.uci),
-    })
-  }
-
-  return out
-}
+const TOP_N = CANDIDATE_TOP_N
+const PICK_LIMIT = CANDIDATE_PICK_LIMIT
 
 export interface CandidateRunnerProps {
   questions: CandidateQuestion[]

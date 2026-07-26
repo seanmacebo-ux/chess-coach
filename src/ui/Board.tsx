@@ -12,6 +12,7 @@ import { Chessground } from 'chessground'
 import type { Api } from 'chessground/api'
 import type { Config } from 'chessground/config'
 import type { Key } from 'chessground/types'
+import { loadPrefs } from '../data/settings'
 
 export interface BoardProps {
   fen: string
@@ -40,7 +41,10 @@ export function Board(props: BoardProps) {
     const config: Config = {
       fen: props.fen,
       orientation: props.orientation,
-      coordinates: true,
+      // Was hardcoded true, which made the Settings toggle a control that
+      // did nothing. Defaults to on, so coordinates are always there unless
+      // deliberately turned off.
+      coordinates: loadPrefs().showCoordinates,
       addPieceZIndex: true,
       highlight: { lastMove: true, check: true },
       animation: { enabled: true, duration: 180 },
