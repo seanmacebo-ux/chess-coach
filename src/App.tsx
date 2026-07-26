@@ -17,6 +17,7 @@ import type { Key } from 'chessground/types'
 import { Board } from './ui/Board'
 import { Daily } from './ui/screens/Daily'
 import { PuzzleRunner } from './ui/screens/PuzzleRunner'
+import { History } from './ui/screens/History'
 import { markSessionComplete } from './coach/profile'
 import type { DailySession } from './coach/session'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
@@ -35,7 +36,7 @@ import {
   type ThemeChoice,
 } from './theme/theme'
 
-type Tab = 'daily' | 'play' | 'puzzles'
+type Tab = 'daily' | 'play' | 'puzzles' | 'history'
 type EngineState = 'boot' | 'ready' | 'thinking' | 'error'
 type ReviewState = { phase: 'idle' } | { phase: 'running'; done: number; total: number } | {
   phase: 'done'
@@ -119,6 +120,9 @@ export default function App() {
           </div>
         ))}
 
+      {/* key forces a fresh read of the database each time the tab is opened */}
+      {tab === 'history' && <History key={`h-${result ?? ''}-${tab}`} />}
+
       {result && (
         <div className="card row spread" style={{ borderColor: 'var(--accent)' }}>
           <span>{result}</span>
@@ -134,6 +138,14 @@ export default function App() {
         </button>
         <button aria-current={tab === 'play' ? 'page' : undefined} onClick={() => setTab('play')}>
           Play
+        </button>
+        <button
+          // Remount on every visit so it re-reads the database rather than
+          // showing a snapshot from whenever the tab was first opened.
+          aria-current={tab === 'history' ? 'page' : undefined}
+          onClick={() => setTab('history')}
+        >
+          History
         </button>
       </nav>
     </div>

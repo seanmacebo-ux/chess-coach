@@ -525,6 +525,92 @@ input[type='range'] {
   border-left-color: var(--warn);
 }
 
+/* --------------------------------------------------------------- history */
+
+.hgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 380px) {
+  .hgrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.hist-row {
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.hist-row:last-child {
+  border-bottom: 0;
+}
+
+.pill {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+  flex: none;
+}
+
+.pill.win {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  color: var(--accent-hi);
+}
+
+.pill.loss {
+  background: color-mix(in srgb, var(--danger) 26%, transparent);
+  color: #ff8b88;
+}
+
+.pill.draw {
+  color: var(--text-muted);
+}
+
+.weak .meter {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.weak .meter i {
+  display: block;
+  height: 100%;
+  background: var(--danger);
+  border-radius: 999px;
+}
+
+/* Puzzle history as a dot strip — dense enough to show a trend at a glance. */
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pdot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--surface-hi);
+}
+
+.pdot.ok {
+  background: var(--accent);
+}
+
+.pdot.bad {
+  background: var(--danger);
+}
+
 /* ------------------------------------------------------------------ tabs */
 
 /*
