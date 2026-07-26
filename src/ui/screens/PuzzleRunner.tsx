@@ -387,14 +387,26 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
         )}
       </div>
 
-      {/* --------------------------------------------- the haystack size */}
+      {/*
+        The haystack size — two separate numbers, and conflating them read as
+        nonsense: with 3 legal moves and a 4-move solution the old copy said
+        "4 of them in sequence", i.e. four of the three. Legal moves are how
+        many you can play RIGHT NOW; solution length is how far the line runs.
+      */}
       {!done && (
         <div className="card small muted">
-          <strong style={{ color: 'var(--text)' }}>{brief.legalMoves} legal moves</strong> in this
-          position — that is every move you are allowed to play right now, and{' '}
-          {brief.yourMoves === 1 ? 'one of them' : `${brief.yourMoves} of them in sequence`} is the
-          answer. The number is the size of the haystack: a high one means narrow it down by
-          looking at checks, captures and threats first instead of scanning everything.
+          <strong style={{ color: 'var(--text)' }}>{brief.legalMoves} legal moves</strong> right
+          now — that is everything you are allowed to play this turn, and exactly one of them
+          starts the solution.{' '}
+          {brief.yourMoves > 1 && (
+            <>
+              The line then runs{' '}
+              <strong style={{ color: 'var(--text)' }}>{brief.yourMoves}</strong> of your moves in
+              total.{' '}
+            </>
+          )}
+          A big number means narrow it down with checks, captures and threats rather than scanning
+          all of them.
         </div>
       )}
 

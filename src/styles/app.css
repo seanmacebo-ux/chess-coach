@@ -43,6 +43,28 @@
   --radius: 10px;
   --radius-lg: 14px;
 
+  /*
+   * Type scale. Previously everything was 15px with a 13px "small", which is
+   * why every screen read as one undifferentiated block — there was no size
+   * signal to tell a section heading from body text from a caption.
+   *
+   * Ratio is roughly 1.2. Small enough that nothing shouts, big enough that
+   * hierarchy is visible at arm's length on a phone.
+   */
+  --t-caption: 12px;
+  --t-small: 13px;
+  --t-body: 15px;
+  --t-lead: 17px;
+  --t-title: 20px;
+  --t-display: 30px;
+
+  /* Spacing rhythm, 4pt based. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+
   /* Set at runtime by theme.ts */
   --board-bg: none;
   --sq-lastmove: rgba(247, 236, 116, 0.55);
@@ -199,13 +221,77 @@ body {
 
 /* ---------------------------------------------------------------- board */
 
+/*
+ * The board sits in a frame.
+ *
+ * This is the single biggest graphics change in the app. A board flush to the
+ * page edge with rounded corners reads as a div with a background image; a
+ * board inset into a darker frame, with the playing surface cut slightly into
+ * it, reads as an object sitting on a table. Every physical set and every good
+ * chess app does this, and it costs one padded wrapper.
+ *
+ * The frame colour is derived from the page surface rather than hardcoded, so
+ * it works against all 18 board materials and in both light and dark instead
+ * of fighting whichever one is chosen.
+ */
 .board-wrap {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
-  border-radius: var(--radius-lg);
+  /* Padding IS the frame. box-sizing:border-box keeps the whole thing square,
+     and equal padding leaves the playing surface square too. */
+  padding: 9px;
+  border-radius: 16px;
+  /*
+   * The frame takes its colour from the board's own dark squares, darkened.
+   * Deriving it from the page surface instead made it near-white in light
+   * mode — a board floating on a white card rather than sitting in a frame.
+   * Tying it to --sq-dark means walnut gets a walnut frame and slate gets a
+   * slate one, automatically, for all 18 materials.
+   */
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--sq-dark, var(--surface-hi)) 78%, #000),
+    color-mix(in srgb, var(--sq-dark, var(--surface)) 92%, #000) 55%,
+    color-mix(in srgb, var(--sq-dark, var(--bg)) 62%, #000)
+  );
+  box-shadow:
+    /* catch light on the top edge */
+    0 1px 0 rgb(255 255 255 / 7%) inset,
+    /* thin dark line where the frame meets the board */
+    0 0 0 1px rgb(0 0 0 / 22%),
+    var(--shadow-board);
+}
+
+/* The playing surface, recessed into the frame. */
+.board-wrap .cg-wrap,
+.board-wrap > div {
+  border-radius: 7px;
   overflow: hidden;
-  box-shadow: var(--shadow-board);
+}
+
+/* Inner shadow sells the recess. Sits above the board, below the pieces, and
+   must never eat a click. */
+.board-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: 7px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 25%),
+    0 2px 6px rgb(0 0 0 / 22%) inset;
+  z-index: 3;
+}
+
+@media (max-width: 380px) {
+  /* Reclaim the frame on small phones — board size beats decoration. */
+  .board-wrap {
+    padding: 6px;
+  }
+  .board-wrap::after {
+    inset: 6px;
+  }
 }
 
 /*
@@ -337,7 +423,28 @@ body {
 }
 
 .small {
-  font-size: 13px;
+  font-size: var(--t-small);
+}
+
+/*
+ * Section labels. These were 13px muted text and effectively invisible — the
+ * eye skipped straight past "Your progress" and "Appearance" to the controls,
+ * so cards had no titles. Uppercase with tracking reads as a label rather than
+ * a sentence, which lets it stay quiet AND be findable.
+ */
+.card > .small.muted:first-child,
+.card > .stack > .small.muted:first-child,
+/* Labels sitting opposite a counter — "The wall / 0 of 43 cleared". Only the
+   first child, so the counter beside it stays sentence case. */
+.card > .row.spread > .small.muted:first-child,
+.card > .stack > .row.spread > .small.muted:first-child,
+/* The eyebrow inside a collapsible header — "Idea". */
+.lesson-head > span > .small.muted:first-child {
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 /* ---------------------------------------------------------------- controls */
@@ -382,16 +489,28 @@ button:disabled {
   cursor: default;
 }
 
+/*
+ * The primary action. Given real weight because on most screens it is the only
+ * thing you are meant to press, and a flat fill the same height as three ghost
+ * buttons does not say so.
+ */
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+  border-color: color-mix(in srgb, var(--accent) 70%, #000);
   color: var(--accent-ink);
-  font-weight: 650;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 22%) inset,
+    0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 button.primary:hover:not(:disabled) {
-  background: var(--accent-hi);
-  border-color: var(--accent-hi);
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-hi));
+}
+
+button.primary:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 20%) inset;
 }
 
 button.ghost {
@@ -531,20 +650,35 @@ input[type='range'] {
 /* ---------------------------------------------------------------- daily */
 
 .stat {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.15;
+  font-size: var(--t-display);
+  font-weight: 750;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
   /* Tabular figures so a rating change doesn't shift the layout. */
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Today's focus. This is the one thing on the screen the whole app exists to
+ * tell you, and it was a card with a 3px left border — visually identical to
+ * everything around it. Now it is tinted and titled so the front door has a
+ * focal point.
+ */
 .card.focus {
   border-left: 3px solid var(--accent);
+  background:
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
 }
 
 .focus-title {
-  font-size: 17px;
-  font-weight: 650;
+  font-size: var(--t-title);
+  font-weight: 700;
+  letter-spacing: -0.015em;
   margin-bottom: 2px;
 }
 
@@ -579,8 +713,9 @@ input[type='range'] {
 }
 
 .lesson-title {
-  font-size: 16px;
-  font-weight: 650;
+  font-size: var(--t-lead);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .chev {
@@ -613,19 +748,39 @@ input[type='range'] {
   gap: 10px;
 }
 
+/*
+ * Numbered steps. A connecting line down the left turns three cards-worth of
+ * text into one sequence you read top to bottom, which is what a session is.
+ */
+.step {
+  position: relative;
+}
+
+.step:not(:last-of-type)::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 26px;
+  bottom: -12px;
+  width: 2px;
+  background: var(--border);
+}
+
 .step-n {
   flex: none;
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--surface-hi);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  font-weight: 700;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  font-size: var(--t-caption);
+  font-weight: 800;
   display: grid;
   place-items: center;
   margin-top: 2px;
-  color: var(--text-muted);
+  color: var(--accent-ink);
+  position: relative;
+  z-index: 1;
 }
 
 /* The wall ------------------------------------------------------------- */
