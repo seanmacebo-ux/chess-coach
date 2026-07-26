@@ -28,7 +28,7 @@
  *   npm run calibrate -- --games 6 --ref-depth 12
  */
 
-import { mkdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Chess } from 'chess.js'
@@ -353,6 +353,61 @@ await mkdir(outDir, { recursive: true })
 const stamp = startedAt.replace(/[:.]/g, '-')
 const outPath = join(outDir, `report-${stamp}.json`)
 await writeFile(outPath, JSON.stringify(report, null, 2))
+
+/*
+ * Drift tracking. Calibration is a standing loop, not a one-off — every
+ * policy change gets re-measured, so what matters is whether a change moved
+ * the numbers in the intended direction. Append one summary line per run and
+ * diff against the previous one.
+ */
+const historyPath = join(outDir, 'history.jsonl')
+const summary = {
+  at: startedAt,
+  config: report.config,
+  acplRatio: Object.fromEntries(
+    bandRows.map((r) => [r.band, Math.round((r.measuredAcpl / r.targetAcpl) * 100) / 100]),
+  ),
+  ladderMedian: pairRows.length
+    ? [...pairRows.map((p) => p.impliedElo)].sort((a, b) => a - b)[
+        Math.floor(pairRows.length / 2)
+      ]
+    : null,
+  styleMaxGap: styleRows.length
+    ? Math.max(...styleRows.map((s) => Math.abs(impliedElo(s.score))))
+    : null,
+}
+
+let previous: typeof summary | null = null
+try {
+  const existing = await readFile(historyPath, 'utf8')
+  const lines = existing.trim().split('\n').filter(Boolean)
+  const lastLine = lines[lines.length - 1]
+  if (lastLine) previous = JSON.parse(lastLine)
+} catch {
+  /* first run */
+}
+
+await appendFile(historyPath, JSON.stringify(summary) + '\n')
+
+console.log('\n--- drift vs previous run ---')
+if (!previous) {
+  console.log('   (no previous run — this is the baseline)')
+} else {
+  const meanRatio = (s: typeof summary) => {
+    const vs = Object.values(s.acplRatio)
+    return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : 0
+  }
+  const was = meanRatio(previous)
+  const now = meanRatio(summary)
+  const arrow = now > was ? 'up' : now < was ? 'down' : 'flat'
+  console.log(
+    `   mean acpl/target   ${was.toFixed(2)} -> ${now.toFixed(2)}  (${arrow}; 1.00 is the goal)`,
+  )
+  console.log(`   ladder median      ${previous.ladderMedian} -> ${summary.ladderMedian}  (200 nominal)`)
+  console.log(
+    `   worst style gap    ${previous.styleMaxGap} -> ${summary.styleMaxGap}  (0 is parity)`,
+  )
+}
 
 console.log(`\nwrote ${outPath}`)
 process.exit(0)

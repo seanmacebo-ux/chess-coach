@@ -155,3 +155,39 @@ export function tiersAtRating(rating: number): Tier[] {
 export function tiersForTheme(theme: string): Tier[] {
   return ALL_TIERS.filter((t) => t.themes.includes(theme))
 }
+
+/**
+ * Motifs that actually exist in the Lichess puzzle corpus.
+ *
+ * Tier themes come in two kinds and conflating them is a silent failure: ask
+ * for `threat-detection` puzzles and the picker matches nothing, falls back to
+ * rating-only, and serves random tactics while the UI claims the session is
+ * targeted. Keeping the sets separate means a tier either has puzzle stock or
+ * is explicitly exercise-backed — never quietly neither.
+ *
+ * Verified against public/puzzles/index.json (44-48 motifs present per band).
+ */
+export const LICHESS_MOTIFS = new Set([
+  'fork', 'pin', 'skewer', 'discoveredAttack', 'doubleCheck', 'deflection',
+  'attraction', 'clearance', 'interference', 'xRayAttack', 'zugzwang',
+  'hangingPiece', 'trappedPiece', 'sacrifice', 'quietMove', 'defensiveMove',
+  'capturingDefender', 'intermezzo', 'attackingF2F7', 'exposedKing',
+  'kingsideAttack', 'queensideAttack', 'advancedPawn', 'promotion',
+  'underPromotion', 'enPassant', 'castling', 'backRankMate', 'smotheredMate',
+  'anastasiaMate', 'arabianMate', 'bodenMate', 'doubleBishopMate',
+  'dovetailMate', 'hookMate', 'killBoxMate', 'vukovicMate',
+  'mateIn1', 'mateIn2', 'mateIn3', 'mateIn4', 'mateIn5',
+  'rookEndgame', 'pawnEndgame', 'queenEndgame', 'bishopEndgame',
+  'knightEndgame', 'queenRookEndgame',
+])
+
+/** The subset of a tier's themes that the puzzle corpus can actually serve. */
+export function puzzleThemes(tier: Tier | null | undefined): string[] {
+  if (!tier) return []
+  return tier.themes.filter((t) => LICHESS_MOTIFS.has(t))
+}
+
+/** True when a tier has no puzzle stock and must be trained by exercises. */
+export function isExerciseBacked(tier: Tier): boolean {
+  return puzzleThemes(tier).length === 0
+}

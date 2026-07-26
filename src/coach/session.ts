@@ -20,7 +20,7 @@
 import { getProfile, db } from '../data/db'
 import { pickPuzzles, type Puzzle } from '../data/puzzles'
 import { computeWeaknesses, nextTier, type Weakness } from './profile'
-import type { Tier } from './tiers'
+import { LICHESS_MOTIFS, isExerciseBacked, puzzleThemes, type Tier } from './tiers'
 import type { Style } from '../engine/types'
 
 export interface SessionGame {
@@ -41,6 +41,8 @@ export interface DailySession {
   game: SessionGame
   puzzles: Puzzle[]
   drill: Tier | null
+  /** Drill has no puzzle stock — it's trained by generated exercises. */
+  drillIsExercise: boolean
   /** True when there's no history yet and the ladder is driving alone. */
   coldStart: boolean
 }
@@ -113,9 +115,12 @@ export async function buildDailySession(opts: BuildOptions = {}): Promise<DailyS
   const seenRows = await db.puzzleAttempts.toArray()
   const seen = new Set(seenRows.map((r) => r.puzzleId))
 
-  // Weakness themes first, tier themes second — pickPuzzles prefers matches
-  // but degrades to rating-only rather than returning an empty session.
-  const themes = coldStart ? (drill?.themes ?? []) : [...focusThemes, ...(drill?.themes ?? [])]
+  // Only ask the picker for motifs the corpus actually contains. Passing
+  // concept keys like 'threat-detection' matches nothing and silently
+  // degrades to random puzzles while the UI still claims to be targeted.
+  const drillMotifs = puzzleThemes(drill)
+  const focusMotifs = focusThemes.filter((t) => LICHESS_MOTIFS.has(t))
+  const themes = coldStart ? drillMotifs : [...focusMotifs, ...drillMotifs]
 
   const puzzles = await pickPuzzles({
     rating: profile.rating,
@@ -156,6 +161,7 @@ export async function buildDailySession(opts: BuildOptions = {}): Promise<DailyS
     game: { elo: Math.round(profile.rating / 100) * 100, style, colour, why },
     puzzles,
     drill,
+    drillIsExercise: drill ? isExerciseBacked(drill) : false,
     coldStart,
   }
 }

@@ -234,20 +234,53 @@ export function styleWeight(f: MoveFeatures, style: Style): number {
   return w
 }
 
-/** Style also shifts consistency, not just taste. */
-function temperatureFor(style: Style, base: number): number {
-  switch (style) {
-    case 'solid':
-      return base * 0.8 // grinds, rarely goes off-piste
-    case 'tactical':
-      return base * 1.25 // takes swings, misses more
-    case 'positional':
-      return base * 0.9
-    case 'aggressive':
-      return base * 1.1
-    case 'human':
-      return base
+/**
+ * Expected centipawn loss for a given temperature and weight set.
+ * Monotonically increasing in `t` — flatter distribution, worse average move.
+ */
+function expectedLoss(losses: number[], styleW: number[], t: number): number {
+  let num = 0
+  let den = 0
+  for (let i = 0; i < losses.length; i++) {
+    const w = Math.exp(-(losses[i] ?? 0) / t) * (styleW[i] ?? 1)
+    num += w * (losses[i] ?? 0)
+    den += w
   }
+  return den > 0 ? num / den : 0
+}
+
+/**
+ * Find the temperature at which the style-weighted distribution sheds the
+ * SAME expected centipawns as the unstyled one at the band temperature.
+ *
+ * Why this exists: calibration caught style acting as a stealth difficulty
+ * setting. At 1400, "tactical" scored 88% against "human" of the same band
+ * with a LOWER acpl (37.7 vs ~44.5), because boosting checks and captures
+ * boosts move classes that are frequently just good. Aggressive did the same
+ * at 75%. A style that quietly makes the bot stronger corrupts every
+ * downstream training signal — you'd think you were beating a 1400 when you
+ * were beating a 1250.
+ *
+ * Bisection is cheap here: no engine calls, ~24 iterations over at most a
+ * dozen candidates.
+ */
+function styleNeutralTemperature(losses: number[], styleW: number[], t0: number): number {
+  const target = expectedLoss(
+    losses,
+    losses.map(() => 1),
+    t0,
+  )
+  if (!(target > 0)) return t0
+
+  let lo = t0 / 8
+  let hi = t0 * 8
+  let t = t0
+  for (let k = 0; k < 24; k++) {
+    t = (lo + hi) / 2
+    if (expectedLoss(losses, styleW, t) < target) lo = t
+    else hi = t
+  }
+  return Math.max(5, t)
 }
 
 /* ------------------------------------------------------------------ */
@@ -273,7 +306,7 @@ export function weighCandidates(fen: string, lines: Line[], elo: number, style: 
   if (lines.length === 0) return []
 
   const profile = bandProfile(elo)
-  const t = Math.max(10, temperatureFor(style, profile.temperature))
+  const t0 = Math.max(10, profile.temperature)
 
   const scored = lines
     .filter((l) => l.pv.length > 0)
@@ -282,13 +315,19 @@ export function weighCandidates(fen: string, lines: Line[], elo: number, style: 
   if (scored.length === 0) return []
 
   const best = Math.max(...scored.map((s) => s.score))
+  const losses = scored.map((s) => Math.max(0, best - s.score))
+  const features = scored.map((s) => describeMove(fen, s.uci))
+  const styleW = features.map((f) => (f ? styleWeight(f, style) : 1))
 
-  return scored.map(({ uci, score }) => {
-    const loss = Math.max(0, best - score)
-    const features = describeMove(fen, uci)
-    const base = Math.exp(-loss / t)
-    const weight = base * (features ? styleWeight(features, style) : 1)
-    return { uci, loss, weight, features }
+  // Style decides WHICH of the equally-costly moves gets played, never how
+  // costly the move is. Re-solving temperature enforces that rather than
+  // assuming it — see styleNeutralTemperature.
+  const t = style === 'human' ? t0 : styleNeutralTemperature(losses, styleW, t0)
+
+  return scored.map(({ uci }, i) => {
+    const loss = losses[i] ?? 0
+    const weight = Math.exp(-loss / t) * (styleW[i] ?? 1)
+    return { uci, loss, weight, features: features[i] ?? null }
   })
 }
 
@@ -322,12 +361,26 @@ export function chooseMove(
 
   const profile = bandProfile(elo)
 
-  // The blunder path: ignore the ranking and pick near-uniformly from the
-  // whole candidate pool. This is what produces the occasional genuinely bad
-  // move that makes a bot feel human rather than merely imprecise.
-  if (rng() < profile.blunderChance && candidates.length > 1) {
-    const flat = candidates.map((c) => ({ ...c, weight: 1 }))
-    return sample(flat, rng)?.uci ?? null
+  // The blunder path.
+  //
+  // This used to sample uniformly from the multipv candidates — i.e. from the
+  // engine's top eight moves, all of which are perfectly reasonable. It was a
+  // no-op, and calibration proved it: at 1400 with blunderChance 0.08, only
+  // 2.4% of moves shed 200cp and measured ACPL sat at ~59% of target.
+  //
+  // A real blunder means playing a move that was never in the engine's
+  // shortlist at all — hanging the piece, missing the threat. So sample from
+  // ALL legal moves, excluding the ones already under consideration.
+  if (rng() < profile.blunderChance) {
+    const board = new Chess(fen)
+    const shortlist = new Set(candidates.map((c) => c.uci))
+    const wild = board
+      .moves({ verbose: true })
+      .map((m) => `${m.from}${m.to}${m.promotion ?? ''}`)
+      .filter((u) => !shortlist.has(u))
+    if (wild.length > 0) {
+      return wild[Math.floor(rng() * wild.length)] ?? null
+    }
   }
 
   return sample(candidates, rng)?.uci ?? null

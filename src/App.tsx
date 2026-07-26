@@ -1,8 +1,13 @@
 /**
- * v1 shell: a real game against a rating-and-style opponent, plus live theme
- * switching. This exists to prove the whole stack end to end — WASM engine,
- * policy layer, board, theming — before the daily session and the other
- * pillars are built on top of it.
+ * App shell.
+ *
+ * Two surfaces: the Daily screen (the front door) and Play. Everything else
+ * is reached from a session rather than browsed to.
+ *
+ * The important wiring here is what happens when a game ENDS: it gets saved,
+ * analysed, and its mistakes written to the log. Without that step the
+ * weakness profile stays empty forever and the whole adaptive layer is
+ * decoration.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -10,9 +15,13 @@ import { Chess } from 'chess.js'
 import type { Key } from 'chessground/types'
 
 import { Board } from './ui/Board'
+import { Daily } from './ui/screens/Daily'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
 import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
+import { analyseGame, acpl, performanceRating } from './coach/analysis'
+import { updateRatingFromGame } from './coach/profile'
+import { db } from './data/db'
 import {
   BOARD_THEMES,
   applyTheme,
@@ -23,30 +32,18 @@ import {
   type ThemeChoice,
 } from './theme/theme'
 
+type Tab = 'daily' | 'play'
 type EngineState = 'boot' | 'ready' | 'thinking' | 'error'
+type ReviewState = { phase: 'idle' } | { phase: 'running'; done: number; total: number } | {
+  phase: 'done'
+  acpl: number
+  perf: number
+  blunders: number
+}
 
 export default function App() {
-  const chess = useRef(new Chess())
-  const [fen, setFen] = useState(chess.current.fen())
-  const [lastMove, setLastMove] = useState<[Key, Key] | undefined>(undefined)
-  const [engineState, setEngineState] = useState<EngineState>('boot')
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-
-  const [elo, setElo] = useState(1400)
-  const [style, setStyle] = useState<Style>('human')
-  const [orientation, setOrientation] = useState<'white' | 'black'>('white')
-
+  const [tab, setTab] = useState<Tab>('daily')
   const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme())
-
-  // Rebuilt whenever strength or style changes — cheap, it's just config.
-  const opponent = useMemo<Opponent>(() => createOpponent({ elo, style }), [elo, style])
-
-  const humanColour = orientation
-  const status = statusOf(chess.current)
-  const turn = colourOf(chess.current)
-  const dests = useMemo(() => toDests(chess.current), [fen])
-
-  /* ------------------------------------------------------------ theme */
 
   useEffect(() => {
     const { board, pieces } = resolveTheme(theme)
@@ -54,7 +51,76 @@ export default function App() {
     saveTheme(theme)
   }, [theme])
 
-  /* ------------------------------------------------------------ engine */
+  const [seed, setSeed] = useState({ elo: 1400, style: 'human' as Style, colour: 'white' as const })
+
+  const startFromDaily = useCallback(
+    (elo: number, style: Style, colour: 'white' | 'black') => {
+      setSeed({ elo, style, colour: colour as 'white' })
+      setTab('play')
+    },
+    [],
+  )
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div className="brand">
+          Chess<span>Coach</span>
+        </div>
+        <div className="chips">
+          {BOARD_THEMES.map((t) => (
+            <button
+              key={t.id}
+              className="swatch"
+              aria-pressed={theme.board === t.id}
+              aria-label={`${t.name} board`}
+              title={`${t.name} board`}
+              style={{ backgroundImage: boardBackground(t) }}
+              onClick={() => setTheme({ ...theme, board: t.id })}
+            />
+          ))}
+        </div>
+      </header>
+
+      {tab === 'daily' ? (
+        <Daily onStartGame={startFromDaily} onStartPuzzles={() => setTab('play')} />
+      ) : (
+        <Play initialElo={seed.elo} initialStyle={seed.style} initialColour={seed.colour} />
+      )}
+
+      <nav className="tabs">
+        <button aria-current={tab === 'daily' ? 'page' : undefined} onClick={() => setTab('daily')}>
+          Today
+        </button>
+        <button aria-current={tab === 'play' ? 'page' : undefined} onClick={() => setTab('play')}>
+          Play
+        </button>
+      </nav>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
+function Play(props: { initialElo: number; initialStyle: Style; initialColour: 'white' | 'black' }) {
+  const chess = useRef(new Chess())
+  const [fen, setFen] = useState(chess.current.fen())
+  const [lastMove, setLastMove] = useState<[Key, Key] | undefined>(undefined)
+  const [engineState, setEngineState] = useState<EngineState>('boot')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [review, setReview] = useState<ReviewState>({ phase: 'idle' })
+
+  const [elo, setElo] = useState(props.initialElo)
+  const [style, setStyle] = useState<Style>(props.initialStyle)
+  const [orientation, setOrientation] = useState<'white' | 'black'>(props.initialColour)
+
+  const opponent = useMemo<Opponent>(() => createOpponent({ elo, style }), [elo, style])
+
+  const humanColour = orientation
+  const status = statusOf(chess.current)
+  const turn = colourOf(chess.current)
+  const dests = useMemo(() => toDests(chess.current), [fen])
+  const savedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -80,7 +146,6 @@ export default function App() {
     setLastMove(last ? [last.from as Key, last.to as Key] : undefined)
   }, [])
 
-  /* Bot replies whenever it's its turn. */
   const booted = engineState !== 'boot' && engineState !== 'error'
 
   useEffect(() => {
@@ -116,19 +181,100 @@ export default function App() {
     return () => {
       cancelled = true
     }
-    // fen drives this — every position change re-checks whose turn it is.
   }, [fen, humanColour, opponent, booted, sync])
 
-  /* ------------------------------------------------------------ actions */
+  /* ---------------------------------------------- save + analyse */
+
+  /**
+   * Runs once when the game ends. This is the step that makes the coach real:
+   * without persisting mistakes, the profile never fills and every "adaptive"
+   * feature downstream is inert.
+   */
+  useEffect(() => {
+    const s = statusOf(chess.current)
+    if (!s.over || savedRef.current || !booted) return
+    savedRef.current = true
+
+    const humanIs = humanColour === 'white' ? 'w' : 'b'
+    const result: 'win' | 'loss' | 'draw' =
+      s.winner === 'draw' || s.winner === null
+        ? 'draw'
+        : s.winner === humanColour
+          ? 'win'
+          : 'loss'
+    const pgn = chess.current.pgn()
+    const score = result === 'win' ? 1 : result === 'loss' ? 0 : 0.5
+
+    void (async () => {
+      const playedAt = new Date().toISOString()
+      const gameId = await db.games.add({
+        playedAt,
+        humanColour: humanIs,
+        opponentElo: elo,
+        opponentStyle: style,
+        result,
+        reason: s.text,
+        pgn,
+        acpl: null,
+        performanceRating: null,
+        analysedAt: null,
+      })
+
+      await updateRatingFromGame(elo, score as 0 | 0.5 | 1)
+
+      try {
+        setReview({ phase: 'running', done: 0, total: 1 })
+        const assessments = await analyseGame(pgn, {
+          colour: humanIs,
+          onProgress: (done, total) => setReview({ phase: 'running', done, total }),
+        })
+
+        await db.mistakes.bulkAdd(
+          assessments
+            .filter((a) => a.severity !== 'best' && a.severity !== 'good')
+            .map((a) => ({
+              gameId,
+              ply: a.ply,
+              fen: a.fen,
+              san: a.san,
+              bestSan: a.bestSan,
+              lossCp: a.lossCp,
+              severity: a.severity,
+              tag: a.tag,
+              phase: a.phase,
+              at: playedAt,
+            })),
+        )
+
+        const avg = acpl(assessments)
+        const perf = performanceRating(avg)
+        await db.games.update(gameId, {
+          acpl: avg,
+          performanceRating: perf,
+          analysedAt: new Date().toISOString(),
+        })
+
+        setReview({
+          phase: 'done',
+          acpl: avg,
+          perf,
+          blunders: assessments.filter((a) => a.severity === 'blunder').length,
+        })
+      } catch (err) {
+        setErrorMsg(`analysis failed: ${err instanceof Error ? err.message : String(err)}`)
+        setReview({ phase: 'idle' })
+      }
+    })()
+  }, [fen, booted, humanColour, elo, style])
+
+  /* ------------------------------------------------------ actions */
 
   const onMove = useCallback(
     (from: Key, to: Key) => {
       try {
-        // v1 auto-queens; see needsPromotion() for where the picker lands.
         chess.current.move({ from, to, promotion: 'q' })
         sync()
       } catch {
-        // Illegal drop — chessground snaps the piece back on the next set().
         setFen(chess.current.fen())
       }
     },
@@ -138,6 +284,8 @@ export default function App() {
   const newGame = useCallback(
     (side: 'white' | 'black') => {
       chess.current.reset()
+      savedRef.current = false
+      setReview({ phase: 'idle' })
       setOrientation(side)
       setLastMove(undefined)
       setFen(chess.current.fen())
@@ -147,45 +295,31 @@ export default function App() {
     [opponent],
   )
 
-  const undo = useCallback(() => {
-    // Two plies — undo the bot's reply and your own move together.
-    chess.current.undo()
-    chess.current.undo()
-    sync()
-  }, [sync])
-
-  /* ------------------------------------------------------------ render */
-
   const botThinking = engineState === 'thinking'
   const playable = status.over || botThinking ? null : humanColour
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          Chess<span>Coach</span>
-        </div>
-        <div className="status">
-          <span
-            className={
-              'dot ' +
-              (engineState === 'thinking'
-                ? 'thinking'
-                : engineState === 'error'
-                  ? 'error'
-                  : engineState === 'ready'
-                    ? 'ready'
-                    : '')
-            }
-          />
-          <span className="small muted">
-            {engineState === 'boot' && 'loading engine…'}
-            {engineState === 'thinking' && `${opponent.name} thinking`}
-            {engineState === 'error' && 'engine error'}
-            {engineState === 'ready' && (status.over ? status.text : `${turn} to move`)}
-          </span>
-        </div>
-      </header>
+    <div className="stack">
+      <div className="status" style={{ marginBottom: 2 }}>
+        <span
+          className={
+            'dot ' +
+            (engineState === 'thinking'
+              ? 'thinking'
+              : engineState === 'error'
+                ? 'error'
+                : engineState === 'ready'
+                  ? 'ready'
+                  : '')
+          }
+        />
+        <span className="small muted">
+          {engineState === 'boot' && 'loading engine…'}
+          {engineState === 'thinking' && `${opponent.name} thinking`}
+          {engineState === 'error' && 'engine error'}
+          {engineState === 'ready' && (status.over ? status.text : `${turn} to move`)}
+        </span>
+      </div>
 
       <Board
         fen={fen}
@@ -198,102 +332,83 @@ export default function App() {
         onMove={onMove}
       />
 
-      <div className="stack" style={{ marginTop: 14 }}>
-        {errorMsg && (
-          <div className="card small" style={{ borderColor: 'var(--danger)' }}>
-            <strong>Engine error.</strong> {errorMsg}
-          </div>
-        )}
+      {errorMsg && (
+        <div className="card small" style={{ borderColor: 'var(--danger)' }}>
+          <strong>Error.</strong> {errorMsg}
+        </div>
+      )}
 
-        {status.over && (
-          <div className="card row spread">
+      {status.over && (
+        <div className="card stack">
+          <div className="row spread">
             <strong>{status.text}</strong>
             <button className="primary" onClick={() => newGame(orientation)}>
               Play again
             </button>
           </div>
-        )}
-
-        <div className="card stack">
-          <label className="field">
-            Opponent strength — <strong style={{ color: 'var(--text)' }}>{elo}</strong>
-            <input
-              type="range"
-              min={800}
-              max={2200}
-              step={100}
-              value={elo}
-              onChange={(e) => setElo(Number(e.target.value))}
-            />
-          </label>
-
-          <div>
-            <div className="small muted" style={{ marginBottom: 6 }}>
-              Style
+          {review.phase === 'running' && (
+            <div className="status">
+              <span className="dot thinking" />
+              <span className="small muted">
+                reviewing your moves… {review.done}/{review.total}
+              </span>
             </div>
-            <div className="chips">
-              {STYLES.map((s) => (
-                <button
-                  key={s.id}
-                  className="chip"
-                  aria-pressed={style === s.id}
-                  title={s.blurb}
-                  onClick={() => setStyle(s.id)}
-                >
-                  {s.name}
-                </button>
-              ))}
+          )}
+          {review.phase === 'done' && (
+            <div className="small">
+              You averaged <strong>{review.acpl}</strong> centipawns lost per move — that's about{' '}
+              <strong>{review.perf}</strong> strength.{' '}
+              {review.blunders === 0
+                ? 'No blunders.'
+                : `${review.blunders} blunder${review.blunders === 1 ? '' : 's'} logged.`}{' '}
+              <span className="muted">Tomorrow's session will target what showed up.</span>
             </div>
-            <div className="small muted" style={{ marginTop: 8 }}>
-              {STYLES.find((s) => s.id === style)?.blurb}
-            </div>
-          </div>
+          )}
         </div>
+      )}
 
-        <div className="card row spread">
-          <span className="small muted">Board</span>
+      <div className="card stack">
+        <label className="field">
+          Opponent strength — <strong style={{ color: 'var(--text)' }}>{elo}</strong>
+          <input
+            type="range"
+            min={800}
+            max={2200}
+            step={100}
+            value={elo}
+            onChange={(e) => setElo(Number(e.target.value))}
+          />
+        </label>
+        <div>
+          <div className="small muted" style={{ marginBottom: 6 }}>
+            Style
+          </div>
           <div className="chips">
-            {BOARD_THEMES.map((t) => (
+            {STYLES.map((s) => (
               <button
-                key={t.id}
-                className="swatch"
-                aria-pressed={theme.board === t.id}
-                // Icon-only control — title alone is not an accessible name.
-                aria-label={`${t.name} board`}
-                title={`${t.name} board`}
-                style={{ backgroundImage: boardBackground(t) }}
-                onClick={() => setTheme({ ...theme, board: t.id })}
-              />
+                key={s.id}
+                className="chip"
+                aria-pressed={style === s.id}
+                title={s.blurb}
+                onClick={() => setStyle(s.id)}
+              >
+                {s.name}
+              </button>
             ))}
           </div>
+          <div className="small muted" style={{ marginTop: 8 }}>
+            {STYLES.find((s) => s.id === style)?.blurb}
+          </div>
         </div>
+      </div>
 
-        <div className="row" style={{ gap: 8 }}>
-          <button className="primary" style={{ flex: 1 }} onClick={() => newGame('white')}>
-            New game as white
-          </button>
-          <button style={{ flex: 1 }} onClick={() => newGame('black')}>
-            as black
-          </button>
-        </div>
-
-        <div className="row" style={{ gap: 8 }}>
-          <button
-            className="ghost"
-            style={{ flex: 1 }}
-            onClick={() => setOrientation(orientation === 'white' ? 'black' : 'white')}
-          >
-            Flip board
-          </button>
-          <button
-            className="ghost"
-            style={{ flex: 1 }}
-            disabled={chess.current.history().length < 2 || botThinking}
-            onClick={undo}
-          >
-            Take back
-          </button>
-        </div>
+      <div className="row" style={{ gap: 8 }}>
+        <button className="primary" style={{ flex: 1 }} onClick={() => newGame('white')}>
+          New game as white
+        </button>
+        <button style={{ flex: 1 }} onClick={() => newGame('black')}>
+          as black
+        </button>
       </div>
     </div>
   )
