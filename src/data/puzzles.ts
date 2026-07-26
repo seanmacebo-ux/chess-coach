@@ -14,8 +14,14 @@
 
 import { Chess } from 'chess.js'
 
-/** Raw row as shipped in public/puzzles/band-*.json. */
-interface RawPuzzle {
+/**
+ * Raw row as shipped in public/puzzles/band-*.json.
+ *
+ * Exported along with hydrate() so the sandbox script can drive the REAL
+ * parser rather than a copy of it. A validator that reimplements the thing it
+ * validates only ever proves the copy is self-consistent.
+ */
+export interface RawPuzzle {
   i: string
   f: string
   m: string
@@ -51,7 +57,7 @@ function bandOf(rating: number): number {
   return Math.max(MIN_BAND, Math.min(MAX_BAND, b))
 }
 
-function hydrate(raw: RawPuzzle): Puzzle | null {
+export function hydrate(raw: RawPuzzle): Puzzle | null {
   const all = raw.m.split(' ').filter(Boolean)
   const setup = all[0]
   if (!setup) return null

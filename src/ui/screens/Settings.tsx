@@ -1,5 +1,11 @@
 /**
- * Settings — sign-in, appearance, and the sync status.
+ * Settings — sign-in, appearance, training preferences, and sync status.
+ *
+ * The appearance section leads with a LIVE BOARD rather than swatches. Picking
+ * a set from 44px chips is guesswork: a chip shows two colours and a hint of
+ * grain, and tells you nothing about what a knight looks like standing on it.
+ * The preview is the same generator the real board uses, so what you see is
+ * exactly what you get.
  *
  * The sign-in copy is deliberately explicit about what syncing does and does
  * not do. The app works fully signed out; an account exists so one profile
@@ -9,11 +15,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { currentAuth, sendMagicLink, signOut, type AuthState } from '../../data/supabase'
 import { syncNow, type SyncResult } from '../../data/sync'
+import { loadPrefs, savePrefs, PUZZLE_COUNTS, type Prefs } from '../../data/settings'
+import { ThemePreview } from '../ThemePreview'
 import {
   BACKGROUNDS,
-  BOARD_THEMES,
+  BOARD_GROUPS,
   PIECE_SETS,
   boardBackground,
+  pieceSrc,
+  resolveTheme,
   type ThemeChoice,
 } from '../../theme/theme'
 
@@ -33,9 +43,18 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [sync, setSync] = useState<SyncResult | null>(null)
+  const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs())
 
   useEffect(() => {
     void currentAuth().then(setAuth)
+  }, [])
+
+  const patchPrefs = useCallback((patch: Partial<Prefs>) => {
+    setPrefs((p) => {
+      const next = { ...p, ...patch }
+      savePrefs(next)
+      return next
+    })
   }, [])
 
   const signIn = useCallback(async () => {
@@ -63,6 +82,8 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
     setAuth(await currentAuth())
     setSync(null)
   }, [])
+
+  const resolved = resolveTheme(theme)
 
   return (
     <div className="stack">
@@ -139,9 +160,66 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
         )}
       </div>
 
+      {/* ------------------------------------------------- training */}
+      <div className="card stack">
+        <span className="small muted">Training</span>
+
+        <div>
+          <div className="small" style={{ marginBottom: 6 }}>
+            Puzzles per session
+          </div>
+          <div className="chips">
+            {PUZZLE_COUNTS.map((n) => (
+              <button
+                key={n}
+                className="chip"
+                aria-pressed={prefs.puzzlesPerDay === n}
+                onClick={() => patchPrefs({ puzzlesPerDay: n })}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="small muted" style={{ marginTop: 6 }}>
+            Three tries on each. A miss costs points, a nudge costs more — so the score reflects
+            what you actually saw rather than how many you eventually got through.
+          </div>
+        </div>
+
+        <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
+          <span style={{ flex: 1 }}>
+            <div>Blunder check</div>
+            <div className="small muted">
+              Before your move plays, get asked whether anything is hanging. Training wheels for
+              the habit that actually costs games.
+            </div>
+          </span>
+          <input
+            type="checkbox"
+            checked={prefs.blunderCheck}
+            onChange={(e) => patchPrefs({ blunderCheck: e.target.checked })}
+          />
+        </label>
+
+        <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
+          <span style={{ flex: 1 }}>
+            <div>Board coordinates</div>
+            <div className="small muted">Files and ranks around the edge.</div>
+          </span>
+          <input
+            type="checkbox"
+            checked={prefs.showCoordinates}
+            onChange={(e) => patchPrefs({ showCoordinates: e.target.checked })}
+          />
+        </label>
+      </div>
+
       {/* ------------------------------------------------ appearance */}
       <div className="card stack">
         <span className="small muted">Appearance</span>
+
+        {/* The example, before any of the pickers. */}
+        <ThemePreview board={resolved.board} pieces={resolved.pieces} />
 
         <div>
           <div className="small" style={{ marginBottom: 6 }}>
@@ -161,22 +239,34 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
           </div>
         </div>
 
-        <div>
-          <div className="small" style={{ marginBottom: 6 }}>
-            Board
-          </div>
-          <div className="chips">
-            {BOARD_THEMES.map((t) => (
-              <button
-                key={t.id}
-                className="swatch"
-                aria-pressed={theme.board === t.id}
-                aria-label={`${t.name} board`}
-                title={`${t.name} board`}
-                style={{ backgroundImage: boardBackground(t) }}
-                onClick={() => onTheme({ ...theme, board: t.id })}
-              />
-            ))}
+        {/* Boards, grouped by material rather than one undifferentiated wall. */}
+        <div className="stack" style={{ gap: 8 }}>
+          <div className="small">Board</div>
+          {BOARD_GROUPS.map((g) => (
+            <div key={g.finish} className="swatch-group">
+              <div className="small muted">{g.label}</div>
+              <div className="chips">
+                {g.themes.map((t) => (
+                  <button
+                    key={t.id}
+                    className="swatch"
+                    aria-pressed={theme.board === t.id}
+                    aria-label={`${t.name} board, ${g.label.toLowerCase()} finish`}
+                    title={`${t.name} — ${g.label}`}
+                    // 2x2 rather than the full 8x8: at 32px a whole board is
+                    // mush and every material looks identical.
+                    style={{ backgroundImage: boardBackground(t, 2) }}
+                    onClick={() => onTheme({ ...theme, board: t.id })}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="small muted">
+            <strong style={{ color: 'var(--text)' }}>{resolved.board.name}</strong> —{' '}
+            {BOARD_GROUPS.find((g) => g.finish === resolved.board.finish)?.label} finish. Every
+            material is generated in the browser, so switching costs nothing and none of it is
+            downloaded.
           </div>
         </div>
 
@@ -191,19 +281,19 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
                 className="pieceswatch"
                 aria-pressed={theme.pieces === p.id}
                 aria-label={`${p.name} pieces`}
-                title={p.credit}
+                title={p.blurb}
                 onClick={() => onTheme({ ...theme, pieces: p.id })}
               >
-                <img
-                  src={`${import.meta.env.BASE_URL}piece/${p.dir}/wN.svg`}
-                  alt=""
-                  aria-hidden="true"
-                />
+                <img src={pieceSrc(p, 'wN')} alt="" aria-hidden="true" />
               </button>
             ))}
           </div>
           <div className="small muted" style={{ marginTop: 6 }}>
-            {PIECE_SETS.find((p) => p.id === theme.pieces)?.credit}
+            <strong style={{ color: 'var(--text)' }}>{resolved.pieces.name}</strong> —{' '}
+            {resolved.pieces.blurb}
+          </div>
+          <div className="small muted" style={{ marginTop: 2, fontStyle: 'italic' }}>
+            {resolved.pieces.credit}
           </div>
         </div>
 

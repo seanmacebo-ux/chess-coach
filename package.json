@@ -12,7 +12,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "puzzles": "node scripts/build-puzzles.mjs",
-    "calibrate": "tsx scripts/calibrate.ts"
+    "calibrate": "tsx scripts/calibrate.ts",
+    "verify:endgames": "tsx scripts/verify-endgames.ts",
+    "sandbox:puzzles": "tsx scripts/sandbox-puzzles.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

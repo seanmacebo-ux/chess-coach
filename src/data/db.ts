@@ -56,6 +56,24 @@ export interface PuzzleAttemptRow {
   /** Which tier served this puzzle, if any. */
   tierId: string | null
   at: string
+
+  /*
+   * Scoring fields. All optional, and deliberately so — rows written before
+   * scoring existed stay valid, and Dexie needs no version bump because none
+   * of these is an index (only the keys in .stores() are).
+   *
+   * Not yet synced: sync.ts maps every column by hand, so these stay on the
+   * device until the Supabase migration adds them. That is the right order —
+   * a column that exists locally and not remotely loses nothing, whereas the
+   * reverse throws on every push.
+   */
+
+  /** How many goes it took. 1 = first time. */
+  attempts?: number
+  /** Whether the idea was revealed before solving. Costs points. */
+  hintUsed?: boolean
+  /** Points earned, after deductions. */
+  points?: number
 }
 
 export interface TierProgressRow {

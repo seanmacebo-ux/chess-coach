@@ -18,6 +18,7 @@
  */
 
 import { getProfile, db } from '../data/db'
+import { loadPrefs } from '../data/settings'
 import { pickPuzzles, type Puzzle } from '../data/puzzles'
 import { computeWeaknesses, nextTier, type Weakness } from './profile'
 import { LICHESS_MOTIFS, isExerciseBacked, puzzleThemes, type Tier } from './tiers'
@@ -98,7 +99,9 @@ export interface BuildOptions {
 export async function buildDailySession(opts: BuildOptions = {}): Promise<DailySession> {
   const now = opts.now ?? new Date()
   const date = now.toISOString().slice(0, 10)
-  const puzzleCount = opts.puzzleCount ?? 3
+  // Session length is the user's call, not a hardcoded three. An explicit
+  // argument still wins so tests and previews stay deterministic.
+  const puzzleCount = opts.puzzleCount ?? loadPrefs().puzzlesPerDay
 
   const profile = await getProfile()
   const weaknesses = await computeWeaknesses(5)

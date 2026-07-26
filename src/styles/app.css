@@ -185,9 +185,12 @@ body {
   width: 100%;
   height: 100%;
   background-image: var(--board-bg);
-  /* The tile is 2x2 squares and the board is 8x8, so it repeats 4 times per
-     axis — 25%, not 50%. At 50% you get a 4x4 board behind 64 real squares. */
-  background-size: 25% 25%;
+  /* The generated SVG is the WHOLE 8x8 board, not a repeating 2x2 tile.
+     It has to be, because the wood grain and marble veining have to run
+     across the board rather than restart every two squares — a texture that
+     repeats on a 2-square pitch reads as wallpaper, not material. */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 
 .cg-wrap piece {
@@ -362,10 +365,14 @@ button.ghost {
   width: 44px;
   height: 44px;
   min-height: 44px;
-  padding: 7px;
+  padding: 6px;
   border-radius: 12px;
   border: 2px solid transparent;
-  background-size: 50% 50%;
+  /* Swatches ask boardBackground() for a 2x2 board rather than shrinking the
+     8x8 one — at 32px a full board is unreadable mush and every material
+     looks the same. Two squares is enough to show colour AND grain. */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   background-origin: content-box;
   background-clip: content-box;
 }
@@ -790,6 +797,85 @@ input[type='email'] {
 
 .pieceswatch[aria-pressed='true'] {
   border-color: var(--accent);
+}
+
+/* ------------------------------------------------------ puzzle category */
+
+/*
+ * The "what am I being taught" strip. Sits above the board rather than below
+ * it, because it has to be read BEFORE you start solving — under the board it
+ * reads as a result, which is the opposite of the intent.
+ */
+.card.cat {
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.cat-name {
+  font-weight: 650;
+  font-size: 15px;
+}
+
+/* Remaining tries, as pips. Two states so "one left" is visible at a glance
+   without reading a number. */
+.tries {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.tries i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: block;
+}
+
+.tries i.live {
+  background: var(--accent);
+}
+
+.tries i.spent {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+}
+
+/* ---------------------------------------------------------- theme preview */
+
+/*
+ * A real board with real pieces, shown above the pickers. Sized by aspect-ratio
+ * rather than a fixed height so it never causes layout shift while the piece
+ * SVGs load — the box is the right shape before anything is in it.
+ */
+.theme-preview {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  box-shadow: var(--shadow-board);
+}
+
+.tp-sq {
+  display: grid;
+  place-items: center;
+}
+
+.tp-sq img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Material headings inside the board picker. */
+.swatch-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* Background picker: wider than tall so a gradient is actually readable. */

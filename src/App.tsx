@@ -19,6 +19,8 @@ import { Daily } from './ui/screens/Daily'
 import { PuzzleRunner } from './ui/screens/PuzzleRunner'
 import { History } from './ui/screens/History'
 import { Learn } from './ui/screens/Learn'
+import { PlayoutRunner } from './ui/screens/PlayoutRunner'
+import { ENDGAMES, type EndgamePosition } from './coach/endgames'
 import { Settings, type ColourMode } from './ui/screens/Settings'
 import { syncInBackground } from './data/sync'
 import { markSessionComplete } from './coach/profile'
@@ -29,17 +31,9 @@ import { STYLES, type Style } from './engine/types'
 import { analyseGame, acpl, performanceRating } from './coach/analysis'
 import { updateRatingFromGame } from './coach/profile'
 import { db } from './data/db'
-import {
-  BOARD_THEMES,
-  applyTheme,
-  boardBackground,
-  loadTheme,
-  resolveTheme,
-  saveTheme,
-  type ThemeChoice,
-} from './theme/theme'
+import { applyTheme, loadTheme, resolveTheme, saveTheme, type ThemeChoice } from './theme/theme'
 
-type Tab = 'daily' | 'play' | 'puzzles' | 'history' | 'learn' | 'settings'
+type Tab = 'daily' | 'play' | 'puzzles' | 'endgames' | 'history' | 'learn' | 'settings'
 
 const COLOUR_KEY = 'cc.colour'
 
@@ -92,6 +86,7 @@ export default function App() {
   })
   const [session, setSession] = useState<DailySession | null>(null)
   const [result, setResult] = useState<string | null>(null)
+  const [endgame, setEndgame] = useState<EndgamePosition | null>(null)
 
   const startFromDaily = useCallback((elo: number, style: Style, colour: 'white' | 'black') => {
     setSeed({ elo, style, colour })
@@ -109,19 +104,13 @@ export default function App() {
         <div className="brand">
           Chess<span>Coach</span>
         </div>
-        <div className="chips">
-          {BOARD_THEMES.map((t) => (
-            <button
-              key={t.id}
-              className="swatch"
-              aria-pressed={theme.board === t.id}
-              aria-label={`${t.name} board`}
-              title={`${t.name} board`}
-              style={{ backgroundImage: boardBackground(t) }}
-              onClick={() => setTheme({ ...theme, board: t.id })}
-            />
-          ))}
-        </div>
+        {/*
+          The board picker used to live here. With 18 materials it wrapped onto
+          three rows and shoved the brand around on every screen — and it was a
+          settings control sitting permanently on top of the board you are
+          trying to play on. Settings owns theming now, and it does it better
+          because it can show a live preview next to the choice.
+        */}
       </header>
 
       {tab === 'daily' && <Daily onStartGame={startFromDaily} onStartPuzzles={startPuzzles} />}
@@ -137,9 +126,9 @@ export default function App() {
             key={session.date + session.puzzles[0]!.id}
             puzzles={session.puzzles}
             tierId={session.drill?.id ?? null}
-            onDone={({ solved, total }) => {
+            onDone={({ solved, total, points }) => {
               void markSessionComplete()
-              setResult(`${solved} of ${total} solved.`)
+              setResult(`${solved} of ${total} solved — ${points} points.`)
               setTab('daily')
             }}
           />
@@ -148,6 +137,24 @@ export default function App() {
             <strong>No puzzle set loaded.</strong>{' '}
             <span className="muted">Open Today and start a session.</span>
           </div>
+        ))}
+
+      {tab === 'endgames' &&
+        (endgame ? (
+          <PlayoutRunner
+            key={endgame.id}
+            position={endgame}
+            onDone={({ success }) => {
+              setResult(
+                success
+                  ? `${endgame.name} — ${endgame.goal === 'win' ? 'converted' : 'held'}.`
+                  : `${endgame.name} — not this time.`,
+              )
+              setEndgame(null)
+            }}
+          />
+        ) : (
+          <Endgames onPick={setEndgame} />
         ))}
 
       {/* key forces a fresh read of the database each time the tab is opened */}
@@ -184,6 +191,15 @@ export default function App() {
           Learn
         </button>
         <button
+          aria-current={tab === 'endgames' ? 'page' : undefined}
+          onClick={() => {
+            setEndgame(null)
+            setTab('endgames')
+          }}
+        >
+          Endings
+        </button>
+        <button
           // Remount on every visit so it re-reads the database rather than
           // showing a snapshot from whenever the tab was first opened.
           aria-current={tab === 'history' ? 'page' : undefined}
@@ -199,6 +215,52 @@ export default function App() {
           ⚙
         </button>
       </nav>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * The endgame picker.
+ *
+ * Every position is shown, not just the ones at your level — the brief was
+ * explicitly "my level or lower", and seeing what is coming is half the point
+ * of a ladder. Each one states the goal up front, because "win this" and
+ * "hold this" are completely different tasks and finding out which one you
+ * were meant to be doing afterwards is useless.
+ */
+function Endgames({ onPick }: { onPick: (p: EndgamePosition) => void }) {
+  return (
+    <div className="stack">
+      <div className="card">
+        <div className="small muted">Endgame technique</div>
+        <div className="small" style={{ marginTop: 6 }}>
+          {ENDGAMES.length} positions, every one checked against the engine so the result it
+          claims is the result it actually has. You play; the engine defends at full strength.
+          Half of these are draws to hold rather than wins to convert — that is deliberate, and
+          holding one counts as a pass.
+        </div>
+      </div>
+
+      <div className="card stack">
+        {ENDGAMES.map((e) => (
+          <button
+            key={e.id}
+            className="lesson-head"
+            style={{ margin: 0, padding: '10px 0', width: '100%' }}
+            onClick={() => onPick(e)}
+          >
+            <span>
+              <span style={{ fontWeight: 600 }}>{e.name}</span>
+              <span className="small muted">{e.why.split('.')[0]}.</span>
+            </span>
+            <span className={'pill ' + (e.goal === 'win' ? 'win' : 'draw')}>
+              {e.goal === 'win' ? 'win it' : 'hold it'}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
