@@ -21,6 +21,7 @@ import { History } from './ui/screens/History'
 import { Learn } from './ui/screens/Learn'
 import { PlayoutRunner } from './ui/screens/PlayoutRunner'
 import { ENDGAMES, type EndgamePosition } from './coach/endgames'
+import { ScanRunner, buildScanQuestions, type ScanQuestion } from './ui/screens/ScanRunner'
 import { Settings, type ColourMode } from './ui/screens/Settings'
 import { syncInBackground } from './data/sync'
 import { markSessionComplete } from './coach/profile'
@@ -36,7 +37,15 @@ import { loadPrefs } from './data/settings'
 import { loosePieces } from './coach/exercises'
 import { applyTheme, loadTheme, resolveTheme, saveTheme, type ThemeChoice } from './theme/theme'
 
-type Tab = 'daily' | 'play' | 'puzzles' | 'endgames' | 'history' | 'learn' | 'settings'
+type Tab =
+  | 'daily'
+  | 'play'
+  | 'puzzles'
+  | 'scan'
+  | 'endgames'
+  | 'history'
+  | 'learn'
+  | 'settings'
 
 const COLOUR_KEY = 'cc.colour'
 
@@ -96,6 +105,7 @@ export default function App() {
    * you can drill forks for ten minutes and still have Today waiting.
    */
   const [drill, setDrill] = useState<{ puzzles: Puzzle[]; label: string } | null>(null)
+  const [scan, setScan] = useState<ScanQuestion[] | null>(null)
 
   const trainCategory = useCallback(async (motifs: string[], label: string) => {
     const profile = await getProfile()
@@ -117,6 +127,26 @@ export default function App() {
   const playEndgame = useCallback((p: EndgamePosition) => {
     setEndgame(p)
     setTab('endgames')
+  }, [])
+
+  /**
+   * Build a loose-piece scan from real positions.
+   *
+   * Draws on the puzzle corpus purely as a supply of realistic middlegames —
+   * the tactic in each puzzle is irrelevant. Asks for a wide pool because most
+   * positions get rejected: anything with nothing loose, or more than three
+   * loose pieces, is not a scan worth setting.
+   */
+  const startScan = useCallback(async () => {
+    const profile = await getProfile()
+    const pool = await pickPuzzles({ rating: profile.rating, count: 120 })
+    const questions = buildScanQuestions(pool, Math.min(8, loadPrefs().puzzlesPerDay))
+    if (questions.length === 0) {
+      setResult('Could not find positions with a loose piece. Try again in a moment.')
+      return
+    }
+    setScan(questions)
+    setTab('scan')
   }, [])
 
   const startFromDaily = useCallback((elo: number, style: Style, colour: 'white' | 'black') => {
@@ -188,6 +218,24 @@ export default function App() {
           </div>
         ))}
 
+      {tab === 'scan' &&
+        (scan ? (
+          <ScanRunner
+            key={`scan-${scan[0]?.id ?? 'none'}`}
+            questions={scan}
+            onDone={({ correct, total }) => {
+              setResult(`Loose pieces: ${correct} of ${total} right.`)
+              setScan(null)
+              setTab('learn')
+            }}
+          />
+        ) : (
+          <div className="card">
+            <strong>No scan loaded.</strong>{' '}
+            <span className="muted">Start one from the Position module in Learn.</span>
+          </div>
+        ))}
+
       {tab === 'endgames' &&
         (endgame ? (
           <PlayoutRunner
@@ -210,7 +258,12 @@ export default function App() {
       {tab === 'history' && <History key={`h-${result ?? ''}-${tab}`} />}
 
       {tab === 'learn' && (
-        <Learn key={`l-${tab}`} onTrainCategory={trainCategory} onPlayEndgame={playEndgame} />
+        <Learn
+          key={`l-${tab}`}
+          onTrainCategory={trainCategory}
+          onPlayEndgame={playEndgame}
+          onStartScan={startScan}
+        />
       )}
 
       {tab === 'settings' && (

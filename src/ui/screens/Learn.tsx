@@ -35,9 +35,11 @@ export interface LearnProps {
   onTrainCategory: (motifs: string[], label: string) => void
   /** Jump to the endgame play-out for this position. */
   onPlayEndgame: (position: EndgamePosition) => void
+  /** Start a loose-piece scan built from real positions. */
+  onStartScan: () => void
 }
 
-export function Learn({ onTrainCategory, onPlayEndgame }: LearnProps) {
+export function Learn({ onTrainCategory, onPlayEndgame, onStartScan }: LearnProps) {
   const [rating, setRating] = useState(1400)
   const [statuses, setStatuses] = useState<TierStatus[]>([])
   const [open, setOpen] = useState<Pillar | null>('tactics')
@@ -88,6 +90,7 @@ export function Learn({ onTrainCategory, onPlayEndgame }: LearnProps) {
           onToggle={() => setOpen(open === p.id ? null : p.id)}
           onTrainCategory={onTrainCategory}
           onPlayEndgame={onPlayEndgame}
+          onStartScan={onStartScan}
         />
       ))}
 
@@ -106,6 +109,7 @@ function PillarCard({
   onToggle,
   onTrainCategory,
   onPlayEndgame,
+  onStartScan,
 }: {
   pillar: { id: Pillar; name: string; blurb: string }
   rating: number
@@ -114,6 +118,7 @@ function PillarCard({
   onToggle: () => void
   onTrainCategory: (motifs: string[], label: string) => void
   onPlayEndgame: (p: EndgamePosition) => void
+  onStartScan: () => void
 }) {
   const tiers = tiersFor(pillar.id)
   const atLevel = tiers.filter((t) => byId.get(t.id)?.inBand).length
@@ -143,7 +148,7 @@ function PillarCard({
           {pillar.id === 'endgame' && <EndgameModule rating={rating} onPlay={onPlayEndgame} />}
           {pillar.id === 'opening' && <OpeningModule rating={rating} />}
           {(pillar.id === 'positional' || pillar.id === 'strategy') && (
-            <ConceptModule pillar={pillar.id} />
+            <ConceptModule pillar={pillar.id} onStartScan={onStartScan} />
           )}
 
           <div className="small muted" style={{ marginTop: 4 }}>
@@ -466,10 +471,32 @@ const QUESTIONS: Record<string, string> = {
   'strategy-6': 'I am winning. What is the simplest path that cannot go wrong?',
 }
 
-function ConceptModule({ pillar }: { pillar: Pillar }) {
+function ConceptModule({ pillar, onStartScan }: { pillar: Pillar; onStartScan: () => void }) {
   const tiers = tiersFor(pillar)
   return (
     <div className="stack">
+      {/* The one concept in these two pillars that IS drillable, because the
+          answer can be computed from the board rather than judged. */}
+      {pillar === 'positional' && (
+        <div className="card" style={{ background: 'var(--surface-hi)' }}>
+          <div className="row spread">
+            <span style={{ flex: 1 }}>
+              <strong>Spot the loose piece</strong>
+              <div className="small muted">
+                Real positions. Which of your pieces are attacked with nothing defending them?
+              </div>
+            </span>
+            <button className="chip" onClick={onStartScan}>
+              Train
+            </button>
+          </div>
+          <div className="small muted" style={{ marginTop: 6 }}>
+            The highest-value habit below 1600. Forks and pins only work because something was
+            loose first, so this trains the cause rather than the symptom — and it is the same
+            question the blunder check asks during a real game.
+          </div>
+        </div>
+      )}
       <div className="small muted">
         These are questions, not puzzles. There is no corpus of "good bishop" positions the way
         there is for forks, so rather than serve random tactics and call it positional training,

@@ -29,6 +29,7 @@ Last updated 2026-07-26.
 | **Openings on a step-through board** | Browser: 12 move buttons, 32 pieces, Italian steps correctly |
 | **Decay monitor** | Browser: trends section renders, day-one verdict appears |
 | **`loosePieces`** | 4 asserted cases incl. defended-vs-undefended |
+| **Spot the loose piece drill** | Browser: "Scan 1 of 5", picked a8, "Right. a8 was the only one hanging" |
 | Offline / installable | Service worker precaches; asset routes all 200 |
 | Elo sandbox | Caught 3 bugs in itself, then 3 real ones in the app |
 | Maia exported + shrunk | fp16 46.7MB, 8/8 positions identical to PyTorch |
@@ -76,7 +77,9 @@ the existing `Opponent` interface.
 on overlap with the engine's top N — trains looking wider, not deeper.
 
 **4. Threat-detection drill.** `buildThreatExercise` exists in `exercises.ts`
-and nothing calls it. Null-move the position, ask what they would play.
+and still nothing calls it. Null-move the position, ask what they would play.
+Needs the engine per position, so it is slower than the scan and wants its own
+loading treatment rather than being bolted onto it.
 
 **5. Rate my moves in a game.** Per-move grading shown live rather than only in
 the post-game summary.

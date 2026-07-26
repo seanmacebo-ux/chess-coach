@@ -419,6 +419,28 @@ button.ghost {
 }
 
 /*
+ * Marked answers. These override the pressed state on purpose — once checked,
+ * what matters is whether the square WAS loose, not whether you picked it, and
+ * a square you correctly left alone should stay quiet rather than compete.
+ */
+.chip.right,
+.chip.right[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.chip.wrong,
+.chip.wrong[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  border-color: var(--danger);
+  color: var(--text);
+  /* Colour alone must not carry the meaning. */
+  text-decoration: line-through;
+}
+
+/*
  * Swatches read as 30px but must be tappable at 44px. Rather than inflate the
  * visual, the element keeps the full touch target and draws the swatch inside
  * it via background-clip on the content box.
