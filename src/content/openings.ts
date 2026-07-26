@@ -155,7 +155,11 @@ export const OPENINGS: Opening[] = [
     name: "Queen's Gambit Declined",
     side: 'black',
     against: '1.d4',
-    band: [1100, 2200],
+    // Band starts at 900, not 1100. A coverage check showed no answer to 1.d4
+    // at all below 1100 — so a beginner asking "what do I play against d4"
+    // got nothing. The QGD is the right answer at any strength; it is solid
+    // rather than sharp, and nothing in it punishes inexperience.
+    band: [900, 2200],
     line: ['d4', 'd5', 'c4', 'e6', 'Nc3', 'Nf6', 'Bg5', 'Be7', 'e3', 'O-O', 'Nf3', 'h6'],
     kind: 'repertoire',
     why: 'The most reliable answer to 1.d4 ever played, and it has been at the top level for a hundred and fifty years for one reason: it is very hard to be worse. You take a firm share of the centre on move two and every piece has an obvious square.',

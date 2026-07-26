@@ -16,6 +16,7 @@
 
 import { db, getProfile, saveProfile, type MistakeRow } from '../data/db'
 import { TAG_LABEL, TAG_THEMES, type MistakeTag } from './analysis'
+import { CATEGORIES, categoryOf, type Category } from './categories'
 import { ALL_TIERS, tierById, type Tier } from './tiers'
 
 /** Recency weight halves about every 21 days. */
@@ -375,4 +376,159 @@ export async function nextTier(rating: number, preferThemes: string[] = []): Pro
   }
   open.sort((a, b) => a.tier.index - b.tier.index)
   return open[0]!.tier
+}
+
+/* ------------------------------------------------------------------ */
+/* Are you gaining in one place and losing it in another?              */
+/* ------------------------------------------------------------------ */
+
+export type TrendState = 'gaining' | 'holding' | 'slipping' | 'untested' | 'new'
+
+export interface CategoryTrend {
+  category: Category
+  /** Attempts in the recent window. */
+  recent: number
+  recentAccuracy: number | null
+  /** Attempts in the window before that. */
+  prior: number
+  priorAccuracy: number | null
+  /** Percentage points, recent minus prior. */
+  delta: number | null
+  state: TrendState
+  /** Days since you last touched this category. Null if never. */
+  daysSince: number | null
+}
+
+const DAY = 86_400_000
+/** "Recently" — long enough to gather a sample, short enough to be current. */
+const RECENT_DAYS = 14
+/** How far back the comparison window runs. */
+const PRIOR_DAYS = 42
+/** Below this, an accuracy figure is noise rather than a measurement. */
+const MIN_SAMPLE = 5
+/** Percentage points of movement before it counts as a real change. */
+const MOVE_PP = 8
+/** Untouched for this long and it is decaying whether or not you notice. */
+const STALE_DAYS = 21
+
+/**
+ * Per-category direction of travel.
+ *
+ * The brief was "watch what I am gaining, but do not let me weaken elsewhere",
+ * and that needs two windows rather than one number. A single accuracy figure
+ * tells you where you are; comparing the last fortnight against the month
+ * before it tells you which way you are moving — which is the only way to
+ * catch the classic failure mode of grinding one category while three others
+ * quietly rot.
+ *
+ * Deliberate choices:
+ *
+ *   A category you have NOT TOUCHED is reported, not skipped. Silence is the
+ *   most common way skills decay, and a monitor that only reports on things
+ *   you are already practising would miss it entirely.
+ *
+ *   Small samples say "new" rather than inventing a trend. Two puzzles is not
+ *   evidence of anything, and a confident wrong readout is worse than a
+ *   hedge.
+ */
+export async function categoryTrends(): Promise<CategoryTrend[]> {
+  const attempts = await db.puzzleAttempts.toArray()
+  const now = Date.now()
+
+  return CATEGORIES.map((category): CategoryTrend => {
+    const mine = attempts.filter((a) => {
+      const themes = a.themes.split(' ').filter(Boolean)
+      return categoryOf(themes).id === category.id
+    })
+
+    if (mine.length === 0) {
+      return {
+        category,
+        recent: 0,
+        recentAccuracy: null,
+        prior: 0,
+        priorAccuracy: null,
+        delta: null,
+        state: 'untested',
+        daysSince: null,
+      }
+    }
+
+    const newest = Math.max(...mine.map((a) => Date.parse(a.at)))
+    const daysSince = Math.floor((now - newest) / DAY)
+
+    const recentRows = mine.filter((a) => now - Date.parse(a.at) <= RECENT_DAYS * DAY)
+    const priorRows = mine.filter((a) => {
+      const age = now - Date.parse(a.at)
+      return age > RECENT_DAYS * DAY && age <= PRIOR_DAYS * DAY
+    })
+
+    const acc = (rows: typeof mine) =>
+      rows.length === 0 ? null : (rows.filter((r) => r.correct).length / rows.length) * 100
+
+    const recentAccuracy = acc(recentRows)
+    const priorAccuracy = acc(priorRows)
+
+    let state: TrendState
+    let delta: number | null = null
+
+    if (recentRows.length === 0) {
+      // Nothing lately. Stale is a finding in its own right.
+      state = daysSince >= STALE_DAYS ? 'slipping' : 'holding'
+    } else if (
+      recentRows.length < MIN_SAMPLE ||
+      priorRows.length < MIN_SAMPLE ||
+      recentAccuracy === null ||
+      priorAccuracy === null
+    ) {
+      state = 'new'
+    } else {
+      delta = Math.round(recentAccuracy - priorAccuracy)
+      state = delta >= MOVE_PP ? 'gaining' : delta <= -MOVE_PP ? 'slipping' : 'holding'
+    }
+
+    return {
+      category,
+      recent: recentRows.length,
+      recentAccuracy: recentAccuracy === null ? null : Math.round(recentAccuracy),
+      prior: priorRows.length,
+      priorAccuracy: priorAccuracy === null ? null : Math.round(priorAccuracy),
+      delta,
+      state,
+      daysSince,
+    }
+  })
+}
+
+/**
+ * The one-line verdict: what is improving, and what is being neglected to pay
+ * for it. Returns null when there is not enough history to say anything
+ * honest.
+ */
+export function balanceVerdict(trends: CategoryTrend[]): string | null {
+  const gaining = trends.filter((t) => t.state === 'gaining')
+  const slipping = trends.filter((t) => t.state === 'slipping')
+  const untested = trends.filter((t) => t.state === 'untested')
+
+  if (gaining.length === 0 && slipping.length === 0 && untested.length < 3) return null
+
+  const parts: string[] = []
+  if (gaining.length > 0) {
+    parts.push(`Climbing in ${gaining.map((t) => t.category.name.toLowerCase()).join(' and ')}`)
+  }
+  if (slipping.length > 0) {
+    const names = slipping.map((t) => t.category.name.toLowerCase()).join(' and ')
+    parts.push(
+      parts.length > 0
+        ? `but ${names} ${slipping.length === 1 ? 'has' : 'have'} gone backwards`
+        : `Slipping in ${names}`,
+    )
+  }
+  if (untested.length >= 3 && parts.length === 0) {
+    return `${untested.length} categories untouched so far. Breadth first — a gap you have never tested is a gap you cannot see.`
+  }
+  if (untested.length > 0) {
+    parts.push(`${untested.length} still untouched`)
+  }
+  return parts.join(', ') + '.'
 }

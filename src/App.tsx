@@ -30,7 +30,9 @@ import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
 import { analyseGame, acpl, performanceRating } from './coach/analysis'
 import { updateRatingFromGame } from './coach/profile'
-import { db } from './data/db'
+import { db, getProfile } from './data/db'
+import { pickPuzzles, type Puzzle } from './data/puzzles'
+import { loadPrefs } from './data/settings'
 import { applyTheme, loadTheme, resolveTheme, saveTheme, type ThemeChoice } from './theme/theme'
 
 type Tab = 'daily' | 'play' | 'puzzles' | 'endgames' | 'history' | 'learn' | 'settings'
@@ -87,6 +89,34 @@ export default function App() {
   const [session, setSession] = useState<DailySession | null>(null)
   const [result, setResult] = useState<string | null>(null)
   const [endgame, setEndgame] = useState<EndgamePosition | null>(null)
+  /**
+   * A puzzle set built on demand from Learn, rather than from today's session.
+   * Kept separate so training a category never overwrites the daily session —
+   * you can drill forks for ten minutes and still have Today waiting.
+   */
+  const [drill, setDrill] = useState<{ puzzles: Puzzle[]; label: string } | null>(null)
+
+  const trainCategory = useCallback(async (motifs: string[], label: string) => {
+    const profile = await getProfile()
+    const seen = new Set((await db.puzzleAttempts.toArray()).map((r) => r.puzzleId))
+    const puzzles = await pickPuzzles({
+      rating: profile.rating,
+      themes: motifs,
+      count: loadPrefs().puzzlesPerDay,
+      exclude: seen,
+    })
+    if (puzzles.length === 0) {
+      setResult(`No ${label.toLowerCase()} puzzles left at your level — try another category.`)
+      return
+    }
+    setDrill({ puzzles, label })
+    setTab('puzzles')
+  }, [])
+
+  const playEndgame = useCallback((p: EndgamePosition) => {
+    setEndgame(p)
+    setTab('endgames')
+  }, [])
 
   const startFromDaily = useCallback((elo: number, style: Style, colour: 'white' | 'black') => {
     setSeed({ elo, style, colour })
@@ -102,7 +132,12 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          Chess<span>Coach</span>
+          <span className="mark" aria-hidden="true">
+            ♞
+          </span>
+          <span className="word">
+            Chess <b>Coach</b>
+          </span>
         </div>
         {/*
           The board picker used to live here. With 18 materials it wrapped onto
@@ -120,7 +155,18 @@ export default function App() {
       )}
 
       {tab === 'puzzles' &&
-        (session && session.puzzles.length > 0 ? (
+        (drill ? (
+          <PuzzleRunner
+            key={`drill-${drill.label}-${drill.puzzles[0]!.id}`}
+            puzzles={drill.puzzles}
+            tierId={null}
+            onDone={({ solved, total, points }) => {
+              setResult(`${drill.label}: ${solved} of ${total} — ${points} points.`)
+              setDrill(null)
+              setTab('learn')
+            }}
+          />
+        ) : session && session.puzzles.length > 0 ? (
           <PuzzleRunner
             // Remount on a new session so internal progress resets cleanly.
             key={session.date + session.puzzles[0]!.id}
@@ -135,7 +181,9 @@ export default function App() {
         ) : (
           <div className="card">
             <strong>No puzzle set loaded.</strong>{' '}
-            <span className="muted">Open Today and start a session.</span>
+            <span className="muted">
+              Open Today and start a session, or pick a category from Learn.
+            </span>
           </div>
         ))}
 
@@ -160,7 +208,9 @@ export default function App() {
       {/* key forces a fresh read of the database each time the tab is opened */}
       {tab === 'history' && <History key={`h-${result ?? ''}-${tab}`} />}
 
-      {tab === 'learn' && <Learn key={`l-${tab}`} />}
+      {tab === 'learn' && (
+        <Learn key={`l-${tab}`} onTrainCategory={trainCategory} onPlayEndgame={playEndgame} />
+      )}
 
       {tab === 'settings' && (
         <Settings
@@ -181,39 +231,33 @@ export default function App() {
       )}
 
       <nav className="tabs">
-        <button aria-current={tab === 'daily' ? 'page' : undefined} onClick={() => setTab('daily')}>
-          Today
-        </button>
-        <button aria-current={tab === 'play' ? 'page' : undefined} onClick={() => setTab('play')}>
-          Play
-        </button>
-        <button aria-current={tab === 'learn' ? 'page' : undefined} onClick={() => setTab('learn')}>
-          Learn
-        </button>
-        <button
-          aria-current={tab === 'endgames' ? 'page' : undefined}
-          onClick={() => {
-            setEndgame(null)
-            setTab('endgames')
-          }}
-        >
-          Endings
-        </button>
-        <button
-          // Remount on every visit so it re-reads the database rather than
-          // showing a snapshot from whenever the tab was first opened.
-          aria-current={tab === 'history' ? 'page' : undefined}
-          onClick={() => setTab('history')}
-        >
-          History
-        </button>
-        <button
-          aria-current={tab === 'settings' ? 'page' : undefined}
-          onClick={() => setTab('settings')}
-          aria-label="Settings"
-        >
-          ⚙
-        </button>
+        {(
+          [
+            ['daily', '◎', 'Today'],
+            ['play', '♟', 'Play'],
+            ['learn', '❖', 'Learn'],
+            ['endgames', '♔', 'Endings'],
+            ['history', '◔', 'History'],
+            ['settings', '⚙', 'Settings'],
+          ] as [Tab, string, string][]
+        ).map(([id, icon, label]) => (
+          <button
+            key={id}
+            // Remounting on every visit is what makes History and Learn
+            // re-read the database rather than showing a snapshot from
+            // whenever the tab was first opened.
+            aria-current={tab === id ? 'page' : undefined}
+            onClick={() => {
+              if (id === 'endgames') setEndgame(null)
+              setTab(id)
+            }}
+          >
+            <span className="ico" aria-hidden="true">
+              {icon}
+            </span>
+            {label}
+          </button>
+        ))}
       </nav>
     </div>
   )

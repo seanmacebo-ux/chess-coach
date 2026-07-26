@@ -12,7 +12,16 @@
 
 import { useEffect, useState } from 'react'
 import { db, getProfile, type GameRow, type PuzzleAttemptRow } from '../../data/db'
-import { computeWeaknesses, detectPatterns, type Pattern, type Weakness } from '../../coach/profile'
+import {
+  balanceVerdict,
+  categoryTrends,
+  computeWeaknesses,
+  detectPatterns,
+  type CategoryTrend,
+  type Pattern,
+  type TrendState,
+  type Weakness,
+} from '../../coach/profile'
 
 interface Snapshot {
   rating: number
@@ -21,7 +30,27 @@ interface Snapshot {
   attempts: PuzzleAttemptRow[]
   weaknesses: Weakness[]
   patterns: Pattern[]
+  trends: CategoryTrend[]
+  verdict: string | null
   mistakeCount: number
+}
+
+/* Pill colour reuses the game-result palette: green reads as good, red as bad,
+   neutral as neither, which is already learned from the games list. */
+const TREND_PILL: Record<TrendState, string> = {
+  gaining: 'win',
+  slipping: 'loss',
+  holding: 'draw',
+  untested: 'draw',
+  new: 'draw',
+}
+
+const TREND_WORD: Record<TrendState, string> = {
+  gaining: 'up',
+  slipping: 'down',
+  holding: 'steady',
+  untested: 'untried',
+  new: 'new',
 }
 
 function when(iso: string): string {
@@ -41,14 +70,16 @@ export function History() {
     let cancelled = false
     void (async () => {
       try {
-        const [profile, games, attempts, weaknesses, patterns, mistakeCount] = await Promise.all([
-          getProfile(),
-          db.games.orderBy('playedAt').reverse().limit(20).toArray(),
-          db.puzzleAttempts.orderBy('at').reverse().limit(60).toArray(),
-          computeWeaknesses(6),
-          detectPatterns(),
-          db.mistakes.count(),
-        ])
+        const [profile, games, attempts, weaknesses, patterns, trends, mistakeCount] =
+          await Promise.all([
+            getProfile(),
+            db.games.orderBy('playedAt').reverse().limit(20).toArray(),
+            db.puzzleAttempts.orderBy('at').reverse().limit(60).toArray(),
+            computeWeaknesses(6),
+            detectPatterns(),
+            categoryTrends(),
+            db.mistakes.count(),
+          ])
         if (cancelled) return
         setSnap({
           rating: profile.rating,
@@ -57,6 +88,8 @@ export function History() {
           attempts,
           weaknesses,
           patterns,
+          trends,
+          verdict: balanceVerdict(trends),
           mistakeCount,
         })
       } catch (err) {
@@ -137,6 +170,46 @@ export function History() {
             Play a game or solve some puzzles and everything shows up here — every move, every
             mistake, and what it cost you.
           </span>
+        </div>
+      )}
+
+      {/* ------------------------------------------ gaining vs slipping */}
+      {/* Shown as soon as there is a verdict, not only once a category has
+          data. On day one every category is untested and the verdict is
+          "breadth first" — which is exactly the advice worth reading, and
+          gating on data would hide it precisely when it applies. */}
+      {(snap.verdict !== null || snap.trends.some((t) => t.state !== 'untested')) && (
+        <div className="card stack">
+          <span className="small muted">Where you're gaining, and what's slipping</span>
+          {snap.verdict && <div className="small">{snap.verdict}</div>}
+          {snap.trends.map((t) => (
+            <div key={t.category.id} className="row spread hist-row">
+              <span style={{ flex: 1 }}>
+                <strong>{t.category.name}</strong>
+                <div className="small muted">
+                  {t.state === 'untested'
+                    ? 'never tried'
+                    : t.recent === 0
+                      ? `nothing for ${t.daysSince} days`
+                      : `${t.recentAccuracy}% of ${t.recent} recently` +
+                        (t.priorAccuracy !== null ? `, was ${t.priorAccuracy}%` : '')}
+                </div>
+              </span>
+              <span className={'pill ' + TREND_PILL[t.state]}>
+                {t.state === 'gaining' && t.delta !== null
+                  ? `+${t.delta}`
+                  : t.state === 'slipping' && t.delta !== null
+                    ? `${t.delta}`
+                    : TREND_WORD[t.state]}
+              </span>
+            </div>
+          ))}
+          <div className="small muted">
+            Two windows: the last fortnight against the month before it. A category you have not
+            touched in three weeks counts as slipping even without a wrong answer — that is how
+            skills actually decay. Anything marked "new" does not have enough attempts to call
+            yet.
+          </div>
         </div>
       )}
 

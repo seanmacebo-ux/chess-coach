@@ -156,13 +156,44 @@ body {
   padding: calc(10px + env(safe-area-inset-top)) 2px 10px;
 }
 
+/*
+ * The brand, with a mark.
+ *
+ * The mark is a knight glyph in a rounded accent tile. Drawn as text rather
+ * than an SVG asset because the piece characters are in every system font, so
+ * it costs nothing, scales perfectly, and cannot fail to load.
+ */
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  font-size: 17px;
+  letter-spacing: -0.02em;
+  font-size: 19px;
 }
 
-.brand span {
+.brand .mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(160deg, var(--accent-hi), var(--accent));
+  color: var(--accent-ink);
+  font-size: 19px;
+  line-height: 1;
+  /* The glyph sits high in its em box; nudge it back onto the optical centre. */
+  padding-bottom: 2px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
+  flex: none;
+}
+
+.brand span.word {
+  color: var(--text);
+}
+
+.brand span.word b {
+  font-weight: 700;
   color: var(--accent);
 }
 
@@ -247,11 +278,42 @@ body {
 
 /* ---------------------------------------------------------------- cards */
 
+/*
+ * Cards carry a one-step elevation rather than a flat fill.
+ *
+ * Every screen in this app is a vertical stack of cards, and when they are all
+ * the same flat colour the eye has nothing to grip — it reads as a form, not a
+ * product. A very slight top-lit gradient plus a hairline highlight on the top
+ * edge is enough to make each card read as a surface sitting ON something,
+ * which is most of the difference between "chess.com" and "spreadsheet".
+ *
+ * Kept subtle deliberately: this sits behind a board you stare at for fifteen
+ * minutes, and heavy chrome competes with the position.
+ */
 .card {
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 14px;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 4%) inset,
+    0 1px 2px rgb(0 0 0 / 12%);
+}
+
+/* Light mode wants a brighter inset highlight and a softer drop, or the card
+   edge disappears against a white page. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .card {
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 80%) inset,
+      0 1px 3px rgb(0 0 0 / 7%);
+  }
+}
+
+:root[data-theme='light'] .card {
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 80%) inset,
+    0 1px 3px rgb(0 0 0 / 7%);
 }
 
 .stack {
@@ -756,17 +818,48 @@ input[type='email'] {
   border-top: 1px solid var(--border);
 }
 
+/*
+ * Icon over label. Six destinations will not fit as text on a 360px phone —
+ * they either truncate or shrink below a readable size. A glyph plus an
+ * 11px label keeps every target above 44px and stays legible, and the icon
+ * alone is enough to navigate by once the positions are learned.
+ */
 .tabs button {
   flex: 1;
-  font-size: 13px;
-  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 6px 2px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
 }
 
+.tabs button .ico {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.tabs button:hover:not(:disabled) {
+  background: var(--surface-hi);
+}
+
+/* The current tab is marked by colour and weight rather than a filled pill.
+   A solid block at the bottom of every screen competes with the primary
+   action above it, which is the button that actually matters. */
 .tabs button[aria-current='page'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 650;
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+}
+
+.tabs button[aria-current='page'] .ico {
+  transform: translateY(-1px);
 }
 
 /* Detected patterns — a finding, its evidence, and what to do. */
@@ -869,6 +962,50 @@ input[type='email'] {
   height: 100%;
   object-fit: contain;
   pointer-events: none;
+}
+
+/* Square the last move came from or went to. Same warm yellow as the real
+   board so a diagram and a live game read identically. */
+.tp-sq.lit {
+  background: var(--sq-lastmove);
+}
+
+/* ------------------------------------------------------- line board */
+
+/* The move list. Laid out as running text rather than a table so a 13-ply
+   line wraps naturally on a phone instead of forcing a horizontal scroll. */
+.moves {
+  margin-top: 8px;
+  line-height: 2;
+  font-variant-numeric: tabular-nums;
+}
+
+.movenum {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 13px;
+  margin-right: 3px;
+}
+
+.moves .move {
+  min-height: 0;
+  padding: 2px 6px;
+  margin-right: 4px;
+  font-size: 13px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.moves .move.played {
+  color: var(--text);
+}
+
+.moves .move.current {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 
 /* Material headings inside the board picker. */
