@@ -315,6 +315,118 @@ export async function analyseGame(
   return out
 }
 
+/* ------------------------------------------------------------------ */
+/* Puzzle feedback                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Map a puzzle's Lichess motifs onto a mistake tag.
+ *
+ * Failing a fork puzzle and hanging a piece to a fork in a real game are the
+ * same hole in your vision, so they should land in the same bucket. Without
+ * this, puzzle failures were recorded but never reached the weakness profile —
+ * they showed as a red dot and changed nothing about tomorrow.
+ */
+export function tagForThemes(themes: string[]): MistakeTag | null {
+  const has = (t: string) => themes.includes(t)
+  if (has('fork')) return 'missed-fork'
+  if (has('hangingPiece')) return 'missed-free-material'
+  if (themes.some((t) => t.startsWith('mateIn')) || has('backRankMate') || has('smotheredMate')) {
+    return 'missed-mate'
+  }
+  if (has('defensiveMove') || has('exposedKing')) return 'king-safety'
+  if (themes.some((t) => t.endsWith('Endgame'))) return 'endgame-technique'
+  if (has('quietMove') || has('zugzwang')) return 'passive'
+  if (
+    has('pin') ||
+    has('skewer') ||
+    has('discoveredAttack') ||
+    has('deflection') ||
+    has('attraction') ||
+    has('capturingDefender') ||
+    has('interference') ||
+    has('xRayAttack')
+  ) {
+    return 'missed-tactic'
+  }
+  return 'missed-tactic'
+}
+
+/**
+ * Why the move you just played fails — in words, from the board alone.
+ *
+ * Deliberately engine-free. This runs the instant you drop a piece, and a
+ * 200ms search would make the board feel laggy exactly when you're mid-thought.
+ * chess.js can already see the things that matter at 1200-1600: what you left
+ * hanging, what they take, whether you walked into a fork or a check.
+ *
+ * Returns null when nothing concrete can be said, rather than inventing a
+ * reason — a vague explanation is worse than none because it teaches a
+ * pattern that isn't there.
+ */
+export function explainWrongMove(fenBefore: string, playedUci: string): string | null {
+  const before = new Chess(fenBefore)
+  const mover = before.turn()
+  const after = new Chess(fenBefore)
+
+  const to = playedUci.slice(2, 4) as Square
+  try {
+    after.move({
+      from: playedUci.slice(0, 2),
+      to,
+      promotion: playedUci[4],
+    })
+  } catch {
+    return null
+  }
+
+  const name = (sq: Square) => {
+    const p = after.get(sq) ?? before.get(sq)
+    if (!p) return 'that piece'
+    const words: Record<string, string> = {
+      p: 'pawn',
+      n: 'knight',
+      b: 'bishop',
+      r: 'rook',
+      q: 'queen',
+      k: 'king',
+    }
+    return `${words[p.type] ?? 'piece'} on ${sq}`
+  }
+
+  // Did the piece you just moved land somewhere it simply gets taken?
+  const enemy = mover === 'w' ? 'b' : 'w'
+  if (after.isAttacked(to, enemy) && !after.isAttacked(to, mover)) {
+    return `Your ${name(to)} is attacked there and nothing defends it.`
+  }
+
+  // Did the move expose something else?
+  const looseBefore = new Set(loosePieces(before, mover).map((p) => p.square))
+  const newlyLoose = loosePieces(after, mover).filter(
+    (p) => !looseBefore.has(p.square) && p.value >= 300,
+  )
+  const worst = newlyLoose.sort((a, b) => b.value - a.value)[0]
+  if (worst) {
+    return `That leaves your ${name(worst.square)} hanging.`
+  }
+
+  // Does it hand them a fork?
+  for (const m of after.moves({ verbose: true })) {
+    const probe = new Chess(after.fen())
+    try {
+      probe.move({ from: m.from, to: m.to, promotion: m.promotion })
+    } catch {
+      continue
+    }
+    if (isFork(probe, m.to as Square)) {
+      return `They reply ${m.san} and fork you.`
+    }
+  }
+
+  if (after.isCheck()) return null // giving check isn't itself the error
+  return null
+}
+
 /** Average centipawn loss across assessed moves — your accuracy number. */
 export function acpl(assessments: MoveAssessment[]): number {
   if (assessments.length === 0) return 0

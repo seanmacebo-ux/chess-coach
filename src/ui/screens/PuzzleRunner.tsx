@@ -23,6 +23,7 @@ import { toDests } from '../../chess/game'
 import type { Puzzle } from '../../data/puzzles'
 import { db } from '../../data/db'
 import { recordTierAttempt } from '../../coach/profile'
+import { explainWrongMove, tagForThemes } from '../../coach/analysis'
 
 type Phase = 'solving' | 'wrong' | 'solved' | 'shown'
 
@@ -45,6 +46,8 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
   const [solvedCount, setSolvedCount] = useState(0)
   /** The move in algebraic, once revealed. */
   const [answerSan, setAnswerSan] = useState<string | null>(null)
+  /** Why the last wrong move fails, in words. */
+  const [whyWrong, setWhyWrong] = useState<string | null>(null)
   // Failing once sticks, even if the next attempt is right.
   const failedRef = useRef(false)
   const startedAt = useRef(Date.now())
@@ -73,6 +76,7 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
       setPhase(correct ? 'solved' : 'shown')
       if (correct) setSolvedCount((c) => c + 1)
 
+      const at = new Date().toISOString()
       await db.puzzleAttempts.add({
         puzzleId: puzzle.id,
         themes: puzzle.themes.join(' '),
@@ -80,8 +84,32 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
         correct,
         ms: Date.now() - startedAt.current,
         tierId,
-        at: new Date().toISOString(),
+        at,
       })
+
+      // A failed puzzle is a real hole in your vision, so it goes in the same
+      // log as a blunder from a real game. Without this the weakness profile
+      // only ever learned from games and puzzle failures changed nothing.
+      if (!correct) {
+        const tag = tagForThemes(puzzle.themes)
+        await db.mistakes.add({
+          gameId: 0, // 0 = came from a puzzle, not a game
+          source: 'puzzle',
+          ply: 0,
+          fen: puzzle.fen,
+          san: '',
+          bestSan: null,
+          // Weight by puzzle difficulty: missing a 1600 tactic says more than
+          // missing an 800 one. Scaled into the same centipawn units the
+          // profile ranks games by.
+          lossCp: Math.round(80 + puzzle.rating / 12),
+          severity: 'mistake',
+          tag,
+          phase: puzzle.themes.some((t) => t.endsWith('Endgame')) ? 'endgame' : 'middlegame',
+          at,
+        })
+      }
+
       if (tierId) await recordTierAttempt(tierId, correct)
     },
     [puzzle, tierId],
@@ -121,6 +149,7 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
       if (!expected) return
 
       const played = `${from}${to}`
+      const fenBefore = chess.current.fen()
       // Compare the first four chars — auto-queening makes the promotion
       // suffix differ from the stored line even on a correct move.
       const isRight = expected.slice(0, 4) === played
@@ -135,16 +164,21 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
 
       if (!isRight) {
         failedRef.current = true
+        // Say WHY it fails, not just that it does. Computed from the position
+        // before the move, board-only, so it appears instantly.
+        setWhyWrong(explainWrongMove(fenBefore, played))
         setPhase('wrong')
-        // Show the mistake on the board before taking it back.
+        // Show the mistake on the board before taking it back — you need to
+        // see what you played, not just be told it was wrong.
         window.setTimeout(() => {
           chess.current.undo()
           setFen(chess.current.fen())
           setLastMove(undefined)
           setPhase('solving')
-        }, 700)
+        }, 1100)
         return
       }
+      setWhyWrong(null)
 
       const next = step + 1
       setStep(next)
@@ -231,7 +265,12 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
             <span className="muted">Find the best move.</span>
           </div>
         )}
-        {phase === 'wrong' && <div>Not that one. Look again.</div>}
+        {phase === 'wrong' && (
+          <div>
+            <strong>Not that one.</strong>{' '}
+            <span className="muted">{whyWrong ?? 'Look again.'}</span>
+          </div>
+        )}
         {phase === 'solved' && (
           <div>
             <strong>Correct.</strong> <span className="muted">{describeThemes(puzzle.themes)}</span>

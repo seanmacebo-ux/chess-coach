@@ -28,7 +28,10 @@ export interface GameRow {
 
 export interface MistakeRow {
   id?: number
+  /** 0 when the mistake came from a puzzle rather than a game. */
   gameId: number
+  /** Where it came from. Absent on rows written before this field existed. */
+  source?: 'game' | 'puzzle'
   ply: number
   fen: string
   san: string
