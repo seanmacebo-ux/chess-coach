@@ -76,6 +76,167 @@ export async function computeWeaknesses(limit = 8): Promise<Weakness[]> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Patterns                                                            */
+/* ------------------------------------------------------------------ */
+
+export interface Pattern {
+  /** Short headline — the finding itself. */
+  title: string
+  /** The evidence, so it can be argued with rather than taken on faith. */
+  detail: string
+  /** What to actually do about it. */
+  action: string
+  /** How much to trust it. Low = interesting, not yet proven. */
+  confidence: 'low' | 'solid'
+}
+
+/**
+ * Look across the whole history for habits, not incidents.
+ *
+ * The weakness list already says WHAT you get wrong. This asks the harder
+ * questions: when does it happen, with which colour, in which phase, and is it
+ * getting better or worse. Those are the things you can actually change your
+ * routine around.
+ *
+ * Everything here states its own sample size and marks itself `low` confidence
+ * below a threshold. A pattern claimed from four games is a coincidence with
+ * good PR, and the app pointing you at a fake habit is worse than saying
+ * nothing.
+ */
+export async function detectPatterns(): Promise<Pattern[]> {
+  const [games, mistakes] = await Promise.all([db.games.toArray(), db.mistakes.toArray()])
+  const out: Pattern[] = []
+  if (mistakes.length === 0 && games.length === 0) return out
+
+  const fromGames = mistakes.filter((m) => (m.source ?? 'game') === 'game')
+
+  /* --- which phase costs you most ------------------------------------ */
+  const byPhase = new Map<string, { n: number; cp: number }>()
+  for (const m of fromGames) {
+    const e = byPhase.get(m.phase) ?? { n: 0, cp: 0 }
+    e.n++
+    e.cp += m.lossCp
+    byPhase.set(m.phase, e)
+  }
+  if (byPhase.size >= 2) {
+    const ranked = [...byPhase.entries()].sort((a, b) => b[1].cp - a[1].cp)
+    const [worst, worstV] = ranked[0]!
+    const total = ranked.reduce((s, [, v]) => s + v.cp, 0)
+    const share = Math.round((worstV.cp / total) * 100)
+    if (share >= 45) {
+      out.push({
+        title: `Your ${worst} is where games are lost`,
+        detail: `${share}% of everything you've dropped came in the ${worst}, across ${worstV.n} mistakes.`,
+        action:
+          worst === 'opening'
+            ? 'Slow down before move 12 — most of this is development order, not theory.'
+            : worst === 'endgame'
+              ? 'Endgame technique is trainable and permanent. Work the endgame ladder.'
+              : 'This is where plans matter. Ask what they want before deciding what you want.',
+        confidence: worstV.n >= 12 ? 'solid' : 'low',
+      })
+    }
+  }
+
+  /* --- white or black ------------------------------------------------ */
+  const asWhite = games.filter((g) => g.humanColour === 'w')
+  const asBlack = games.filter((g) => g.humanColour === 'b')
+  if (asWhite.length >= 3 && asBlack.length >= 3) {
+    const rate = (gs: typeof games) =>
+      gs.filter((g) => g.result === 'win').length / Math.max(1, gs.length)
+    const w = rate(asWhite)
+    const b = rate(asBlack)
+    if (Math.abs(w - b) >= 0.25) {
+      const weaker = w < b ? 'white' : 'black'
+      const strong = w < b ? 'black' : 'white'
+      out.push({
+        title: `You're markedly worse with ${weaker}`,
+        detail: `${Math.round(Math.min(w, b) * 100)}% wins as ${weaker} against ${Math.round(
+          Math.max(w, b) * 100,
+        )}% as ${strong}, over ${asWhite.length + asBlack.length} games.`,
+        action: `Play ${weaker} deliberately for a week. The gap is almost always familiarity, not talent.`,
+        confidence: asWhite.length + asBlack.length >= 16 ? 'solid' : 'low',
+      })
+    }
+  }
+
+  /* --- when in the game ---------------------------------------------- */
+  if (fromGames.length >= 10) {
+    const early = fromGames.filter((m) => m.ply < 20)
+    const mid = fromGames.filter((m) => m.ply >= 20 && m.ply < 50)
+    const late = fromGames.filter((m) => m.ply >= 50)
+    const buckets: [string, typeof early][] = [
+      ['the first 10 moves', early],
+      ['moves 10-25', mid],
+      ['after move 25', late],
+    ]
+    const ranked = buckets.sort((a, b) => b[1].length - a[1].length)
+    const [label, rows] = ranked[0]!
+    const share = Math.round((rows.length / fromGames.length) * 100)
+    if (share >= 50) {
+      out.push({
+        title: `Most of your mistakes land in ${label}`,
+        detail: `${rows.length} of ${fromGames.length} logged mistakes, ${share}% of the total.`,
+        action:
+          label === 'after move 25'
+            ? 'That is tiredness or technique, not talent. Shorter sessions, and drill conversion.'
+            : 'Set a rule: no move in this stretch without naming their threat first.',
+        confidence: fromGames.length >= 25 ? 'solid' : 'low',
+      })
+    }
+  }
+
+  /* --- one expensive habit ------------------------------------------- */
+  const byTag = new Map<string, number>()
+  for (const m of mistakes) {
+    if (!m.tag) continue
+    byTag.set(m.tag, (byTag.get(m.tag) ?? 0) + m.lossCp)
+  }
+  if (byTag.size >= 2) {
+    const ranked = [...byTag.entries()].sort((a, b) => b[1] - a[1])
+    const [tag, cp] = ranked[0]!
+    const total = ranked.reduce((s, [, v]) => s + v, 0)
+    const share = Math.round((cp / total) * 100)
+    if (share >= 35) {
+      out.push({
+        title: `One habit is costing you more than everything else`,
+        detail: `"${TAG_LABEL[tag as MistakeTag] ?? tag}" accounts for ${share}% of everything you've lost — about ${Math.round(
+          cp / 100,
+        )} pawns.`,
+        action: 'Fixing this single thing would be worth more than all your other work combined.',
+        confidence: 'solid',
+      })
+    }
+  }
+
+  /* --- are you improving --------------------------------------------- */
+  const analysed = games.filter((g) => g.acpl !== null).sort((a, b) => a.playedAt.localeCompare(b.playedAt))
+  if (analysed.length >= 8) {
+    const half = Math.floor(analysed.length / 2)
+    const mean = (gs: typeof analysed) =>
+      gs.reduce((s, g) => s + (g.acpl ?? 0), 0) / Math.max(1, gs.length)
+    const older = mean(analysed.slice(0, half))
+    const newer = mean(analysed.slice(half))
+    const delta = Math.round(older - newer)
+    if (Math.abs(delta) >= 8) {
+      out.push({
+        title: delta > 0 ? 'You are getting more accurate' : 'Your accuracy has slipped',
+        detail: `${Math.round(older)} centipawns lost per move over your first ${half} games, ${Math.round(
+          newer,
+        )} over the last ${analysed.length - half}.`,
+        action:
+          delta > 0
+            ? 'Whatever you changed is working. Keep the routine.'
+            : 'Usually means playing faster or longer sessions. Shorter and slower beats more.',
+        confidence: analysed.length >= 20 ? 'solid' : 'low',
+      })
+    }
+  }
+
+  return out
+}
+
+/* ------------------------------------------------------------------ */
 /* Rating                                                              */
 /* ------------------------------------------------------------------ */
 

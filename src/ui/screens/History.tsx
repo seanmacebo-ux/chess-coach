@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from 'react'
 import { db, getProfile, type GameRow, type PuzzleAttemptRow } from '../../data/db'
-import { computeWeaknesses, type Weakness } from '../../coach/profile'
+import { computeWeaknesses, detectPatterns, type Pattern, type Weakness } from '../../coach/profile'
 
 interface Snapshot {
   rating: number
@@ -20,6 +20,7 @@ interface Snapshot {
   games: GameRow[]
   attempts: PuzzleAttemptRow[]
   weaknesses: Weakness[]
+  patterns: Pattern[]
   mistakeCount: number
 }
 
@@ -40,11 +41,12 @@ export function History() {
     let cancelled = false
     void (async () => {
       try {
-        const [profile, games, attempts, weaknesses, mistakeCount] = await Promise.all([
+        const [profile, games, attempts, weaknesses, patterns, mistakeCount] = await Promise.all([
           getProfile(),
           db.games.orderBy('playedAt').reverse().limit(20).toArray(),
           db.puzzleAttempts.orderBy('at').reverse().limit(60).toArray(),
           computeWeaknesses(6),
+          detectPatterns(),
           db.mistakes.count(),
         ])
         if (cancelled) return
@@ -54,6 +56,7 @@ export function History() {
           games,
           attempts,
           weaknesses,
+          patterns,
           mistakeCount,
         })
       } catch (err) {
@@ -134,6 +137,29 @@ export function History() {
             Play a game or solve some puzzles and everything shows up here — every move, every
             mistake, and what it cost you.
           </span>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------ patterns */}
+      {snap.patterns.length > 0 && (
+        <div className="card stack">
+          <span className="small muted">What I'm seeing across your games</span>
+          {snap.patterns.map((p) => (
+            <div key={p.title} className="pattern">
+              <div className="row spread">
+                <strong>{p.title}</strong>
+                {p.confidence === 'low' && <span className="pill draw">early</span>}
+              </div>
+              <div className="small muted">{p.detail}</div>
+              <div className="small" style={{ marginTop: 4 }}>
+                {p.action}
+              </div>
+            </div>
+          ))}
+          <div className="small muted">
+            Anything marked "early" is based on a small sample — treat it as a hint, not a
+            diagnosis. It firms up as you play.
+          </div>
         </div>
       )}
 
