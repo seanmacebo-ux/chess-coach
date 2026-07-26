@@ -8,6 +8,17 @@
 
 @import 'chessground/assets/chessground.base.css';
 
+/*
+ * Colour is defined once as semantic tokens, then re-pointed per theme.
+ * Nothing below this block references a raw hex — so adding a theme means
+ * adding a token set, not hunting through components.
+ *
+ * Resolution order, weakest to strongest:
+ *   1. dark tokens (the default — this is a chess app, mostly used at night)
+ *   2. prefers-color-scheme: light, for people whose system says so
+ *   3. [data-theme] on <html>, which an explicit user choice sets and which
+ *      must beat the system preference in BOTH directions
+ */
 :root {
   --bg: #262421;
   --surface: #312e2b;
@@ -26,6 +37,9 @@
   --good: #5c8bb0;
   --brilliant: #26c2a3;
 
+  --shadow-board: 0 8px 28px rgb(0 0 0 / 45%);
+  --hover: #45413c;
+
   --radius: 10px;
   --radius-lg: 14px;
 
@@ -34,6 +48,65 @@
   --sq-lastmove: rgba(247, 236, 116, 0.55);
   --sq-selected: rgba(247, 236, 116, 0.75);
 
+  color-scheme: dark;
+}
+
+/*
+ * Light theme. Not an inversion — inverted dark palettes look washed out and
+ * the greens go acid. The accent darkens so it still passes contrast against
+ * a light surface, and the warm brown-grey character is kept rather than
+ * flipping to clinical white.
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #f4f2ef;
+    --surface: #ffffff;
+    --surface-hi: #eceae6;
+    --border: #dcd8d2;
+    --text: #23211f;
+    --text-muted: #6b665f;
+
+    --accent: #5d8c34;
+    --accent-hi: #4f7a2b;
+    --accent-ink: #ffffff;
+
+    --danger: #b02622;
+    --warn: #b26a12;
+    --good: #3d6a8c;
+    --brilliant: #0f8f78;
+
+    --shadow-board: 0 6px 20px rgb(0 0 0 / 14%);
+    --hover: #e2dfd9;
+
+    color-scheme: light;
+  }
+}
+
+/* Explicit choice wins over the system in both directions. */
+:root[data-theme='light'] {
+  --bg: #f4f2ef;
+  --surface: #ffffff;
+  --surface-hi: #eceae6;
+  --border: #dcd8d2;
+  --text: #23211f;
+  --text-muted: #6b665f;
+
+  --accent: #5d8c34;
+  --accent-hi: #4f7a2b;
+  --accent-ink: #ffffff;
+
+  --danger: #b02622;
+  --warn: #b26a12;
+  --good: #3d6a8c;
+  --brilliant: #0f8f78;
+
+  --shadow-board: 0 6px 20px rgb(0 0 0 / 14%);
+  --hover: #e2dfd9;
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
   color-scheme: dark;
 }
 
@@ -98,7 +171,7 @@ body {
   aspect-ratio: 1;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 8px 28px rgb(0 0 0 / 45%);
+  box-shadow: var(--shadow-board);
 }
 
 /*
@@ -233,7 +306,7 @@ input:focus-visible,
 }
 
 button:hover:not(:disabled) {
-  background: #45413c;
+  background: var(--hover);
 }
 
 button:disabled {
