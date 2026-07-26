@@ -33,6 +33,101 @@ export interface Lesson {
 }
 
 export const LESSONS: Lesson[] = [
+  /* --------------------------------------------------------- absolute
+   * Written for someone who knows how the pieces move and nothing else.
+   * No jargon, no assumed vocabulary — every term used is defined in the
+   * card itself. These exist because the rest of the set quietly assumes
+   * you already know what "development" or "an outpost" means.
+   */
+  {
+    id: 'what-pieces-are-worth',
+    title: 'What the pieces are worth',
+    pillar: 'tactics',
+    band: [600, 1000],
+    hook: 'Pawn 1, knight and bishop 3, rook 5, queen 9.',
+    body: 'These numbers are not rules, they are a rough exchange rate. They tell you that giving up a rook to win a bishop is a bad deal even though both feel like "a piece". Most games at the start are decided by nothing more than who came out ahead on this count. Before any trade, add up what you give and what you get.',
+    source: 'The standard relative-value scale, in every beginner text since Staunton.',
+    practice: 'For one game, say the numbers out loud before every capture.',
+    themes: ['piece-safety', 'hangingPiece'],
+  },
+  {
+    id: 'count-the-defenders',
+    title: 'Count before you take',
+    pillar: 'tactics',
+    band: [600, 1100],
+    hook: 'Two of yours attacking one of theirs is good. One against two is not.',
+    body: 'Before capturing anything, count how many of your pieces attack that square and how many of theirs defend it. If they have more defenders than you have attackers, taking loses material — you win one piece and then lose two. This single count prevents more early-game disasters than any tactic you will ever learn.',
+    source: 'Basic exchange counting; the foundation under all tactical calculation.',
+    practice: 'Every capture this game: count attackers, count defenders, then decide.',
+    themes: ['piece-safety', 'capturingDefender'],
+  },
+  {
+    id: 'castle-early',
+    title: 'Castle early',
+    pillar: 'opening',
+    band: [600, 1100],
+    hook: 'It does two jobs in one move and beginners keep skipping it.',
+    body: 'Castling tucks your king behind a wall of pawns in the corner and brings a rook toward the middle where it does something. A king left in the centre gets attacked down open lines, and the attack usually arrives before you have finished getting ready. If you are unsure what to do in the first ten moves and you have not castled yet, castle.',
+    source: 'Classical opening principle — king safety before ambition.',
+    practice: 'Castle inside the first ten moves, every game, for a week.',
+    themes: ['opening-principles', 'development'],
+  },
+  {
+    id: 'one-move-each',
+    title: 'Move each piece once first',
+    pillar: 'opening',
+    band: [600, 1100],
+    hook: 'Three pieces out beats one piece out three times.',
+    body: 'At the start, every move should bring a new piece into the game. Moving the same knight four times means you have one active piece and they have four. Chess at the beginning is a race to get everybody working, and the player who wins that race usually gets the attack for free.',
+    source: 'Classical development principle.',
+    practice: 'Count your developed pieces versus theirs at move ten.',
+    themes: ['development', 'opening-principles'],
+  },
+  {
+    id: 'what-checkmate-needs',
+    title: 'What checkmate actually requires',
+    pillar: 'tactics',
+    band: [600, 1000],
+    hook: 'The king must not be able to move, block, or capture.',
+    body: 'Check means the king is attacked. Checkmate means it is attacked and there is no way out — it cannot step away, nothing can block the attack, and nothing can capture the attacker. When you think you have mate, test all three. When you are in check, look for all three. Most missed mates and most missed escapes come from checking only one.',
+    source: 'The definition itself; stated this way it becomes a checklist.',
+    practice: 'On every check, name all three escapes before you move.',
+    themes: ['mateIn1', 'mateIn2', 'backRankMate'],
+  },
+  {
+    id: 'stalemate-trap',
+    title: 'Stalemate steals wins',
+    pillar: 'endgame',
+    band: [600, 1100],
+    hook: 'If they cannot move and are NOT in check, it is a draw. You just lost half a point.',
+    body: 'When you are winning easily it is tempting to take everything and shepherd the king around. But if the opponent ends up with no legal move and no check on them, the game is drawn no matter how far ahead you are. Beginners throw away won games this way constantly. When ahead, always leave them a legal move, and give check when you deliver mate.',
+    source: 'The stalemate rule; the most common way a winning beginner ends up with a draw.',
+    practice: 'Practise king and queen against a lone king until you never stalemate.',
+    themes: ['mate-kq', 'mate-kr'],
+  },
+  {
+    id: 'the-box-mate',
+    title: 'Mating with the queen: the box',
+    pillar: 'endgame',
+    band: [600, 1000],
+    hook: 'Shrink the box. Bring the king. Do not rush.',
+    body: 'With a queen against a lone king, use the queen to draw a box the enemy king cannot leave, and make the box smaller a step at a time. Do not try to mate with the queen alone — walk your own king up to help. The mate comes when the enemy king is on the edge with your king facing it. Slowly is faster here, because rushing produces stalemate.',
+    source: 'Standard basic-mate technique, the first endgame in every rating-banded course.',
+    practice: 'Mate from ten random starting positions without a single stalemate.',
+    themes: ['mate-kq'],
+  },
+  {
+    id: 'centre-pawns',
+    title: 'Why the middle matters',
+    pillar: 'opening',
+    band: [600, 1100],
+    hook: 'A knight in the centre reaches eight squares. In the corner, two.',
+    body: 'Pieces control more squares from the middle of the board than from the edge, and controlling squares is how you restrict what the other player is allowed to do. That is the whole reason the opening is a fight over four central squares. Put a pawn there, aim your pieces at it, and keep your knights off the rim.',
+    source: 'Classical centre control; the reason behind the first-move conventions.',
+    practice: 'Count how many squares each of your knights attacks. Move the worst one.',
+    themes: ['centre', 'development', 'opening-principles'],
+  },
+
   /* ---------------------------------------------------------- safety */
   {
     id: 'loose-pieces',

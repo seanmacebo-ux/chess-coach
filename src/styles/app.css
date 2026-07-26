@@ -498,6 +498,33 @@ input[type='range'] {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface-hi));
 }
 
+/* --------------------------------------------------------------- puzzles */
+
+/*
+ * Verdict strip. Reserves its height in every state so the board doesn't
+ * jump when the message changes from prompt to result — layout shift under
+ * your thumb mid-solve is the fastest way to make a trainer feel cheap.
+ */
+.verdict {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  border-left: 3px solid var(--border);
+  transition: border-color 0.15s ease;
+}
+
+.verdict.wrong {
+  border-left-color: var(--danger);
+}
+
+.verdict.solved {
+  border-left-color: var(--accent);
+}
+
+.verdict.shown {
+  border-left-color: var(--warn);
+}
+
 /* ------------------------------------------------------------------ tabs */
 
 /*

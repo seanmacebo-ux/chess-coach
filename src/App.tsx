@@ -16,6 +16,9 @@ import type { Key } from 'chessground/types'
 
 import { Board } from './ui/Board'
 import { Daily } from './ui/screens/Daily'
+import { PuzzleRunner } from './ui/screens/PuzzleRunner'
+import { markSessionComplete } from './coach/profile'
+import type { DailySession } from './coach/session'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
 import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
@@ -32,7 +35,7 @@ import {
   type ThemeChoice,
 } from './theme/theme'
 
-type Tab = 'daily' | 'play'
+type Tab = 'daily' | 'play' | 'puzzles'
 type EngineState = 'boot' | 'ready' | 'thinking' | 'error'
 type ReviewState = { phase: 'idle' } | { phase: 'running'; done: number; total: number } | {
   phase: 'done'
@@ -51,15 +54,23 @@ export default function App() {
     saveTheme(theme)
   }, [theme])
 
-  const [seed, setSeed] = useState({ elo: 1400, style: 'human' as Style, colour: 'white' as const })
+  const [seed, setSeed] = useState<{ elo: number; style: Style; colour: 'white' | 'black' }>({
+    elo: 1400,
+    style: 'human',
+    colour: 'white',
+  })
+  const [session, setSession] = useState<DailySession | null>(null)
+  const [result, setResult] = useState<string | null>(null)
 
-  const startFromDaily = useCallback(
-    (elo: number, style: Style, colour: 'white' | 'black') => {
-      setSeed({ elo, style, colour: colour as 'white' })
-      setTab('play')
-    },
-    [],
-  )
+  const startFromDaily = useCallback((elo: number, style: Style, colour: 'white' | 'black') => {
+    setSeed({ elo, style, colour })
+    setTab('play')
+  }, [])
+
+  const startPuzzles = useCallback((s: DailySession) => {
+    setSession(s)
+    setTab('puzzles')
+  }, [])
 
   return (
     <div className="app">
@@ -82,10 +93,39 @@ export default function App() {
         </div>
       </header>
 
-      {tab === 'daily' ? (
-        <Daily onStartGame={startFromDaily} onStartPuzzles={() => setTab('play')} />
-      ) : (
+      {tab === 'daily' && <Daily onStartGame={startFromDaily} onStartPuzzles={startPuzzles} />}
+
+      {tab === 'play' && (
         <Play initialElo={seed.elo} initialStyle={seed.style} initialColour={seed.colour} />
+      )}
+
+      {tab === 'puzzles' &&
+        (session && session.puzzles.length > 0 ? (
+          <PuzzleRunner
+            // Remount on a new session so internal progress resets cleanly.
+            key={session.date + session.puzzles[0]!.id}
+            puzzles={session.puzzles}
+            tierId={session.drill?.id ?? null}
+            onDone={({ solved, total }) => {
+              void markSessionComplete()
+              setResult(`${solved} of ${total} solved.`)
+              setTab('daily')
+            }}
+          />
+        ) : (
+          <div className="card">
+            <strong>No puzzle set loaded.</strong>{' '}
+            <span className="muted">Open Today and start a session.</span>
+          </div>
+        ))}
+
+      {result && (
+        <div className="card row spread" style={{ borderColor: 'var(--accent)' }}>
+          <span>{result}</span>
+          <button className="ghost" onClick={() => setResult(null)}>
+            Dismiss
+          </button>
+        </div>
       )}
 
       <nav className="tabs">
