@@ -100,6 +100,85 @@ export async function loadBand(rating: number): Promise<Puzzle[]> {
   return p
 }
 
+/* ------------------------------------------------------------------ */
+/* Briefing                                                            */
+/* ------------------------------------------------------------------ */
+
+const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 }
+
+export interface Briefing {
+  /** What you're trying to achieve, in plain words. */
+  objective: string
+  /** How many moves YOU play. */
+  yourMoves: number
+  /** How many legal moves exist right now — the size of the haystack. */
+  legalMoves: number
+  /** The named ideas involved. */
+  ideas: string[]
+}
+
+/**
+ * Work out what a puzzle is actually asking for.
+ *
+ * The objective tags (crushing / advantage / equality / mate) were stripped
+ * out when the corpus was built — I classed them as "not real motifs", which
+ * was wrong: they're precisely the answer to "what am I trying to do here".
+ * Rather than re-scan 6M rows, derive it from the solution line, which is
+ * exact anyway: play it out and look at what changed.
+ */
+export function briefing(puzzle: Puzzle): Briefing {
+  const board = new Chess(puzzle.fen)
+  const me = board.turn()
+  const legalMoves = board.moves().length
+
+  const materialFor = (b: Chess, colour: 'w' | 'b') => {
+    let total = 0
+    for (const row of b.board()) {
+      for (const cell of row) {
+        if (cell && cell.color === colour) total += VALUE[cell.type] ?? 0
+      }
+    }
+    return total
+  }
+
+  const before = materialFor(board, me) - materialFor(board, me === 'w' ? 'b' : 'w')
+
+  for (const m of puzzle.line) {
+    try {
+      board.move({ from: m.slice(0, 2), to: m.slice(2, 4), promotion: m[4] })
+    } catch {
+      break
+    }
+  }
+
+  const after = materialFor(board, me) - materialFor(board, me === 'w' ? 'b' : 'w')
+  const swing = after - before
+  const yourMoves = puzzle.solution.length
+
+  let objective: string
+  if (board.isCheckmate()) {
+    objective = yourMoves === 1 ? 'Checkmate in one move' : `Checkmate in ${yourMoves} moves`
+  } else if (swing >= 8) {
+    objective = 'Win the queen'
+  } else if (swing >= 5) {
+    objective = 'Win a rook'
+  } else if (swing >= 3) {
+    objective = 'Win a piece'
+  } else if (swing >= 1) {
+    objective = swing >= 2 ? `Win ${swing} pawns` : 'Win a pawn'
+  } else if (swing <= -1) {
+    // You end up down material and it's still the best line — that's a
+    // sacrifice, or a defensive save.
+    objective = board.isStalemate() ? 'Save yourself — force stalemate' : 'Hold the position'
+  } else {
+    objective = 'Find the strongest move'
+  }
+
+  const ideas = puzzle.themes.filter((t) => !t.startsWith('mateIn'))
+
+  return { objective, yourMoves, legalMoves, ideas }
+}
+
 export interface PickOptions {
   rating: number
   /** Prefer puzzles carrying any of these motifs. */

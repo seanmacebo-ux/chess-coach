@@ -20,7 +20,7 @@ import type { Key } from 'chessground/types'
 
 import { Board } from '../Board'
 import { toDests } from '../../chess/game'
-import type { Puzzle } from '../../data/puzzles'
+import { briefing, type Puzzle } from '../../data/puzzles'
 import { db } from '../../data/db'
 import { recordTierAttempt } from '../../coach/profile'
 import { explainWrongMove, tagForThemes } from '../../coach/analysis'
@@ -237,6 +237,7 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
   }
 
   const done = phase === 'solved' || phase === 'shown'
+  const brief = briefing(puzzle)
 
   return (
     <div className="stack">
@@ -261,8 +262,12 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
       <div className={'card verdict ' + phase}>
         {phase === 'solving' && (
           <div>
-            <strong>{puzzle.colour === 'white' ? 'White' : 'Black'} to play.</strong>{' '}
-            <span className="muted">Find the best move.</span>
+            <strong>{brief.objective}.</strong>{' '}
+            <span className="muted">
+              {puzzle.colour === 'white' ? 'White' : 'Black'} to play —{' '}
+              {brief.yourMoves === 1 ? 'one move' : `${brief.yourMoves} of your moves`}, and{' '}
+              {brief.legalMoves} legal moves to choose from.
+            </span>
           </div>
         )}
         {phase === 'wrong' && (
