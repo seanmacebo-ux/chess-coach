@@ -18,6 +18,9 @@ import { Board } from './ui/Board'
 import { Daily } from './ui/screens/Daily'
 import { PuzzleRunner } from './ui/screens/PuzzleRunner'
 import { History } from './ui/screens/History'
+import { Learn } from './ui/screens/Learn'
+import { Settings, type ColourMode } from './ui/screens/Settings'
+import { syncInBackground } from './data/sync'
 import { markSessionComplete } from './coach/profile'
 import type { DailySession } from './coach/session'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
@@ -36,7 +39,14 @@ import {
   type ThemeChoice,
 } from './theme/theme'
 
-type Tab = 'daily' | 'play' | 'puzzles' | 'history'
+type Tab = 'daily' | 'play' | 'puzzles' | 'history' | 'learn' | 'settings'
+
+const COLOUR_KEY = 'cc.colour'
+
+function loadColourMode(): ColourMode {
+  const v = localStorage.getItem(COLOUR_KEY)
+  return v === 'light' || v === 'dark' ? v : 'system'
+}
 type EngineState = 'boot' | 'ready' | 'thinking' | 'error'
 type ReviewState = { phase: 'idle' } | { phase: 'running'; done: number; total: number } | {
   phase: 'done'
@@ -49,11 +59,31 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('daily')
   const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme())
 
+  const [colourMode, setColourMode] = useState<ColourMode>(() => loadColourMode())
+
   useEffect(() => {
     const { board, pieces } = resolveTheme(theme)
     applyTheme(board, pieces)
     saveTheme(theme)
   }, [theme])
+
+  useEffect(() => {
+    // 'system' removes the attribute entirely so the prefers-color-scheme
+    // media query takes over; anything else is an explicit override.
+    const root = document.documentElement
+    if (colourMode === 'system') root.removeAttribute('data-theme')
+    else root.setAttribute('data-theme', colourMode)
+    localStorage.setItem(COLOUR_KEY, colourMode)
+  }, [colourMode])
+
+  // Sync when the app regains focus — covers "played on my phone, opened the
+  // work machine" without polling.
+  useEffect(() => {
+    const onFocus = () => syncInBackground()
+    window.addEventListener('focus', onFocus)
+    syncInBackground()
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const [seed, setSeed] = useState<{ elo: number; style: Style; colour: 'white' | 'black' }>({
     elo: 1400,
@@ -123,6 +153,17 @@ export default function App() {
       {/* key forces a fresh read of the database each time the tab is opened */}
       {tab === 'history' && <History key={`h-${result ?? ''}-${tab}`} />}
 
+      {tab === 'learn' && <Learn key={`l-${tab}`} />}
+
+      {tab === 'settings' && (
+        <Settings
+          theme={theme}
+          onTheme={setTheme}
+          colourMode={colourMode}
+          onColourMode={setColourMode}
+        />
+      )}
+
       {result && (
         <div className="card row spread" style={{ borderColor: 'var(--accent)' }}>
           <span>{result}</span>
@@ -139,6 +180,9 @@ export default function App() {
         <button aria-current={tab === 'play' ? 'page' : undefined} onClick={() => setTab('play')}>
           Play
         </button>
+        <button aria-current={tab === 'learn' ? 'page' : undefined} onClick={() => setTab('learn')}>
+          Learn
+        </button>
         <button
           // Remount on every visit so it re-reads the database rather than
           // showing a snapshot from whenever the tab was first opened.
@@ -146,6 +190,13 @@ export default function App() {
           onClick={() => setTab('history')}
         >
           History
+        </button>
+        <button
+          aria-current={tab === 'settings' ? 'page' : undefined}
+          onClick={() => setTab('settings')}
+          aria-label="Settings"
+        >
+          ⚙
         </button>
       </nav>
     </div>
