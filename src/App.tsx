@@ -62,8 +62,8 @@ export default function App() {
   const [colourMode, setColourMode] = useState<ColourMode>(() => loadColourMode())
 
   useEffect(() => {
-    const { board, pieces } = resolveTheme(theme)
-    applyTheme(board, pieces)
+    const { board, pieces, background } = resolveTheme(theme)
+    applyTheme(board, pieces, background)
     saveTheme(theme)
   }, [theme])
 

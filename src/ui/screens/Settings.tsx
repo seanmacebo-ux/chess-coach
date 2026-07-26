@@ -9,7 +9,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { currentAuth, sendMagicLink, signOut, type AuthState } from '../../data/supabase'
 import { syncNow, type SyncResult } from '../../data/sync'
-import { BOARD_THEMES, PIECE_SETS, boardBackground, type ThemeChoice } from '../../theme/theme'
+import {
+  BACKGROUNDS,
+  BOARD_THEMES,
+  PIECE_SETS,
+  boardBackground,
+  type ThemeChoice,
+} from '../../theme/theme'
 
 export type ColourMode = 'system' | 'light' | 'dark'
 
@@ -174,8 +180,61 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
           </div>
         </div>
 
-        <div className="small muted">
-          Pieces: {PIECE_SETS.find((p) => p.id === theme.pieces)?.credit ?? 'cburnett'}
+        <div>
+          <div className="small" style={{ marginBottom: 6 }}>
+            Pieces
+          </div>
+          <div className="chips">
+            {PIECE_SETS.map((p) => (
+              <button
+                key={p.id}
+                className="pieceswatch"
+                aria-pressed={theme.pieces === p.id}
+                aria-label={`${p.name} pieces`}
+                title={p.credit}
+                onClick={() => onTheme({ ...theme, pieces: p.id })}
+              >
+                <img
+                  src={`${import.meta.env.BASE_URL}piece/${p.dir}/wN.svg`}
+                  alt=""
+                  aria-hidden="true"
+                />
+              </button>
+            ))}
+          </div>
+          <div className="small muted" style={{ marginTop: 6 }}>
+            {PIECE_SETS.find((p) => p.id === theme.pieces)?.credit}
+          </div>
+        </div>
+
+        <div>
+          <div className="small" style={{ marginBottom: 6 }}>
+            Background
+          </div>
+          {(['Neutral', 'Colour', 'Nature', 'Chess'] as const).map((g) => (
+            <div key={g} style={{ marginBottom: 8 }}>
+              <div className="small muted" style={{ marginBottom: 4 }}>
+                {g}
+              </div>
+              <div className="chips">
+                {BACKGROUNDS.filter((b) => b.group === g).map((b) => (
+                  <button
+                    key={b.id}
+                    className="bgswatch"
+                    aria-pressed={theme.background === b.id}
+                    aria-label={`${b.name} background`}
+                    title={b.name}
+                    style={{ background: b.css }}
+                    onClick={() => onTheme({ ...theme, background: b.id })}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="small muted">
+            All drawn in CSS rather than downloaded — nothing to fetch, and every one works in
+            both light and dark.
+          </div>
         </div>
       </div>
     </div>

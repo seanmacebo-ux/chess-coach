@@ -122,7 +122,10 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg);
+  /* --page-bg is set at runtime by the chosen background; falls back to the
+     flat theme colour before the first paint so there's no flash. */
+  background: var(--page-bg, var(--bg));
+  background-attachment: fixed;
   color: var(--text);
   font-family:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -763,4 +766,43 @@ input[type='email'] {
 .pattern {
   border-left: 3px solid var(--good);
   padding: 8px 0 8px 10px;
+}
+
+/* Piece-set picker: shows the actual knight from each set, at tap size. */
+.pieceswatch {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: var(--surface-hi);
+  display: grid;
+  place-items: center;
+}
+
+.pieceswatch img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.pieceswatch[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+/* Background picker: wider than tall so a gradient is actually readable. */
+.bgswatch {
+  width: 58px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background-size: cover;
+}
+
+.bgswatch[aria-pressed='true'] {
+  border-color: var(--accent);
 }
