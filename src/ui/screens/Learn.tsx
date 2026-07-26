@@ -39,6 +39,8 @@ export interface LearnProps {
   onStartScan: () => void
   /** Start an engine-backed "what are they threatening" set. */
   onStartThreat: () => void
+  /** Start a Kotov candidate-move set. */
+  onStartCandidates: () => void
 }
 
 export function Learn({
@@ -46,6 +48,7 @@ export function Learn({
   onPlayEndgame,
   onStartScan,
   onStartThreat,
+  onStartCandidates,
 }: LearnProps) {
   const [rating, setRating] = useState(1400)
   const [statuses, setStatuses] = useState<TierStatus[]>([])
@@ -99,6 +102,7 @@ export function Learn({
           onPlayEndgame={onPlayEndgame}
           onStartScan={onStartScan}
           onStartThreat={onStartThreat}
+          onStartCandidates={onStartCandidates}
         />
       ))}
 
@@ -119,6 +123,7 @@ function PillarCard({
   onPlayEndgame,
   onStartScan,
   onStartThreat,
+  onStartCandidates,
 }: {
   pillar: { id: Pillar; name: string; blurb: string }
   rating: number
@@ -129,6 +134,7 @@ function PillarCard({
   onPlayEndgame: (p: EndgamePosition) => void
   onStartScan: () => void
   onStartThreat: () => void
+  onStartCandidates: () => void
 }) {
   const tiers = tiersFor(pillar.id)
   const atLevel = tiers.filter((t) => byId.get(t.id)?.inBand).length
@@ -154,7 +160,13 @@ function PillarCard({
 
       {isOpen && (
         <div className="stack">
-          {pillar.id === 'tactics' && <TacticsModule rating={rating} onTrain={onTrainCategory} />}
+          {pillar.id === 'tactics' && (
+            <TacticsModule
+              rating={rating}
+              onTrain={onTrainCategory}
+              onStartCandidates={onStartCandidates}
+            />
+          )}
           {pillar.id === 'endgame' && <EndgameModule rating={rating} onPlay={onPlayEndgame} />}
           {pillar.id === 'opening' && <OpeningModule rating={rating} />}
           {(pillar.id === 'positional' || pillar.id === 'strategy') && (
@@ -225,14 +237,36 @@ function TierRow({
 function TacticsModule({
   rating,
   onTrain,
+  onStartCandidates,
 }: {
   rating: number
   onTrain: (motifs: string[], label: string) => void
+  onStartCandidates: () => void
 }) {
   const [openCat, setOpenCat] = useState<string | null>(null)
 
   return (
     <div className="stack">
+      {/* Not a category — a different question entirely, so it sits above
+          them rather than among them. */}
+      <div className="card" style={{ background: 'var(--surface-hi)' }}>
+        <div className="row spread">
+          <span style={{ flex: 1 }}>
+            <strong>Candidate moves</strong>
+            <div className="small muted">
+              Which moves would you even look at? Pick before you calculate.
+            </div>
+          </span>
+          <button className="chip" onClick={onStartCandidates}>
+            Train
+          </button>
+        </div>
+        <div className="small muted" style={{ marginTop: 6 }}>
+          The other drills ask for the best move. This one asks what was on your list — because
+          you cannot find a move you never considered, and calculating one idea deeply while
+          missing the other two is the most common way games are lost at club level.
+        </div>
+      </div>
       <div className="small muted">
         Eight categories, every one of them playable right now at your rating. Tap Train and you
         get a set built from that category alone — three tries each, points off for a miss and

@@ -23,6 +23,11 @@ import { PlayoutRunner } from './ui/screens/PlayoutRunner'
 import { ENDGAMES, type EndgamePosition } from './coach/endgames'
 import { ScanRunner, buildScanQuestions, type ScanQuestion } from './ui/screens/ScanRunner'
 import { ThreatRunner, buildThreatQuestions, type ThreatQuestion } from './ui/screens/ThreatRunner'
+import {
+  CandidateRunner,
+  buildCandidateQuestions,
+  type CandidateQuestion,
+} from './ui/screens/CandidateRunner'
 import { Settings, type ColourMode } from './ui/screens/Settings'
 import { syncInBackground } from './data/sync'
 import { markSessionComplete } from './coach/profile'
@@ -44,6 +49,7 @@ type Tab =
   | 'puzzles'
   | 'scan'
   | 'threat'
+  | 'candidates'
   | 'endgames'
   | 'history'
   | 'learn'
@@ -109,6 +115,7 @@ export default function App() {
   const [drill, setDrill] = useState<{ puzzles: Puzzle[]; label: string } | null>(null)
   const [scan, setScan] = useState<ScanQuestion[] | null>(null)
   const [threat, setThreat] = useState<ThreatQuestion[] | null>(null)
+  const [candidates, setCandidates] = useState<CandidateQuestion[] | null>(null)
   /** Engine-backed drills take seconds to build, so the wait is shown. */
   const [building, setBuilding] = useState<{ done: number; total: number } | null>(null)
 
@@ -169,6 +176,23 @@ export default function App() {
       return
     }
     setThreat(questions)
+  }, [])
+
+  const startCandidates = useCallback(async () => {
+    const profile = await getProfile()
+    const pool = await pickPuzzles({ rating: profile.rating, count: 40 })
+    setBuilding({ done: 0, total: 1 })
+    setTab('candidates')
+    const questions = await buildCandidateQuestions(pool, 5, (done, total) =>
+      setBuilding({ done, total }),
+    )
+    setBuilding(null)
+    if (questions.length === 0) {
+      setResult('Could not build a candidate set. Try again.')
+      setTab('learn')
+      return
+    }
+    setCandidates(questions)
   }, [])
 
   const startFromDaily = useCallback((elo: number, style: Style, colour: 'white' | 'black') => {
@@ -258,6 +282,37 @@ export default function App() {
           </div>
         ))}
 
+      {tab === 'candidates' &&
+        (building ? (
+          <div className="card stack">
+            <div className="status">
+              <span className="dot thinking" />
+              <span className="small muted">
+                ranking the options… {building.done}/{building.total}
+              </span>
+            </div>
+            <div className="small muted">
+              Each position is searched three-deep so the drill knows which moves genuinely
+              deserved a look, rather than just which one wins.
+            </div>
+          </div>
+        ) : candidates ? (
+          <CandidateRunner
+            key={`cand-${candidates[0]?.id ?? 'none'}`}
+            questions={candidates}
+            onDone={({ found, possible }) => {
+              setResult(`Candidates: you saw ${found} of ${possible}.`)
+              setCandidates(null)
+              setTab('learn')
+            }}
+          />
+        ) : (
+          <div className="card">
+            <strong>No candidate set loaded.</strong>{' '}
+            <span className="muted">Start one from the Tactics module in Learn.</span>
+          </div>
+        ))}
+
       {tab === 'threat' &&
         (building ? (
           <div className="card stack">
@@ -317,6 +372,7 @@ export default function App() {
           onPlayEndgame={playEndgame}
           onStartScan={startScan}
           onStartThreat={startThreat}
+          onStartCandidates={startCandidates}
         />
       )}
 

@@ -31,6 +31,7 @@ Last updated 2026-07-26.
 | **`loosePieces`** | 4 asserted cases incl. defended-vs-undefended |
 | **Spot the loose piece drill** | Browser: "Scan 1 of 5", picked a8, "Right. a8 was the only one hanging" |
 | **Read the threat drill** | Browser: built 5 in under a second, picked a1, "Yes. They play Qxa1+" |
+| **Candidate moves drill** | Browser: picked 3, scored 0 of 3, engine's three shown with evals |
 | Offline / installable | Service worker precaches; asset routes all 200 |
 | Elo sandbox | Caught 3 bugs in itself, then 3 real ones in the app |
 | Maia exported + shrunk | fp16 46.7MB, 8/8 positions identical to PyTorch |
@@ -55,6 +56,10 @@ the whole time. The same ep bug was latent in the endgame verifier.
 every category was untested the whole thing vanished — including the "breadth
 first" verdict, which is exactly the advice that applies then.
 
+**A forced mate displayed as "+996.0".** `lineScore` maps mates onto ±100,000
+so they sort correctly, which is right for ranking and nonsense to show a
+human. Caught in the browser on the candidate-move drill.
+
 **One constant made a layer untestable.** `uci.ts` read `import.meta.env` at
 module scope, so importing `exercises.ts` outside the browser threw. Pure board
 logic downstream of it could not be checked in Node at all. Now lazy.
@@ -74,16 +79,13 @@ encoder to TypeScript, wire `onnxruntime-web`, cache in IndexedDB, drop behind
 the existing `Opponent` interface.
 *Check: same FEN in browser and Python gives the same move.*
 
-**3. Candidate moves** (Kotov). Name 2-4 options *before* any evaluation, score
-on overlap with the engine's top N — trains looking wider, not deeper.
-
-**4. Rate my moves in a game.** Per-move grading shown live rather than only in
+**3. Rate my moves in a game.** Per-move grading shown live rather than only in
 the post-game summary.
 
-**5. chess.com game import.** Public API needs no key. Only pays off once there
+**4. chess.com game import.** Public API needs no key. Only pays off once there
 are rated games on the account.
 
-**6. More positional drills.** Both concept pillars now have one real drill
+**5. More positional drills.** Both concept pillars now have one real drill
 each — loose pieces under Position, threat-reading under Strategy. The
 remaining tiers (open files, weak squares, space, prophylaxis) are still
 questions-to-ask, which is honest but not interactive. They would need a
