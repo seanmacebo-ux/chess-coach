@@ -2,6 +2,9 @@ node_modules/
 dist/
 scripts/raw/
 public/sf/
-calibration/
 .DS_Store
 *.log
+
+# calibration/ IS committed on purpose — the reports are the evidence behind
+# every claim about how strong the bots actually are. Sean should be able to
+# open them without running anything.

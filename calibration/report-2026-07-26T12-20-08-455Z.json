@@ -1,0 +1,79 @@
+{
+  "generatedAt": "2026-07-26T12:20:08.455Z",
+  "finishedAt": "2026-07-26T12:25:53.660Z",
+  "config": {
+    "games": 2,
+    "refDepth": 16,
+    "maxPlies": 60,
+    "quick": true
+  },
+  "bands": [
+    {
+      "band": 1200,
+      "targetAcpl": 95,
+      "measuredAcpl": 947.6,
+      "blunderRate": 0.089,
+      "moves": 112
+    },
+    {
+      "band": 1400,
+      "targetAcpl": 75,
+      "measuredAcpl": 1030.8,
+      "blunderRate": 0.03,
+      "moves": 101
+    },
+    {
+      "band": 1600,
+      "targetAcpl": 60,
+      "measuredAcpl": 39.5,
+      "blunderRate": 0.008,
+      "moves": 120
+    }
+  ],
+  "pairings": [
+    {
+      "higher": 1400,
+      "lower": 1200,
+      "score": 0.5,
+      "impliedElo": 0,
+      "games": 2
+    },
+    {
+      "higher": 1600,
+      "lower": 1400,
+      "score": 1,
+      "impliedElo": 798,
+      "games": 2
+    }
+  ],
+  "styleParity": {
+    "band": 1400,
+    "rows": [
+      {
+        "style": "aggressive",
+        "score": 0.5,
+        "acpl": 31.2,
+        "games": 2
+      },
+      {
+        "style": "solid",
+        "score": 0.5,
+        "acpl": 67.9,
+        "games": 2
+      },
+      {
+        "style": "positional",
+        "score": 0.5,
+        "acpl": 31.5,
+        "games": 2
+      },
+      {
+        "style": "tactical",
+        "score": 1,
+        "acpl": 28,
+        "games": 2
+      }
+    ]
+  },
+  "note": "Report only. PROFILES in src/engine/policy.ts is not modified by this script."
+}

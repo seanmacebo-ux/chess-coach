@@ -1,0 +1,149 @@
+{
+  "generatedAt": "2026-07-26T13:08:24.157Z",
+  "finishedAt": "2026-07-26T13:39:20.491Z",
+  "config": {
+    "games": 4,
+    "refDepth": 16,
+    "maxPlies": 160,
+    "quick": false
+  },
+  "bands": [
+    {
+      "band": 800,
+      "targetAcpl": 150,
+      "measuredAcpl": 70.4,
+      "blunderRate": 0.093,
+      "moves": 290
+    },
+    {
+      "band": 1000,
+      "targetAcpl": 120,
+      "measuredAcpl": 90.5,
+      "blunderRate": 0.125,
+      "moves": 303
+    },
+    {
+      "band": 1200,
+      "targetAcpl": 95,
+      "measuredAcpl": 59.9,
+      "blunderRate": 0.051,
+      "moves": 294
+    },
+    {
+      "band": 1400,
+      "targetAcpl": 75,
+      "measuredAcpl": 42.8,
+      "blunderRate": 0.041,
+      "moves": 367
+    },
+    {
+      "band": 1600,
+      "targetAcpl": 60,
+      "measuredAcpl": 33.2,
+      "blunderRate": 0.029,
+      "moves": 412
+    },
+    {
+      "band": 1800,
+      "targetAcpl": 48,
+      "measuredAcpl": 31.9,
+      "blunderRate": 0.031,
+      "moves": 352
+    },
+    {
+      "band": 2000,
+      "targetAcpl": 38,
+      "measuredAcpl": 17.6,
+      "blunderRate": 0.002,
+      "moves": 417
+    },
+    {
+      "band": 2200,
+      "targetAcpl": 30,
+      "measuredAcpl": 12.8,
+      "blunderRate": 0.002,
+      "moves": 482
+    }
+  ],
+  "pairings": [
+    {
+      "higher": 1000,
+      "lower": 800,
+      "score": 1,
+      "impliedElo": 798,
+      "games": 4
+    },
+    {
+      "higher": 1200,
+      "lower": 1000,
+      "score": 0.5,
+      "impliedElo": 0,
+      "games": 4
+    },
+    {
+      "higher": 1400,
+      "lower": 1200,
+      "score": 1,
+      "impliedElo": 798,
+      "games": 4
+    },
+    {
+      "higher": 1600,
+      "lower": 1400,
+      "score": 0.75,
+      "impliedElo": 191,
+      "games": 4
+    },
+    {
+      "higher": 1800,
+      "lower": 1600,
+      "score": 0.75,
+      "impliedElo": 191,
+      "games": 4
+    },
+    {
+      "higher": 2000,
+      "lower": 1800,
+      "score": 0.75,
+      "impliedElo": 191,
+      "games": 4
+    },
+    {
+      "higher": 2200,
+      "lower": 2000,
+      "score": 1,
+      "impliedElo": 798,
+      "games": 4
+    }
+  ],
+  "styleParity": {
+    "band": 1400,
+    "rows": [
+      {
+        "style": "aggressive",
+        "score": 0.75,
+        "acpl": 50.9,
+        "games": 4
+      },
+      {
+        "style": "solid",
+        "score": 0.25,
+        "acpl": 50,
+        "games": 4
+      },
+      {
+        "style": "positional",
+        "score": 0.5,
+        "acpl": 46.4,
+        "games": 4
+      },
+      {
+        "style": "tactical",
+        "score": 0.5,
+        "acpl": 46.4,
+        "games": 4
+      }
+    ]
+  },
+  "note": "Report only. PROFILES in src/engine/policy.ts is not modified by this script."
+}
