@@ -238,6 +238,71 @@ export const ENDGAMES: EndgamePosition[] = [
     moveCap: 16,
   },
 
+  /* -------------------------------------- tier 10: opposite bishops */
+  {
+    id: 'opposite-bishops',
+    concepts: ['bishopEndgame', 'opposite-bishops'],
+    // White Kd4, Pd5, Bf1 vs Black Kd6, Bg7. Bishops on opposite colours, so
+    // the white bishop can never contest the square the black king sits on.
+    fen: '8/6b1/3k4/3P4/3K4/8/8/5B2 w - - 0 1',
+    youPlay: 'b',
+    goal: 'draw',
+    name: 'Opposite bishops hold',
+    why: 'A pawn down and completely safe, because the bishops move on colours that never meet. The defending king parks in front of the pawn on a square the enemy bishop can never attack, and there is no second front to open. This is why being a pawn up with opposite bishops is often worth nothing, and why trading into them is a real drawing resource when you are losing.',
+    hint: 'Sit the king directly in front of the pawn. Your bishop only has to watch the promotion square from a distance.',
+    moveCap: 26,
+  },
+
+  /* ----------------------------------------- tier 11: tempo tricks */
+  {
+    id: 'outflanking',
+    concepts: ['outflanking', 'king-activity'],
+    // White Kb3, Pb2 vs Black Kb5. Black to move, so White takes the
+    // opposition and can go around.
+    fen: '8/8/8/1k6/8/1K6/1P6/8 b - - 0 1',
+    youPlay: 'w',
+    goal: 'win',
+    name: 'Outflanking — go around them',
+    why: 'When the enemy king blocks you head-on, you do not push through — you step sideways. Taking the opposition forces them to give way on one side, and then your king walks around the other. It is the same idea as the opposition but used actively rather than defensively, and it is how most king-and-pawn wins are actually finished.',
+    hint: 'Do not push the pawn. Step to the side your opponent cannot cover and take the squares in front.',
+    moveCap: 30,
+  },
+
+  /* ------------------------------------------- tier 14: fortresses */
+  {
+    id: 'fortress-r-vs-b',
+    concepts: ['fortress'],
+    // White Ke1, Rd1 vs Black Ke5, Bd5. A rook does not beat a lone bishop.
+    fen: '8/8/8/3bk3/8/8/8/3RK3 w - - 0 1',
+    youPlay: 'b',
+    goal: 'draw',
+    name: 'Rook against bishop',
+    why: 'Down the exchange and completely safe. A rook cannot force mate against a lone bishop, so the whole task is to avoid the handful of traps — mainly getting your king driven to a corner the bishop cannot cover. Knowing this ending exists is what stops you resigning a drawn position.',
+    hint: 'Keep the king near the centre or a corner your bishop controls, and keep the bishop close to the king.',
+    moveCap: 30,
+  },
+
+  /* --------------------------------- tier 15: two weaknesses / convert */
+  {
+    id: 'two-pawns-convert',
+    concepts: ['two-weaknesses', 'conversion'],
+    // White Kc4, Pa4, Pb4 vs Black Kg7, Pa6.
+    //
+    // The first version of this had the black king on d6, opposing the white
+    // king — and the engine called it dead level. That is the whole lesson,
+    // so it is worth stating rather than hiding: two pawns against one is NOT
+    // automatically winning. The majority only converts when the defending
+    // king is too far away to arrive in time, which is why the king here is on
+    // the other side of the board.
+    fen: '8/6k1/p7/8/PPK5/8/8/8 w - - 0 1',
+    youPlay: 'w',
+    goal: 'win',
+    name: 'Convert the extra pawn',
+    why: 'Two pawns against one, and the enemy king on the wrong side of the board. This is what "winning" usually looks like — not a tactic, just a majority turned into a passed pawn faster than their king can get back. Worth knowing the flip side: with their king in front of the pawns this same material is a draw, so the race matters more than the count.',
+    hint: 'Push the pawn that is not opposed and force a passer. Do not wait — every move you spend is a move their king uses to come back.',
+    moveCap: 34,
+  },
+
   /* ------------------------------------------- tier 12: rook endings II */
   {
     id: 'rook-behind-passer',

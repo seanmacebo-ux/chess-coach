@@ -37,9 +37,16 @@ export interface LearnProps {
   onPlayEndgame: (position: EndgamePosition) => void
   /** Start a loose-piece scan built from real positions. */
   onStartScan: () => void
+  /** Start an engine-backed "what are they threatening" set. */
+  onStartThreat: () => void
 }
 
-export function Learn({ onTrainCategory, onPlayEndgame, onStartScan }: LearnProps) {
+export function Learn({
+  onTrainCategory,
+  onPlayEndgame,
+  onStartScan,
+  onStartThreat,
+}: LearnProps) {
   const [rating, setRating] = useState(1400)
   const [statuses, setStatuses] = useState<TierStatus[]>([])
   const [open, setOpen] = useState<Pillar | null>('tactics')
@@ -91,6 +98,7 @@ export function Learn({ onTrainCategory, onPlayEndgame, onStartScan }: LearnProp
           onTrainCategory={onTrainCategory}
           onPlayEndgame={onPlayEndgame}
           onStartScan={onStartScan}
+          onStartThreat={onStartThreat}
         />
       ))}
 
@@ -110,6 +118,7 @@ function PillarCard({
   onTrainCategory,
   onPlayEndgame,
   onStartScan,
+  onStartThreat,
 }: {
   pillar: { id: Pillar; name: string; blurb: string }
   rating: number
@@ -119,6 +128,7 @@ function PillarCard({
   onTrainCategory: (motifs: string[], label: string) => void
   onPlayEndgame: (p: EndgamePosition) => void
   onStartScan: () => void
+  onStartThreat: () => void
 }) {
   const tiers = tiersFor(pillar.id)
   const atLevel = tiers.filter((t) => byId.get(t.id)?.inBand).length
@@ -148,7 +158,11 @@ function PillarCard({
           {pillar.id === 'endgame' && <EndgameModule rating={rating} onPlay={onPlayEndgame} />}
           {pillar.id === 'opening' && <OpeningModule rating={rating} />}
           {(pillar.id === 'positional' || pillar.id === 'strategy') && (
-            <ConceptModule pillar={pillar.id} onStartScan={onStartScan} />
+            <ConceptModule
+              pillar={pillar.id}
+              onStartScan={onStartScan}
+              onStartThreat={onStartThreat}
+            />
           )}
 
           <div className="small muted" style={{ marginTop: 4 }}>
@@ -471,12 +485,41 @@ const QUESTIONS: Record<string, string> = {
   'strategy-6': 'I am winning. What is the simplest path that cannot go wrong?',
 }
 
-function ConceptModule({ pillar, onStartScan }: { pillar: Pillar; onStartScan: () => void }) {
+function ConceptModule({
+  pillar,
+  onStartScan,
+  onStartThreat,
+}: {
+  pillar: Pillar
+  onStartScan: () => void
+  onStartThreat: () => void
+}) {
   const tiers = tiersFor(pillar)
   return (
     <div className="stack">
       {/* The one concept in these two pillars that IS drillable, because the
           answer can be computed from the board rather than judged. */}
+      {pillar === 'strategy' && (
+        <div className="card" style={{ background: 'var(--surface-hi)' }}>
+          <div className="row spread">
+            <span style={{ flex: 1 }}>
+              <strong>Read the threat</strong>
+              <div className="small muted">
+                If you passed right now, what would they play? Answer before you plan.
+              </div>
+            </span>
+            <button className="chip" onClick={onStartThreat}>
+              Train
+            </button>
+          </div>
+          <div className="small muted" style={{ marginTop: 6 }}>
+            Most players below 1600 only ever calculate their own ideas, which is exactly why
+            tactics feel like surprises. Takes a few seconds to build — every position is searched
+            twice to work out what they actually want.
+          </div>
+        </div>
+      )}
+
       {pillar === 'positional' && (
         <div className="card" style={{ background: 'var(--surface-hi)' }}>
           <div className="row spread">

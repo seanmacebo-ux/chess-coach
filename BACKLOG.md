@@ -21,7 +21,7 @@ Last updated 2026-07-26.
 | **All 59 motifs labelled** | Was 24 of 59 — a third of puzzles ended with an empty sentence |
 | History screen | Browser session: attempts recorded and shown |
 | Post-game analysis + mistake logging | `tsc` clean; wired and committed |
-| **16 endgame positions** | `npm run verify:endgames` — all 16 match at depth 26 |
+| **20 endgame positions** | `npm run verify:endgames` — all 20 match at depth 26 |
 | **Endgame play-out mode** | Browser: Lucena loads, engine defends, goal stated |
 | **18 boards across 8 materials** | Browser: `feTurbulence` confirmed in the computed image; walnut grain visible |
 | **Live theme preview** | Browser: real pieces on the chosen material before you pick |
@@ -30,6 +30,7 @@ Last updated 2026-07-26.
 | **Decay monitor** | Browser: trends section renders, day-one verdict appears |
 | **`loosePieces`** | 4 asserted cases incl. defended-vs-undefended |
 | **Spot the loose piece drill** | Browser: "Scan 1 of 5", picked a8, "Right. a8 was the only one hanging" |
+| **Read the threat drill** | Browser: built 5 in under a second, picked a1, "Yes. They play Qxa1+" |
 | Offline / installable | Service worker precaches; asset routes all 200 |
 | Elo sandbox | Caught 3 bugs in itself, then 3 real ones in the app |
 | Maia exported + shrunk | fp16 46.7MB, 8/8 positions identical to PyTorch |
@@ -76,20 +77,17 @@ the existing `Opponent` interface.
 **3. Candidate moves** (Kotov). Name 2-4 options *before* any evaluation, score
 on overlap with the engine's top N — trains looking wider, not deeper.
 
-**4. Threat-detection drill.** `buildThreatExercise` exists in `exercises.ts`
-and still nothing calls it. Null-move the position, ask what they would play.
-Needs the engine per position, so it is slower than the scan and wants its own
-loading treatment rather than being bolted onto it.
-
-**5. Rate my moves in a game.** Per-move grading shown live rather than only in
+**4. Rate my moves in a game.** Per-move grading shown live rather than only in
 the post-game summary.
 
-**6. chess.com game import.** Public API needs no key. Only pays off once there
+**5. chess.com game import.** Public API needs no key. Only pays off once there
 are rated games on the account.
 
-**7. Positional and strategy playgrounds.** Currently questions-to-ask, which is
-honest but not interactive. Would need a curated position set with graded
-answers — the same treatment the endgames got.
+**6. More positional drills.** Both concept pillars now have one real drill
+each — loose pieces under Position, threat-reading under Strategy. The
+remaining tiers (open files, weak squares, space, prophylaxis) are still
+questions-to-ask, which is honest but not interactive. They would need a
+curated position set with graded answers, the same treatment the endgames got.
 
 ## Known problems
 
@@ -101,6 +99,10 @@ answers — the same treatment the endgames got.
 - **Scoring fields don't sync.** `attempts`, `hintUsed` and `points` are on the
   local row but not in the Supabase schema, so they stay on one device until a
   migration adds them.
-- **Six concept keys still have no position.** `mate-staircase`, `triangulation`,
-  `outflanking`, `two-weaknesses`, `conversion`, `fortress`. The tiers exist;
-  the drills do not.
+- **Two concept keys still have no drill.** `triangulation`, and
+  `insufficient-material` which is a quiz tier and needs a different runner
+  rather than a position.
+- **"Two pawns beats one" is not automatically true.** The first version of
+  `two-pawns-convert` had the defending king opposing and the engine called it
+  dead level. Worth keeping as a note, because it is a real trap: the majority
+  only converts when their king cannot get back in time.

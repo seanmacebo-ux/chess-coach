@@ -22,6 +22,7 @@ import { Learn } from './ui/screens/Learn'
 import { PlayoutRunner } from './ui/screens/PlayoutRunner'
 import { ENDGAMES, type EndgamePosition } from './coach/endgames'
 import { ScanRunner, buildScanQuestions, type ScanQuestion } from './ui/screens/ScanRunner'
+import { ThreatRunner, buildThreatQuestions, type ThreatQuestion } from './ui/screens/ThreatRunner'
 import { Settings, type ColourMode } from './ui/screens/Settings'
 import { syncInBackground } from './data/sync'
 import { markSessionComplete } from './coach/profile'
@@ -42,6 +43,7 @@ type Tab =
   | 'play'
   | 'puzzles'
   | 'scan'
+  | 'threat'
   | 'endgames'
   | 'history'
   | 'learn'
@@ -106,6 +108,9 @@ export default function App() {
    */
   const [drill, setDrill] = useState<{ puzzles: Puzzle[]; label: string } | null>(null)
   const [scan, setScan] = useState<ScanQuestion[] | null>(null)
+  const [threat, setThreat] = useState<ThreatQuestion[] | null>(null)
+  /** Engine-backed drills take seconds to build, so the wait is shown. */
+  const [building, setBuilding] = useState<{ done: number; total: number } | null>(null)
 
   const trainCategory = useCallback(async (motifs: string[], label: string) => {
     const profile = await getProfile()
@@ -147,6 +152,23 @@ export default function App() {
     }
     setScan(questions)
     setTab('scan')
+  }, [])
+
+  const startThreat = useCallback(async () => {
+    const profile = await getProfile()
+    const pool = await pickPuzzles({ rating: profile.rating, count: 160 })
+    setBuilding({ done: 0, total: 1 })
+    setTab('threat')
+    const questions = await buildThreatQuestions(pool, 5, (done, total) =>
+      setBuilding({ done, total }),
+    )
+    setBuilding(null)
+    if (questions.length === 0) {
+      setResult('Could not find a clear threat in those positions. Try again.')
+      setTab('learn')
+      return
+    }
+    setThreat(questions)
   }, [])
 
   const startFromDaily = useCallback((elo: number, style: Style, colour: 'white' | 'black') => {
@@ -236,6 +258,37 @@ export default function App() {
           </div>
         ))}
 
+      {tab === 'threat' &&
+        (building ? (
+          <div className="card stack">
+            <div className="status">
+              <span className="dot thinking" />
+              <span className="small muted">
+                finding real threats… {building.done}/{building.total}
+              </span>
+            </div>
+            <div className="small muted">
+              Each position is searched twice — once as it stands, once giving your opponent a
+              free move. That difference is the threat, and there is no shortcut to it.
+            </div>
+          </div>
+        ) : threat ? (
+          <ThreatRunner
+            key={`threat-${threat[0]?.id ?? 'none'}`}
+            questions={threat}
+            onDone={({ correct, total }) => {
+              setResult(`Threats: ${correct} of ${total} spotted.`)
+              setThreat(null)
+              setTab('learn')
+            }}
+          />
+        ) : (
+          <div className="card">
+            <strong>No threat set loaded.</strong>{' '}
+            <span className="muted">Start one from the Strategy module in Learn.</span>
+          </div>
+        ))}
+
       {tab === 'endgames' &&
         (endgame ? (
           <PlayoutRunner
@@ -263,6 +316,7 @@ export default function App() {
           onTrainCategory={trainCategory}
           onPlayEndgame={playEndgame}
           onStartScan={startScan}
+          onStartThreat={startThreat}
         />
       )}
 
