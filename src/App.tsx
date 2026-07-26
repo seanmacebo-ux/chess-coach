@@ -33,6 +33,7 @@ import { updateRatingFromGame } from './coach/profile'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
 import { loadPrefs } from './data/settings'
+import { loosePieces } from './coach/exercises'
 import { applyTheme, loadTheme, resolveTheme, saveTheme, type ThemeChoice } from './theme/theme'
 
 type Tab = 'daily' | 'play' | 'puzzles' | 'endgames' | 'history' | 'learn' | 'settings'
@@ -325,6 +326,12 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
   const opponent = useMemo<Opponent>(() => createOpponent({ elo, style }), [elo, style])
 
+  // Read once per game rather than per render — flipping the setting
+  // mid-game would change the rules underneath you.
+  const [blunderCheck] = useState(() => loadPrefs().blunderCheck)
+  /** Set while a move is on the board but not yet committed. */
+  const [pending, setPending] = useState<{ loose: string[] } | null>(null)
+
   const humanColour = orientation
   const status = statusOf(chess.current)
   const turn = colourOf(chess.current)
@@ -359,6 +366,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
   useEffect(() => {
     if (!booted) return
+    // A move awaiting confirmation is not a move yet — the engine must not
+    // reply to a position you might still take back.
+    if (pending) return
     if (statusOf(chess.current).over) return
     if (colourOf(chess.current) === humanColour) return
 
@@ -390,7 +400,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
     return () => {
       cancelled = true
     }
-  }, [fen, humanColour, opponent, booted, sync])
+  }, [fen, humanColour, opponent, booted, sync, pending])
 
   /* ---------------------------------------------- save + analyse */
 
@@ -478,22 +488,54 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
   /* ------------------------------------------------------ actions */
 
+  /**
+   * Blunder check (Kotov).
+   *
+   * The habit that actually costs games below 1600 is not failing to find a
+   * clever move — it is playing a reasonable-looking move without asking what
+   * it leaves hanging. So when this is on, your move goes on the board but the
+   * clock does not start: you see the position it produces, get told how many
+   * of your pieces are now attacked and undefended, and choose to commit or
+   * take it back.
+   *
+   * It counts loose pieces rather than running the engine, for two reasons.
+   * It is instant, so the rhythm of the game survives. And "attacked and
+   * undefended" is the actual root cause — forks and pins only work because
+   * something was loose first — so it trains the right check rather than
+   * outsourcing the thinking to Stockfish.
+   */
   const onMove = useCallback(
     (from: Key, to: Key) => {
       try {
         chess.current.move({ from, to, promotion: 'q' })
-        sync()
       } catch {
         setFen(chess.current.fen())
+        return
+      }
+      sync()
+      if (blunderCheck) {
+        const mine = humanColour === 'white' ? 'w' : 'b'
+        setPending({ loose: loosePieces(chess.current.fen(), mine) })
       }
     },
-    [sync],
+    [sync, blunderCheck, humanColour],
   )
+
+  const commitMove = useCallback(() => setPending(null), [])
+
+  const takeBack = useCallback(() => {
+    chess.current.undo()
+    setPending(null)
+    sync()
+  }, [sync])
 
   const newGame = useCallback(
     (side: 'white' | 'black') => {
       chess.current.reset()
       savedRef.current = false
+      // Without this a move left unconfirmed from the previous game would
+      // still be gating the engine effect, and the new game would sit frozen.
+      setPending(null)
       setReview({ phase: 'idle' })
       setOrientation(side)
       setLastMove(undefined)
@@ -505,7 +547,8 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   )
 
   const botThinking = engineState === 'thinking'
-  const playable = status.over || botThinking ? null : humanColour
+  // No further input while a move is waiting to be confirmed or taken back.
+  const playable = status.over || botThinking || pending ? null : humanColour
 
   return (
     <div className="stack">
@@ -540,6 +583,36 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         check={chess.current.isCheck()}
         onMove={onMove}
       />
+
+      {pending && (
+        <div
+          className="card stack"
+          style={{ borderColor: pending.loose.length > 0 ? 'var(--warn)' : 'var(--accent)' }}
+        >
+          <div>
+            <strong>Before it plays — anything hanging?</strong>{' '}
+            <span className="muted">
+              {pending.loose.length === 0
+                ? 'Nothing of yours is attacked and undefended. Looks safe.'
+                : pending.loose.length === 1
+                  ? `Your piece on ${pending.loose[0]} is attacked and nothing defends it.`
+                  : `${pending.loose.length} of your pieces are attacked and undefended: ${pending.loose.join(', ')}.`}
+            </span>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="primary" style={{ flex: 1 }} onClick={commitMove}>
+              Play it
+            </button>
+            <button className="ghost" style={{ flex: 1 }} onClick={takeBack}>
+              Take it back
+            </button>
+          </div>
+          <div className="small muted">
+            Being attacked is not always a problem — a defended piece, or one you meant to trade,
+            is fine. The question is whether you had noticed.
+          </div>
+        </div>
+      )}
 
       {errorMsg && (
         <div className="card small" style={{ borderColor: 'var(--danger)' }}>

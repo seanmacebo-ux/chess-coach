@@ -11,7 +11,23 @@
 
 import type { Analysis, Line, SearchLimits, UciMove } from './types'
 
-const ENGINE_URL = `${import.meta.env.BASE_URL}sf/stockfish-18-lite-single.js`
+/**
+ * Resolved lazily, not at module scope.
+ *
+ * `import.meta.env` only exists once Vite has processed the module, so a
+ * top-level read of it throws the moment anything in this file is imported
+ * outside the browser bundle. That mattered because `coach/exercises.ts`
+ * imports from here for the engine-backed threat drill — which meant
+ * `loosePieces`, pure board logic with no engine involvement at all, could not
+ * be imported by a Node script to be checked. One constant made an entire
+ * layer untestable.
+ *
+ * Computing it inside the function costs nothing: it is read once per worker
+ * boot, and the worker boots once.
+ */
+function engineUrl(): string {
+  return `${import.meta.env.BASE_URL}sf/stockfish-18-lite-single.js`
+}
 
 type Listener = (line: string) => void
 
@@ -25,7 +41,7 @@ export class Engine {
   async init(): Promise<void> {
     if (this.ready) return
     if (!this.worker) {
-      this.worker = new Worker(ENGINE_URL)
+      this.worker = new Worker(engineUrl())
       this.worker.onmessage = (e: MessageEvent) => {
         // Emscripten builds emit either a bare string or {data: string}.
         const raw: unknown = e.data
