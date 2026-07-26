@@ -1,0 +1,33 @@
+{
+  "name": "chess-coach",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Daily chess training PWA — adaptive ladder, human-like opponents, simulation.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "predev": "node scripts/sync-engine.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/sync-engine.mjs",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "puzzles": "node scripts/build-puzzles.mjs"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "chessground": "^9.2.1",
+    "dexie": "^4.4.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "stockfish": "^18.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5",
+    "vite-plugin-pwa": "^1.3.0"
+  }
+}

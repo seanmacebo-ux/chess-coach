@@ -1,0 +1,361 @@
+/*
+ * Chess Coach — visual system.
+ *
+ * The palette is warm-dark on purpose. Chess UIs that use blue-shifted greys
+ * read as clinical; the brown-shifted darks are most of why chess.com feels
+ * like a room rather than a spreadsheet.
+ */
+
+@import 'chessground/assets/chessground.base.css';
+
+:root {
+  --bg: #262421;
+  --surface: #312e2b;
+  --surface-hi: #3a3733;
+  --border: #3e3b37;
+  --text: #e8e6e3;
+  --text-muted: #a09b94;
+
+  --accent: #81b64c;
+  --accent-hi: #95d061;
+  --accent-ink: #14240a;
+
+  /* Engine feedback. These are semantic, never decorative. */
+  --danger: #ca3431;
+  --warn: #e6912c;
+  --good: #5c8bb0;
+  --brilliant: #26c2a3;
+
+  --radius: 10px;
+  --radius-lg: 14px;
+
+  /* Set at runtime by theme.ts */
+  --board-bg: none;
+  --sq-lastmove: rgba(247, 236, 116, 0.55);
+  --sq-selected: rgba(247, 236, 116, 0.75);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  /* Stop iOS rubber-banding the whole app while dragging a piece. */
+  overscroll-behavior: none;
+}
+
+/* ---------------------------------------------------------------- shell */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  padding: 0 12px calc(16px + env(safe-area-inset-bottom));
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 2px 10px;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-size: 17px;
+}
+
+.brand span {
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- board */
+
+.board-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 45%);
+}
+
+/*
+ * chessground paints squares transparent and expects a board image behind
+ * them, which is exactly the hook we need for instant theme switching.
+ */
+.cg-wrap {
+  width: 100%;
+  height: 100%;
+  background-image: var(--board-bg);
+  /* The tile is 2x2 squares and the board is 8x8, so it repeats 4 times per
+     axis — 25%, not 50%. At 50% you get a 4x4 board behind 64 real squares. */
+  background-size: 25% 25%;
+}
+
+.cg-wrap piece {
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/*
+ * Coordinates. Deliberately NOT alternating per square: chessground doesn't
+ * guarantee which DOM index lands on which shade, so nth-child colouring makes
+ * half of them invisible. One light colour plus a dark shadow reads on both.
+ */
+.cg-wrap coords {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cg-wrap coords coord {
+  color: #fff;
+  opacity: 0.92;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
+}
+
+/* Move feedback ------------------------------------------------------- */
+
+.cg-wrap square.last-move {
+  background: var(--sq-lastmove);
+}
+
+.cg-wrap square.selected {
+  background: var(--sq-selected);
+}
+
+/* Legal destinations: dots for quiet moves, rings for captures. That
+   distinction is small and does most of the "this feels polished" work. */
+.cg-wrap square.move-dest {
+  background: radial-gradient(rgb(20 85 30 / 45%) 19%, rgb(0 0 0 / 0%) 20%);
+}
+
+.cg-wrap square.oc.move-dest {
+  background: radial-gradient(transparent 0%, transparent 79%, rgb(20 85 0 / 35%) 80%);
+}
+
+.cg-wrap square.check {
+  background: radial-gradient(
+    ellipse at center,
+    rgb(255 0 0 / 100%) 0%,
+    rgb(231 0 0 / 100%) 25%,
+    rgb(169 0 0 / 0%) 89%,
+    rgb(158 0 0 / 0%) 100%
+  );
+}
+
+/* ---------------------------------------------------------------- cards */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spread {
+  justify-content: space-between;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- controls */
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface-hi);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  transition:
+    background 0.12s ease,
+    transform 0.06s ease;
+  /* 44px min target — thumbs, not cursors. */
+  min-height: 44px;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+/*
+ * Focus rings. :focus-visible rather than :focus so a mouse/touch press
+ * doesn't leave a ring behind, but keyboard tabbing always shows one.
+ * Offset keeps the ring outside the button edge so it reads on any surface.
+ */
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-hi);
+  outline-offset: 2px;
+}
+
+button:hover:not(:disabled) {
+  background: #45413c;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hi);
+  border-color: var(--accent-hi);
+}
+
+button.ghost {
+  background: transparent;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 13px;
+  border-radius: 999px;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/*
+ * Swatches read as 30px but must be tappable at 44px. Rather than inflate the
+ * visual, the element keeps the full touch target and draws the swatch inside
+ * it via background-clip on the content box.
+ */
+.swatch {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 7px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background-size: 50% 50%;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+
+.swatch[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------- status */
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  font-size: 14px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+}
+
+.dot.thinking {
+  background: var(--warn);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.dot.ready {
+  background: var(--accent);
+}
+
+.dot.error {
+  background: var(--danger);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot.thinking {
+    animation: none;
+  }
+  button:active {
+    transform: none;
+  }
+}
