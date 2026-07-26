@@ -32,7 +32,10 @@ export const PUZZLE_COUNTS = [3, 5, 8, 12, 20] as const
 const KEY = 'cc.prefs'
 
 const DEFAULT: Prefs = {
-  puzzlesPerDay: 5,
+  // Eight to finish a session, three tries on each. Eight is enough to cover
+  // more than one category in a sitting, which is what stops a session from
+  // being a narrow slice of whatever you happened to be served.
+  puzzlesPerDay: 8,
   // Off by default: it's a real intervention in how a game feels, and turning
   // it on should be a choice you made rather than one you have to undo.
   blunderCheck: false,

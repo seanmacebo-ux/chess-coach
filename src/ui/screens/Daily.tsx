@@ -11,6 +11,7 @@ import { buildDailySession, type DailySession } from '../../coach/session'
 import { pickLesson, type Lesson } from '../../content/lessons'
 import { tierStatuses, type TierStatus } from '../../coach/profile'
 import { PILLARS } from '../../coach/tiers'
+import { categoriesIn } from '../../coach/categories'
 import type { Style } from '../../engine/types'
 
 export interface DailyProps {
@@ -159,6 +160,7 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
             <div>
               <strong>{session.puzzles.length} puzzles</strong>
               {session.focus ? ' aimed at that leak' : ' from your current tier'}
+              <span className="muted"> — three tries each</span>
             </div>
             <div className="small muted">
               {session.puzzles.length > 0
@@ -167,6 +169,18 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
                   )}`
                 : 'no puzzles available'}
             </div>
+            {/* What today actually teaches. Naming the categories up front is
+                the difference between "eight puzzles" and knowing which two
+                skills the next fifteen minutes are about. */}
+            {session.puzzles.length > 0 && (
+              <div className="chips" style={{ marginTop: 6 }}>
+                {categoriesIn(session.puzzles.map((p) => p.themes)).map((c) => (
+                  <span key={c.id} className="pill draw" title={c.teaches}>
+                    {c.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
