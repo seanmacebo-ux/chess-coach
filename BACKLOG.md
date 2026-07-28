@@ -35,7 +35,7 @@ Last updated 2026-07-28.
 | **Decay monitor** | Browser: trends section renders, day-one verdict appears |
 | **`loosePieces`** | 4 asserted cases incl. defended-vs-undefended |
 | **Spot the loose piece drill** | Browser: "Scan 1 of 5", picked a8, "Right. a8 was the only one hanging" |
-| **Read the threat drill** | Browser: built 5 in under a second, picked a1, "Yes. They play Qxa1+" |
+| **Read the threat drill** | `npm run sandbox:drills` — 8/8 built, every answer confirmed at depth 18 |
 | **Candidate moves drill** | Browser: picked 3, scored 0 of 3, engine's three shown with evals |
 | Offline / installable | Service worker precaches; asset routes all 200 |
 | Elo sandbox | Caught 3 bugs in itself, then 3 real ones in the app |
@@ -76,6 +76,21 @@ against the migrations. There was no symptom: points earned on the phone were
 simply absent on the desktop. `verify:sync` now diffs both directions, and the
 silent one — a column in the schema that nothing sends — is the half that
 matters. Confirmed by deleting the fields again and watching it fail.
+
+**The threat drill could be solved without looking at the board.** Its answer
+was the square their move LANDS on; its decoys were squares their pieces were
+STANDING on. Different kinds of thing, and visibly so — five options held one
+of their pieces and the sixth did not, so the answer was always the odd one
+out. Options are now their ranked candidate moves in SAN, which removes the
+tell and lets the prompt say "what would they play" and mean it.
+
+**And the shipped drill was less validated than the audited one.** The
+stability re-search that drops questions where a deeper search disagrees sat
+behind `if (engine)`, and the browser calls the builder without one — so it
+only ever ran in the sandbox. Replaced by requiring a clear margin between
+their best two threats, which comes free from the search already being run and
+behaves identically in both places. It is also the more honest test: two
+threats within a whisker means the question has no single right answer.
 
 **Live grading called a hung bishop "Good move."** The first design avoided a
 second engine search by reporting a bound: every move on the engine's shortlist

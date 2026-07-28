@@ -21,7 +21,7 @@
 import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 
-import { buildThreatExercise, loosePieces, nullMoveFen } from './exercises'
+import { buildThreatExercise, loosePieces, type ThreatMove } from './exercises'
 import { getEngine } from '../engine/uci'
 import { lineScore, type Analysis } from '../engine/types'
 import type { Puzzle } from '../data/puzzles'
@@ -107,10 +107,15 @@ export interface ThreatQuestion {
   id: string
   fen: string
   colour: 'w' | 'b'
-  answer: Square
+  /** UCI of the move they would actually play. The thing being asked for. */
+  answer: string
+  /** Where it lands. Used to explain the threat afterwards, not to answer it. */
+  answerSquare: Square
   san: string
   swingCp: number
-  options: Square[]
+  /** How clear-cut the answer is — see `minMarginCp` in buildThreatExercise. */
+  marginCp: number
+  options: ThreatMove[]
 }
 
 // Raised from 10, then from 14, after the sandbox found deeper audits
@@ -149,6 +154,7 @@ export async function buildThreatQuestions(
       ex = await buildThreatExercise(p.fen, {
         depth: THREAT_DEPTH,
         minSwingCp: 150,
+        multipv: THREAT_OPTIONS,
         engine,
       })
     } catch {
@@ -156,49 +162,40 @@ export async function buildThreatQuestions(
     }
     if (!ex) continue
 
-    /*
-     * Confirm the answer is stable before shipping it.
-     *
-     * A threat question that names the wrong square marks a CORRECT answer
-     * wrong, which is worse than not asking at all. The audit kept finding one
-     * question in eight where a deeper search preferred a different
-     * destination, and chasing that by raising the builder depth just moved
-     * the disagreement. So re-run the null move deeper here and drop the
-     * question when the two searches do not agree.
-     */
-    if (engine) {
-      const passed = nullMoveFen(p.fen)
-      if (!passed) continue
-      const confirm = await engine.analyse(passed, { depth: THREAT_DEPTH + 4, multipv: 1 })
-      const deepBest = confirm.bestMove
-      if (!deepBest || deepBest.slice(2, 4) !== ex.answerSquare) continue
-    }
-
-    const board = new Chess(p.fen)
     const colour: 'w' | 'b' = p.colour === 'white' ? 'w' : 'b'
 
-    // Decoys are squares their own pieces occupy, so the choice is "where is
-    // the danger coming from" rather than "which square looks out of place".
-    const theirSquares = new Set<string>()
-    for (const row of board.board()) {
-      for (const cell of row) {
-        if (!cell || cell.color === colour) continue
-        theirSquares.add(cell.square)
-      }
-    }
-    theirSquares.delete(ex.answerSquare)
-
-    const decoys = [...theirSquares].slice(0, THREAT_OPTIONS - 1) as Square[]
-    const options = [ex.answerSquare, ...decoys].sort() as Square[]
+    /*
+     * Decoys are their OTHER moves — not squares their pieces happen to sit on.
+     *
+     * The previous version built decoys from every square occupied by an enemy
+     * piece, while the answer was the square their move LANDED on. Those are
+     * different kinds of thing, and the difference was visible: five options
+     * held one of their pieces and the sixth did not, so the answer was the
+     * odd one out and the whole drill could be solved by elimination without
+     * looking at the board once.
+     *
+     * Ranking real candidate moves fixes both halves. Every option is now
+     * something they could actually play, so there is nothing to eliminate,
+     * and the options are the same kind of object as the question — which is
+     * what lets the prompt say "what would they play" and mean it.
+     */
+    const options: ThreatMove[] = [
+      { uci: ex.threatUci, san: ex.threatSan },
+      ...ex.alternatives.slice(0, THREAT_OPTIONS - 1),
+    ]
+    // Alphabetical, so the answer's position carries no information.
+    options.sort((a, b) => a.san.localeCompare(b.san))
     if (options.length < 3) continue
 
     out.push({
       id: p.id,
       fen: ex.fen,
       colour,
-      answer: ex.answerSquare,
+      answer: ex.threatUci,
+      answerSquare: ex.answerSquare,
       san: ex.threatSan,
       swingCp: ex.swingCp,
+      marginCp: ex.marginCp,
       options,
     })
   }

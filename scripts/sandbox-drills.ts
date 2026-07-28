@@ -165,17 +165,35 @@ async function auditThreat(engine: NodeEngine, pool: Puzzle[], want: number): Pr
     const best = deeper.bestMove
     if (!best) continue
 
-    const deepSquare = best.slice(2, 4)
-    if (deepSquare !== q.answer) {
+    if (best !== q.answer) {
       problems.push({
         drill: 'threat',
         id: q.id,
-        detail: `answer ${q.answer} but depth-${THREAT_AUDIT_DEPTH} prefers ${best} (${deepSquare})`,
+        detail: `answer ${q.san} (${q.answer}) but depth-${THREAT_AUDIT_DEPTH} prefers ${best}`,
       })
     }
 
-    if (!q.options.includes(q.answer)) {
+    if (!q.options.some((o) => o.uci === q.answer)) {
       problems.push({ drill: 'threat', id: q.id, detail: 'answer is not among the options' })
+    }
+
+    /*
+     * Every option must be a move they can legally play after the pass.
+     *
+     * This is the check that would have caught the decoy bug: the old builder
+     * offered squares their pieces were standing on, so five of six options
+     * were not moves at all and the answer was findable by elimination.
+     */
+    const legal = new Set(
+      new Chess(passed).moves({ verbose: true }).map((m) => `${m.from}${m.to}${m.promotion ?? ''}`),
+    )
+    const bogus = q.options.filter((o) => !legal.has(o.uci)).map((o) => o.san)
+    if (bogus.length > 0) {
+      problems.push({
+        drill: 'threat',
+        id: q.id,
+        detail: `options are not legal moves for them: ${bogus.join(', ')}`,
+      })
     }
     if (q.swingCp < 150) {
       problems.push({

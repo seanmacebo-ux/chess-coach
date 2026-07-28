@@ -54,6 +54,11 @@ export function nullMoveFen(fen: string): string | null {
   }
 }
 
+export interface ThreatMove {
+  uci: string
+  san: string
+}
+
 export interface ThreatExercise {
   kind: 'threat'
   /** Position as the user sees it — their move. */
@@ -61,10 +66,24 @@ export interface ThreatExercise {
   /** What the opponent would play given a free move, in UCI. */
   threatUci: string
   threatSan: string
-  /** The square the user must tap to answer. */
+  /** The square it lands on. Used to explain the threat, not to answer it. */
   answerSquare: Square
   /** How much the threat is worth, in centipawns. */
   swingCp: number
+  /**
+   * Their next-best moves, ranked. These are what the question offers
+   * alongside the answer, and they have to be REAL moves they could play —
+   * see the note on decoys in `buildThreatQuestions`.
+   */
+  alternatives: ThreatMove[]
+  /**
+   * How far their best threat is ahead of their second best.
+   *
+   * A question is only worth asking when this is comfortable. Two threats
+   * within a few centipawns of each other means "what would they play" has
+   * two defensible answers, and the drill would mark one of them wrong.
+   */
+  marginCp: number
   prompt: string
 }
 
@@ -80,6 +99,21 @@ export async function buildThreatExercise(
   opts: {
     depth?: number
     minSwingCp?: number
+    /** How many of their moves to rank — the answer plus its decoys. */
+    multipv?: number
+    /**
+     * Reject the position when their best two threats are closer than this.
+     *
+     * This replaces re-searching deeper to check the answer is stable, which
+     * was the previous approach and only ran in the sandbox — the browser
+     * skipped it entirely, so the shipped drill could serve a question whose
+     * answer a deeper search disagreed with. Requiring a clear margin gets the
+     * same protection from the search already being run, works identically in
+     * both places, and is the more honest test anyway: if two of their moves
+     * are within a whisker, the question does not have one right answer and
+     * should not be asked.
+     */
+    minMarginCp?: number
     /**
      * Engine to search with. Defaults to the browser worker.
      *
@@ -93,6 +127,8 @@ export async function buildThreatExercise(
 ): Promise<ThreatExercise | null> {
   const depth = opts.depth ?? 12
   const minSwing = opts.minSwingCp ?? 120
+  const multipv = opts.multipv ?? 6
+  const minMargin = opts.minMarginCp ?? 80
 
   const passed = nullMoveFen(fen)
   if (!passed) return null
@@ -106,8 +142,10 @@ export async function buildThreatExercise(
   // base is from the mover's POV; negate for the opponent's.
   const opponentNow = -lineScore(baseLine)
 
-  // ...versus what it is worth if they get a free move.
-  const after = await engine.analyse(passed, { depth, multipv: 1 })
+  // ...versus what it is worth if they get a free move. Widened from multipv 1
+  // purely to get the ranked alternatives — the extra lines cost one search,
+  // not several, and they are what makes a fair set of decoys possible.
+  const after = await engine.analyse(passed, { depth, multipv })
   const afterLine = after.lines[0]
   if (!afterLine || !after.bestMove) return null
   const opponentIfFree = lineScore(afterLine)
@@ -115,17 +153,37 @@ export async function buildThreatExercise(
   const swing = opponentIfFree - opponentNow
   if (swing < minSwing) return null
 
-  const probe = new Chess(passed)
-  let san = ''
-  try {
-    san =
-      probe.move({
-        from: after.bestMove.slice(0, 2),
-        to: after.bestMove.slice(2, 4),
-        promotion: after.bestMove[4],
-      })?.san ?? ''
-  } catch {
-    return null
+  // No second line means only one move was searched — nothing to be ambiguous
+  // with, so treat it as maximally clear rather than rejecting it.
+  const secondLine = after.lines[1]
+  const marginCp = secondLine ? Math.round(opponentIfFree - lineScore(secondLine)) : 9999
+  if (marginCp < minMargin) return null
+
+  const sanOf = (uci: string): string | null => {
+    const probe = new Chess(passed)
+    try {
+      return (
+        probe.move({
+          from: uci.slice(0, 2),
+          to: uci.slice(2, 4),
+          promotion: uci[4],
+        })?.san ?? null
+      )
+    } catch {
+      return null
+    }
+  }
+
+  const san = sanOf(after.bestMove)
+  if (!san) return null
+
+  const alternatives: ThreatMove[] = []
+  for (const line of after.lines) {
+    const uci = line.pv[0]
+    if (!uci || uci === after.bestMove) continue
+    if (alternatives.some((a) => a.uci === uci)) continue
+    const altSan = sanOf(uci)
+    if (altSan) alternatives.push({ uci, san: altSan })
   }
 
   return {
@@ -135,6 +193,8 @@ export async function buildThreatExercise(
     threatSan: san,
     answerSquare: after.bestMove.slice(2, 4) as Square,
     swingCp: Math.round(swing),
+    alternatives,
+    marginCp,
     prompt: 'If you passed right now, what would they play? Tap the square they are going to.',
   }
 }

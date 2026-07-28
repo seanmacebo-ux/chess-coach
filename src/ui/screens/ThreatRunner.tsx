@@ -115,25 +115,25 @@ export function ThreatRunner({ questions, onDone }: ThreatRunnerProps) {
       />
 
       <div className="card stack">
-        <div className="small muted">Which square is their move landing on? One answer.</div>
+        <div className="small muted">Pick their move. One answer.</div>
         <div className="chips">
-          {q.options.map((sq) => {
-            const isAnswer = sq === q.answer
+          {q.options.map((o) => {
+            const isAnswer = o.uci === q.answer
             const cls = !picked
               ? 'chip'
               : isAnswer
                 ? 'chip right'
-                : sq === picked
+                : o.uci === picked
                   ? 'chip wrong'
                   : 'chip'
             return (
               <button
-                key={sq}
+                key={o.uci}
                 className={cls}
-                aria-pressed={picked === sq}
-                onClick={() => choose(sq)}
+                aria-pressed={picked === o.uci}
+                onClick={() => choose(o.uci)}
               >
-                {sq}
+                {o.san}
               </button>
             )
           })}
@@ -148,10 +148,11 @@ export function ThreatRunner({ questions, onDone }: ThreatRunnerProps) {
           </div>
         ) : (
           <div>
-            <strong>{wasRight ? 'Yes.' : `It was ${q.answer}.`}</strong>{' '}
+            <strong>{wasRight ? 'Yes.' : `It was ${q.san}.`}</strong>{' '}
             <span className="muted">
-              They play {q.san}, worth about {Math.max(1, Math.round(q.swingCp / 100))} pawns. That
-              is the threat you have to answer before doing anything of your own.
+              They play {q.san}, landing on {q.answerSquare} and worth about{' '}
+              {Math.max(1, Math.round(q.swingCp / 100))} pawns. That is the threat you have to
+              answer before doing anything of your own.
             </span>
           </div>
         )}
