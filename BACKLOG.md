@@ -3,7 +3,7 @@
 What's built, what's next, and how each thing was proved. Nothing moves to
 DONE on my say-so — every line there names the check that passed.
 
-Last updated 2026-07-26.
+Last updated 2026-07-28.
 
 ---
 
@@ -21,6 +21,8 @@ Last updated 2026-07-26.
 | **All 59 motifs labelled** | Was 24 of 59 — a third of puzzles ended with an empty sentence |
 | History screen | Browser session: attempts recorded and shown |
 | Post-game analysis + mistake logging | `tsc` clean; wired and committed |
+| **Blunder check** | `npm run verify:blunder` — 14 checks in a real browser, all passed |
+| **A harness that can drive the board** | Same run: real mouse drags reach chessground, position read back from the DOM |
 | **20 endgame positions** | `npm run verify:endgames` — all 20 match at depth 26 |
 | **Endgame play-out mode** | Browser: Lucena loads, engine defends, goal stated |
 | **18 boards across 8 materials** | Browser: `feTurbulence` confirmed in the computed image; walnut grain visible |
@@ -64,28 +66,28 @@ human. Caught in the browser on the candidate-move drill.
 module scope, so importing `exercises.ts` outside the browser threw. Pure board
 logic downstream of it could not be checked in Node at all. Now lazy.
 
+**The board harness reported a position that cannot exist.** Its first run
+failed two checks, both looking like take-back was broken. Neither was: reads
+were landing inside chessground's 180ms move animation, and one caught a black
+pawn mid-flight through e7-e5 and recorded it on **e6** — a position no legal
+game contains. Reads now settle on observed stability before asserting.
+`reducedMotion` does not fix this; chessground's animation is its own config
+value, not a CSS transition, so the browser preference never reaches it.
+
 ## Next
 
-**1. Blunder check — implemented, NOT browser-verified.** The prompt, the
-engine gate, the take-back and the `loosePieces` logic behind it are all in and
-type-check, and `loosePieces` is asserted. What is unproven is the prompt
-actually appearing after a move, because synthetic pointer events do not reach
-chessground under the automation harness — the board stayed at 8 pawns with no
-last-move square. Needs a hand check, or a harness that can drive the board.
-*Check: turn it on, play e4, confirm the prompt appears and take-back works.*
-
-**2. Maia in the browser.** Model is ready (fp16, 46.7MB, 8/8 parity). Port the
+**1. Maia in the browser.** Model is ready (fp16, 46.7MB, 8/8 parity). Port the
 encoder to TypeScript, wire `onnxruntime-web`, cache in IndexedDB, drop behind
 the existing `Opponent` interface.
 *Check: same FEN in browser and Python gives the same move.*
 
-**3. Rate my moves in a game.** Per-move grading shown live rather than only in
+**2. Rate my moves in a game.** Per-move grading shown live rather than only in
 the post-game summary.
 
-**4. chess.com game import.** Public API needs no key. Only pays off once there
+**3. chess.com game import.** Public API needs no key. Only pays off once there
 are rated games on the account.
 
-**5. More positional drills.** Both concept pillars now have one real drill
+**4. More positional drills.** Both concept pillars now have one real drill
 each — loose pieces under Position, threat-reading under Strategy. The
 remaining tiers (open files, weak squares, space, prophylaxis) are still
 questions-to-ask, which is honest but not interactive. They would need a
