@@ -26,6 +26,7 @@ Last updated 2026-07-28.
 | **Tactics ramp reflects real volume** | `npm run verify:ladder` — 11 checks; the flat ramp is now a named regression |
 | **Puzzle scoring syncs** | `npm run verify:sync` — 13 checks; drift checker fails when the fields are removed |
 | **Live move grading** | `npm run verify:live` — 8 checks; a hung bishop grades as a blunder, and stays silent during the blunder check |
+| **Learn is modules you click into** | `npm run verify:learn` — 11 checks; system back goes up a level, not out of the app |
 | **20 endgame positions** | `npm run verify:endgames` — all 20 match at depth 26 |
 | **Endgame play-out mode** | Browser: Lucena loads, engine defends, goal stated |
 | **18 boards across 8 materials** | Browser: `feTurbulence` confirmed in the computed image; walnut grain visible |
@@ -76,6 +77,14 @@ against the migrations. There was no symptom: points earned on the phone were
 simply absent on the desktop. `verify:sync` now diffs both directions, and the
 silent one — a column in the schema that nothing sends — is the half that
 matters. Confirmed by deleting the fields again and watching it fail.
+
+**Every Learn navigation pushed two history entries.** The `pushState` call
+sat inside a `setPath` updater, and React calls updaters twice under
+StrictMode because they are supposed to be pure. The screen looked perfect;
+the back button just needed two presses per level, the first popping a
+duplicate with no visible effect. Nothing but a real browser was ever going to
+find that, and on an installed PWA the symptom is the app closing when you
+meant to go up.
 
 **The threat drill could be solved without looking at the board.** Its answer
 was the square their move LANDS on; its decoys were squares their pieces were

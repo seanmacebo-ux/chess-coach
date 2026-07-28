@@ -55,7 +55,6 @@ export function useNavStack<T>(): NavStack<T> {
   // Read in the popstate handler, which must not be re-bound on every push or
   // it would miss events fired mid-update.
   const depthRef = useRef(0)
-  depthRef.current = path.length
 
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
@@ -64,6 +63,7 @@ export function useNavStack<T>(): NavStack<T> {
       // depth zero, which is the correct reading: we have been popped out.
       const depth = mark && mark.navId === navId.current ? mark.depth : 0
       if (depth >= depthRef.current) return
+      depthRef.current = depth
       setDirection('pop')
       setPath((p) => p.slice(0, Math.max(0, depth)))
     }
@@ -84,14 +84,22 @@ export function useNavStack<T>(): NavStack<T> {
     }
   }, [])
 
+  /*
+   * The history entry is pushed HERE, not inside the state updater.
+   *
+   * It was inside it, and that was a real bug rather than a style point: React
+   * treats updaters as pure and calls them twice under StrictMode, so every
+   * navigation pushed two entries. The screen looked perfect and the back
+   * button silently needed two presses per level — the first one popped a
+   * duplicate that had no visible effect. Only a browser could find that.
+   */
   const push = useCallback((entry: T) => {
     setDirection('push')
-    setPath((p) => {
-      const next = [...p, entry]
-      const mark: HistoryMark = { navId: navId.current, depth: next.length }
-      window.history.pushState(mark, '')
-      return next
-    })
+    const depth = depthRef.current + 1
+    const mark: HistoryMark = { navId: navId.current, depth }
+    window.history.pushState(mark, '')
+    depthRef.current = depth
+    setPath((p) => [...p, entry])
   }, [])
 
   const pop = useCallback(() => {
@@ -105,6 +113,11 @@ export function useNavStack<T>(): NavStack<T> {
     const depth = depthRef.current
     if (depth > 0) window.history.go(-depth)
   }, [])
+
+  // Kept honest for the unmount cleanup, which reads it after the last render.
+  useEffect(() => {
+    depthRef.current = path.length
+  }, [path.length])
 
   return {
     path,

@@ -1264,3 +1264,207 @@ input[type='email'] {
 .bgswatch[aria-pressed='true'] {
   border-color: var(--accent);
 }
+
+/* ============================================================ navigation
+ *
+ * Screens you click INTO, replacing the nested accordions Learn used to be.
+ * The interaction vocabulary is deliberately narrow, because the old screen
+ * proved what happens without one: four levels of expand-in-place, where the
+ * same tap meant a different thing at every level and depth had no exit.
+ *
+ *   ›  navigates      (nav-chev)
+ *   −  collapses      (chev — still used where growing in place is right)
+ *
+ * If those ever start looking alike, put them back.
+ */
+
+.screen-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+/*
+ * Back names its destination. It also sits at the top-left of the scroll
+ * container rather than in a fixed bar: a sticky header on a phone eats
+ * vertical space that the board needs, and this app is mostly board.
+ */
+.back {
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  padding: 4px 8px 4px 0;
+  min-height: 36px;
+  color: var(--accent-hi);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+.back span {
+  font-size: 18px;
+  line-height: 1;
+  vertical-align: -1px;
+}
+
+.screen-title {
+  margin: 0;
+  font-size: var(--t-title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.screen-blurb {
+  margin-top: -2px;
+}
+
+/* ----------------------------------------------------------- nav cards */
+
+.nav-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 4%) inset,
+    0 1px 2px rgb(0 0 0 / 12%);
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+/* The state marker matches the ladder rows, so "now" means the same thing
+   on a card as it does on a level. */
+.nav-card.now { border-left: 3px solid var(--accent); }
+.nav-card.done { border-left: 3px solid var(--good); }
+.nav-card.later { border-left: 3px solid var(--border); opacity: 0.72; }
+.nav-card.past { border-left: 3px solid var(--text-muted); }
+
+.nav-card:has(.nav-main:hover),
+.nav-card:has(.nav-main:focus-visible) {
+  border-color: var(--accent);
+}
+
+/* Pressing the card should feel like pressing a thing, not like nothing. */
+.nav-card:has(.nav-main:active) {
+  transform: scale(0.994);
+}
+
+.nav-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  min-height: 40px;
+  align-items: center;
+}
+
+/*
+ * The stretched target. This is what lets the whole card be tappable while
+ * still being a real <button> for keyboard and screen readers, without
+ * nesting a button inside a button.
+ */
+.nav-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+}
+
+.nav-main:focus-visible {
+  outline: none;
+}
+
+.nav-card:has(.nav-main:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.nav-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nav-title {
+  font-weight: 600;
+  font-size: var(--t-body);
+}
+
+.nav-sub {
+  line-height: 1.35;
+}
+
+.nav-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Above the stretched ::after, so the action wins where they overlap. */
+.nav-action,
+.nav-meta {
+  position: relative;
+  z-index: 1;
+}
+
+.nav-chev {
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  transition: transform 120ms ease, color 120ms ease;
+}
+
+.nav-card:has(.nav-main:hover) .nav-chev {
+  color: var(--accent);
+  transform: translateX(2px);
+}
+
+/* --------------------------------------------------------- transitions */
+
+/*
+ * Motion carries the hierarchy: forward comes from the right, back returns
+ * from the left. Without it a push and a pop look identical, and the screen
+ * appears to jump sideways at random.
+ */
+.screen {
+  animation: screen-in 190ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.screen.pop {
+  animation-name: screen-back;
+}
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes screen-back {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen {
+    animation: none;
+  }
+  .nav-card,
+  .nav-chev {
+    transition: none;
+  }
+  .nav-card:has(.nav-main:active) {
+    transform: none;
+  }
+}
