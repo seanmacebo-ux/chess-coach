@@ -21,6 +21,12 @@ export interface Prefs {
    * Kotov's blunder-check, as a habit trainer rather than a lecture.
    */
   blunderCheck: boolean
+  /**
+   * Grade each of your moves as you play it, rather than only in the review.
+   * Costs no engine time — see coach/live.ts — but it does mean the engine's
+   * opinion arrives mid-game, which changes what a game is for.
+   */
+  liveGrading: boolean
   /** Board coordinates around the edge. */
   showCoordinates: boolean
   /** Move sounds. */
@@ -39,6 +45,10 @@ const DEFAULT: Prefs = {
   // Off by default: it's a real intervention in how a game feels, and turning
   // it on should be a choice you made rather than one you have to undo.
   blunderCheck: false,
+  // Off for the same reason as the blunder check: it changes how a game feels,
+  // and being told the engine's verdict on every move is a decision you should
+  // have made rather than one you have to undo.
+  liveGrading: false,
   showCoordinates: true,
   sound: false,
 }
@@ -56,6 +66,7 @@ export function loadPrefs(): Prefs {
     return {
       puzzlesPerDay: clampCount(p.puzzlesPerDay),
       blunderCheck: typeof p.blunderCheck === 'boolean' ? p.blunderCheck : DEFAULT.blunderCheck,
+      liveGrading: typeof p.liveGrading === 'boolean' ? p.liveGrading : DEFAULT.liveGrading,
       showCoordinates:
         typeof p.showCoordinates === 'boolean' ? p.showCoordinates : DEFAULT.showCoordinates,
       sound: typeof p.sound === 'boolean' ? p.sound : DEFAULT.sound,

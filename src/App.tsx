@@ -36,6 +36,16 @@ import { applyUci, colourOf, statusOf, toDests } from './chess/game'
 import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
 import { analyseGame, acpl, performanceRating } from './coach/analysis'
+import {
+  buildGrade,
+  describeGrade,
+  gradeColour,
+  readShortlist,
+  scoreAfterMove,
+  type LiveGrade,
+} from './coach/live'
+import { getEngine } from './engine/uci'
+import type { Line } from './engine/types'
 import { updateRatingFromGame } from './coach/profile'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
@@ -492,8 +502,24 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   // Read once per game rather than per render — flipping the setting
   // mid-game would change the rules underneath you.
   const [blunderCheck] = useState(() => loadPrefs().blunderCheck)
+  const [liveGrading] = useState(() => loadPrefs().liveGrading)
   /** Set while a move is on the board but not yet committed. */
-  const [pending, setPending] = useState<{ loose: string[] } | null>(null)
+  const [pending, setPending] = useState<{
+    loose: string[]
+    /** Kept so the grade can be computed after the commit, not before it. */
+    fenBefore: string
+    uci: string
+  } | null>(null)
+
+  const [grade, setGrade] = useState<LiveGrade | null>(null)
+  /**
+   * The wide search of the position you are looking at, started the moment it
+   * became your turn. By the time you move it is usually already done, which
+   * is the whole reason live grading costs the game nothing.
+   */
+  const shortlist = useRef<{ fen: string; lines: Promise<Line[]> } | null>(null)
+  /** Bumped whenever a pending verdict stops being about the current board. */
+  const moveSeq = useRef(0)
 
   const humanColour = orientation
   const status = statusOf(chess.current)
@@ -564,6 +590,41 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       cancelled = true
     }
   }, [fen, humanColour, opponent, booted, sync, pending])
+
+  /**
+   * Search the position in front of you while you think about it.
+   *
+   * This is the free compute live grading runs on. The engine is idle from the
+   * moment the board becomes yours until you let go of a piece, and a wide
+   * multipv search of THIS position already contains the evaluation of
+   * whatever you are about to play. Doing it after the move instead would put
+   * a search between your move and the reply, on a single-threaded engine the
+   * opponent is queued behind — every move would stutter.
+   *
+   * Fire-and-forget on purpose: if you move before it lands, `onMove` awaits
+   * the same promise, and if the position has moved on the result is dropped.
+   */
+  useEffect(() => {
+    if (!liveGrading || !booted) return
+    if (pending) return
+    if (statusOf(chess.current).over) return
+    if (colourOf(chess.current) !== humanColour) return
+
+    const forFen = chess.current.fen()
+    if (shortlist.current?.fen === forFen) return
+
+    shortlist.current = {
+      fen: forFen,
+      lines: getEngine()
+        // Same depth as the post-game pass so the two agree on severity.
+        // Wide, because the shortlist is what makes the second search
+        // unnecessary — the more moves it covers, the more often your move is
+        // graded exactly rather than bounded.
+        .analyse(forFen, { depth: 14, multipv: 12 })
+        .then((a) => a.lines)
+        .catch(() => []),
+    }
+  }, [fen, humanColour, booted, pending, liveGrading])
 
   /* ---------------------------------------------- save + analyse */
 
@@ -667,10 +728,70 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
    * something was loose first — so it trains the right check rather than
    * outsourcing the thinking to Stockfish.
    */
+  /**
+   * Grade the move just played, from the search started while you thought.
+   *
+   * `seq` is what stops a slow verdict landing on the wrong position. Take a
+   * move back, or start a new game, and the grade for the abandoned move
+   * arrives to find the counter has moved on, and is dropped rather than
+   * displayed against a board it does not describe.
+   */
+  const gradeMove = useCallback(
+    (fenBefore: string, uci: string) => {
+      if (!liveGrading) return
+      setGrade(null)
+      const entry = shortlist.current
+      // No prepared search for this position — you moved before it started, or
+      // the setting was flipped mid-game. Say nothing rather than guess.
+      if (!entry || entry.fen !== fenBefore) return
+
+      const mine = ++moveSeq.current
+      void (async () => {
+        const shortlist = readShortlist(fenBefore, uci, await entry.lines)
+        if (moveSeq.current !== mine || !shortlist) return
+
+        if (shortlist.playedScore !== null) {
+          setGrade(buildGrade(fenBefore, uci, shortlist, shortlist.playedScore, false))
+          return
+        }
+
+        // Off the shortlist, so it needs the second search. This is the only
+        // path that makes the opponent wait, and it is reached only when the
+        // move was bad enough to fall outside the engine's top twelve.
+        const board = new Chess(fenBefore)
+        try {
+          board.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+        } catch {
+          return
+        }
+        // A move that ends the game gave up nothing by definition — the same
+        // rule the post-game pass applies.
+        if (board.isGameOver()) {
+          setGrade(buildGrade(fenBefore, uci, shortlist, shortlist.best, false))
+          return
+        }
+
+        const after = await getEngine()
+          .analyse(board.fen(), { depth: 14, multipv: 1 })
+          .catch(() => null)
+        if (moveSeq.current !== mine || !after) return
+        const played = scoreAfterMove(after)
+        // Say nothing rather than guess: a verdict built on a failed search
+        // would be indistinguishable from a real one.
+        if (played === null) return
+        setGrade(buildGrade(fenBefore, uci, shortlist, played, true))
+      })()
+    },
+    [liveGrading],
+  )
+
   const onMove = useCallback(
     (from: Key, to: Key) => {
+      const fenBefore = chess.current.fen()
+      let uci: string
       try {
-        chess.current.move({ from, to, promotion: 'q' })
+        const played = chess.current.move({ from, to, promotion: 'q' })
+        uci = `${played.from}${played.to}${played.promotion ?? ''}`
       } catch {
         setFen(chess.current.fen())
         return
@@ -678,17 +799,29 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       sync()
       if (blunderCheck) {
         const mine = humanColour === 'white' ? 'w' : 'b'
-        setPending({ loose: loosePieces(chess.current.fen(), mine) })
+        // The grade deliberately waits for the commit. Answering "is anything
+        // hanging?" with the engine's verdict while the question is still on
+        // screen would replace the habit being trained with a lookup.
+        setPending({ loose: loosePieces(chess.current.fen(), mine), fenBefore, uci })
+        return
       }
+      gradeMove(fenBefore, uci)
     },
-    [sync, blunderCheck, humanColour],
+    [sync, blunderCheck, humanColour, gradeMove],
   )
 
-  const commitMove = useCallback(() => setPending(null), [])
+  const commitMove = useCallback(() => {
+    const p = pending
+    setPending(null)
+    if (p) gradeMove(p.fenBefore, p.uci)
+  }, [pending, gradeMove])
 
   const takeBack = useCallback(() => {
     chess.current.undo()
     setPending(null)
+    // The move did not happen, so neither did its verdict.
+    moveSeq.current++
+    setGrade(null)
     sync()
   }, [sync])
 
@@ -699,6 +832,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       // Without this a move left unconfirmed from the previous game would
       // still be gating the engine effect, and the new game would sit frozen.
       setPending(null)
+      moveSeq.current++
+      setGrade(null)
+      shortlist.current = null
       setReview({ phase: 'idle' })
       setOrientation(side)
       setLastMove(undefined)
@@ -774,6 +910,22 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
             Being attacked is not always a problem — a defended piece, or one you meant to trade,
             is fine. The question is whether you had noticed.
           </div>
+        </div>
+      )}
+
+      {grade && !pending && !status.over && (
+        <div
+          className="card small stack"
+          data-testid="live-grade"
+          data-severity={grade.severity}
+          style={{ borderColor: gradeColour(grade.severity), gap: 4 }}
+        >
+          <div>
+            <strong style={{ color: gradeColour(grade.severity) }}>
+              {describeGrade(grade)}
+            </strong>
+          </div>
+          {grade.reason && <div className="muted">{grade.reason}</div>}
         </div>
       )}
 

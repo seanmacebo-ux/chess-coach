@@ -203,6 +203,21 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
 
         <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
           <span style={{ flex: 1 }}>
+            <div>Rate my moves as I play</div>
+            <div className="small muted">
+              A verdict on each move the moment you make it, instead of only in the review. Uses
+              the thinking time the engine spends waiting for you, so it costs the game nothing.
+            </div>
+          </span>
+          <input
+            type="checkbox"
+            checked={prefs.liveGrading}
+            onChange={(e) => patchPrefs({ liveGrading: e.target.checked })}
+          />
+        </label>
+
+        <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
+          <span style={{ flex: 1 }}>
             <div>Board coordinates</div>
             <div className="small muted">Files and ranks around the edge.</div>
           </span>

@@ -88,7 +88,7 @@ const VALUE: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, 
 
 /** Same clamp rationale as the calibration harness: mates would swamp everything. */
 const EVAL_CAP = 1000
-const clampEval = (cp: number) => Math.max(-EVAL_CAP, Math.min(EVAL_CAP, cp))
+export const clampEval = (cp: number) => Math.max(-EVAL_CAP, Math.min(EVAL_CAP, cp))
 
 function phaseOf(chess: Chess): Phase {
   const moveNo = Number(chess.fen().split(' ')[5] ?? 1)
@@ -135,7 +135,14 @@ function isFork(chess: Chess, to: Square): boolean {
   return targets.length >= 2 || (targets.length >= 1 && chess.isCheck())
 }
 
-function severityOf(loss: number): Severity {
+/**
+ * Exported so live grading and the post-game pass share ONE scale.
+ *
+ * If they each had their own thresholds the app would contradict itself
+ * mid-session — "that was fine" during the game, "that was a mistake" in the
+ * review — and the user would be right to trust neither.
+ */
+export function severityOf(loss: number): Severity {
   if (loss < 10) return 'best'
   if (loss < 50) return 'good'
   if (loss < 100) return 'inaccuracy'

@@ -25,6 +25,7 @@ Last updated 2026-07-28.
 | **A harness that can drive the board** | Same run: real mouse drags reach chessground, position read back from the DOM |
 | **Tactics ramp reflects real volume** | `npm run verify:ladder` — 11 checks; the flat ramp is now a named regression |
 | **Puzzle scoring syncs** | `npm run verify:sync` — 13 checks; drift checker fails when the fields are removed |
+| **Live move grading** | `npm run verify:live` — 8 checks; a hung bishop grades as a blunder, and stays silent during the blunder check |
 | **20 endgame positions** | `npm run verify:endgames` — all 20 match at depth 26 |
 | **Endgame play-out mode** | Browser: Lucena loads, engine defends, goal stated |
 | **18 boards across 8 materials** | Browser: `feTurbulence` confirmed in the computed image; walnut grain visible |
@@ -76,6 +77,15 @@ simply absent on the desktop. `verify:sync` now diffs both directions, and the
 silent one — a column in the schema that nothing sends — is the half that
 matters. Confirmed by deleting the fields again and watching it fail.
 
+**Live grading called a hung bishop "Good move."** The first design avoided a
+second engine search by reporting a bound: every move on the engine's shortlist
+beat yours, so the loss is at least the gap to the worst of them. True, and
+useless — the top twelve moves in a quiet position sit within about 30cp of
+each other, so the bound came out at 30 and landed in the "good" band. A figure
+that is honest about its own imprecision is still a lie when the label on it is
+wrong. Off-shortlist moves now get the second search; it is rare by
+construction, because falling outside the top twelve is what a bad move does.
+
 **The board harness reported a position that cannot exist.** Its first run
 failed two checks, both looking like take-back was broken. Neither was: reads
 were landing inside chessground's 180ms move animation, and one caught a black
@@ -91,13 +101,10 @@ encoder to TypeScript, wire `onnxruntime-web`, cache in IndexedDB, drop behind
 the existing `Opponent` interface.
 *Check: same FEN in browser and Python gives the same move.*
 
-**2. Rate my moves in a game.** Per-move grading shown live rather than only in
-the post-game summary.
-
-**3. chess.com game import.** Public API needs no key. Only pays off once there
+**2. chess.com game import.** Public API needs no key. Only pays off once there
 are rated games on the account.
 
-**4. More positional drills.** Both concept pillars now have one real drill
+**3. More positional drills.** Both concept pillars now have one real drill
 each — loose pieces under Position, threat-reading under Strategy. The
 remaining tiers (open files, weak squares, space, prophylaxis) are still
 questions-to-ask, which is honest but not interactive. They would need a

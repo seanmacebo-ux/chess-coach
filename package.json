@@ -18,7 +18,8 @@
     "sandbox:drills": "tsx scripts/sandbox-drills.ts",
     "verify:blunder": "tsx scripts/verify-blunder-check.ts",
     "verify:sync": "tsx scripts/verify-sync-schema.ts",
-    "verify:ladder": "tsx scripts/verify-ladder.ts"
+    "verify:ladder": "tsx scripts/verify-ladder.ts",
+    "verify:live": "tsx scripts/verify-live-grading.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
