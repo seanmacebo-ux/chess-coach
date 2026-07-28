@@ -23,6 +23,8 @@ Last updated 2026-07-28.
 | Post-game analysis + mistake logging | `tsc` clean; wired and committed |
 | **Blunder check** | `npm run verify:blunder` — 14 checks in a real browser, all passed |
 | **A harness that can drive the board** | Same run: real mouse drags reach chessground, position read back from the DOM |
+| **Tactics ramp reflects real volume** | `npm run verify:ladder` — 11 checks; the flat ramp is now a named regression |
+| **Puzzle scoring syncs** | `npm run verify:sync` — 13 checks; drift checker fails when the fields are removed |
 | **20 endgame positions** | `npm run verify:endgames` — all 20 match at depth 26 |
 | **Endgame play-out mode** | Browser: Lucena loads, engine defends, goal stated |
 | **18 boards across 8 materials** | Browser: `feTurbulence` confirmed in the computed image; walnut grain visible |
@@ -66,6 +68,14 @@ human. Caught in the browser on the candidate-move drill.
 module scope, so importing `exercises.ts` outside the browser threw. Pure board
 logic downstream of it could not be checked in Node at all. Now lazy.
 
+**The sync layer was silently dropping three columns.** `attempts`, `hintUsed`
+and `points` had been on the local puzzle row for months and never left the
+device — sync.ts maps every column by hand and nothing compared that mapping
+against the migrations. There was no symptom: points earned on the phone were
+simply absent on the desktop. `verify:sync` now diffs both directions, and the
+silent one — a column in the schema that nothing sends — is the half that
+matters. Confirmed by deleting the fields again and watching it fail.
+
 **The board harness reported a position that cannot exist.** Its first run
 failed two checks, both looking like take-back was broken. Neither was: reads
 were landing inside chessground's 180ms move animation, and one caught a black
@@ -98,11 +108,12 @@ curated position set with graded answers, the same treatment the endgames got.
 - **Bot ratings are still ~50% of target ACPL** and 1000/1200 is
   non-monotonic. Not being tuned further — Maia replaces the model. See
   `FINDINGS.md`.
-- **`tactics-1` and `tactics-4` both clear at 20 solved.** Polgár's ramp is 306
-  mate-in-ones to 3,412 mate-in-twos — roughly 10×. The ratio is wrong.
-- **Scoring fields don't sync.** `attempts`, `hintUsed` and `points` are on the
-  local row but not in the Supabase schema, so they stay on one device until a
-  migration adds them.
+- **The scoring migration has not been applied to the live database.**
+  `20260728000000_puzzle_attempt_scoring.sql` is written and the client now
+  sends the three columns, but it has only been checked against the DDL in the
+  repo — there were no credentials here to run it. It must land before a client
+  carrying this change syncs, or PostgREST rejects the whole puzzle-attempt
+  upsert. Nullable and `if not exists`, so applying it twice is harmless.
 - **Two concept keys still have no drill.** `triangulation`, and
   `insufficient-material` which is a quiz tier and needs a different runner
   rather than a position.

@@ -69,15 +69,41 @@ const T = (
  * clever the motif is. Hanging pieces come first because at 1200 they decide
  * more games than every other motif combined.
  */
+/*
+ * The clear thresholds are not uniform, and the reason is that they used to be.
+ *
+ * Every tier defaulted to 20 solved, which claimed that owning mate-in-one and
+ * owning mate-in-two are the same amount of work. Polgár's problem book puts
+ * 306 mate-in-ones against 3,412 mate-in-twos — an order of magnitude more
+ * material for the tier immediately above. A ladder that asks for 20 of each
+ * clears the hard tier on a rounding error and then tells you you own it.
+ *
+ * The numbers below weight each tier by roughly how much there is to
+ * internalise, then compress that weight. Compression is the judgement call and
+ * worth naming: the literal ratio would put mate-in-two at ~220 solved, which
+ * at eight puzzles a day is a month on one rung with four pillars stalled
+ * behind it. Repetition has diminishing returns — you do not need to see all
+ * 3,412 to own the pattern — so the spread is compressed to about 4x rather
+ * than 10x. That keeps the ORDER honest, which is the part the ratio was
+ * actually telling us, without making the ladder unclimbable.
+ *
+ * The dip at tier 5 is deliberate, not an oversight. Discovered attacks are a
+ * smaller body of material than mate-in-two even though they sit higher on the
+ * ladder; Polgár's own counts are non-monotonic in the same way (744 mate-in-
+ * threes against those 3,412 mate-in-twos). Tier 4 is simply the grind.
+ *
+ * Accuracy stays at 0.8 throughout. Demanding MORE accuracy as the tiers get
+ * harder would gate the ladder twice on the same difficulty.
+ */
 export const TACTICS_TIERS: Tier[] = [
-  T('tactics', 1, 'Free material', 'Spot what is hanging — yours and theirs. Mate in one.', [600, 1100], ['hangingPiece', 'mateIn1']),
-  T('tactics', 2, 'Forks', 'One piece, two targets. Knights especially.', [800, 1300], ['fork', 'doubleCheck']),
-  T('tactics', 3, 'Pins and skewers', 'Freeze a piece, or drag a big one off a small one.', [1000, 1500], ['pin', 'skewer']),
-  T('tactics', 4, 'Mate in two', 'Forcing sequences. Back rank first.', [1100, 1600], ['mateIn2', 'backRankMate']),
-  T('tactics', 5, 'Discovered attacks', 'Move one piece, unleash another.', [1300, 1700], ['discoveredAttack', 'xRayAttack']),
-  T('tactics', 6, 'Removing the guard', 'Deflect, decoy, or capture the defender.', [1400, 1900], ['deflection', 'attraction', 'capturingDefender', 'interference']),
-  T('tactics', 7, 'Mating nets', 'Mate in three and the named patterns.', [1500, 2000], ['mateIn3', 'smotheredMate', 'anastasiaMate', 'arabianMate', 'hookMate']),
-  T('tactics', 8, 'Quiet moves', 'The hardest tactic is the one that is not a check.', [1700, 2200], ['quietMove', 'intermezzo', 'zugzwang', 'defensiveMove']),
+  T('tactics', 1, 'Free material', 'Spot what is hanging — yours and theirs. Mate in one.', [600, 1100], ['hangingPiece', 'mateIn1'], 20),
+  T('tactics', 2, 'Forks', 'One piece, two targets. Knights especially.', [800, 1300], ['fork', 'doubleCheck'], 30),
+  T('tactics', 3, 'Pins and skewers', 'Freeze a piece, or drag a big one off a small one.', [1000, 1500], ['pin', 'skewer'], 35),
+  T('tactics', 4, 'Mate in two', 'Forcing sequences. Back rank first.', [1100, 1600], ['mateIn2', 'backRankMate'], 80),
+  T('tactics', 5, 'Discovered attacks', 'Move one piece, unleash another.', [1300, 1700], ['discoveredAttack', 'xRayAttack'], 45),
+  T('tactics', 6, 'Removing the guard', 'Deflect, decoy, or capture the defender.', [1400, 1900], ['deflection', 'attraction', 'capturingDefender', 'interference'], 60),
+  T('tactics', 7, 'Mating nets', 'Mate in three and the named patterns.', [1500, 2000], ['mateIn3', 'smotheredMate', 'anastasiaMate', 'arabianMate', 'hookMate'], 65),
+  T('tactics', 8, 'Quiet moves', 'The hardest tactic is the one that is not a check.', [1700, 2200], ['quietMove', 'intermezzo', 'zugzwang', 'defensiveMove'], 70),
 ]
 
 /**

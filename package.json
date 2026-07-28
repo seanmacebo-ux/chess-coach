@@ -16,7 +16,9 @@
     "verify:endgames": "tsx scripts/verify-endgames.ts",
     "sandbox:puzzles": "tsx scripts/sandbox-puzzles.ts",
     "sandbox:drills": "tsx scripts/sandbox-drills.ts",
-    "verify:blunder": "tsx scripts/verify-blunder-check.ts"
+    "verify:blunder": "tsx scripts/verify-blunder-check.ts",
+    "verify:sync": "tsx scripts/verify-sync-schema.ts",
+    "verify:ladder": "tsx scripts/verify-ladder.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

@@ -22,7 +22,16 @@
  *   device you played on most recently knows best.
  */
 
-import { db, getProfile, saveProfile } from './db'
+import {
+  db,
+  getProfile,
+  saveProfile,
+  type GameRow,
+  type MistakeRow,
+  type ProfileRow,
+  type PuzzleAttemptRow,
+  type TierProgressRow,
+} from './db'
 import { currentAuth, getSupabase } from './supabase'
 
 export interface SyncResult {
@@ -35,6 +44,108 @@ export interface SyncResult {
 }
 
 const IDLE: SyncResult = { ok: true, pushed: 0, pulled: 0, skipped: true }
+
+/* --------------------------------------------------------- row mappers */
+
+/**
+ * Local row -> remote row, one function per table.
+ *
+ * These are pulled out and exported for a specific reason: every column here
+ * is mapped BY HAND, and that is exactly how the puzzle-attempt scoring fields
+ * went missing. `attempts`, `hintUsed` and `points` existed locally for months
+ * and never reached the server, because nothing anywhere compared this mapping
+ * against the schema — a hand-maintained list drifts silently and by default.
+ *
+ * Being callable outside the app makes the drift checkable:
+ * `npm run verify:sync` runs each of these over a synthetic row and diffs the
+ * keys against the columns declared in supabase/migrations. A column present
+ * in one and absent from the other is now a failing check rather than data
+ * quietly staying on one device.
+ */
+export const TO_REMOTE = {
+  games: (g: GameRow, userId: string) => ({
+    user_id: userId,
+    local_id: g.id,
+    played_at: g.playedAt,
+    human_colour: g.humanColour,
+    opponent_elo: g.opponentElo,
+    opponent_style: g.opponentStyle,
+    result: g.result,
+    reason: g.reason,
+    pgn: g.pgn,
+    acpl: g.acpl,
+    performance_rating: g.performanceRating,
+    analysed_at: g.analysedAt,
+  }),
+
+  mistakes: (m: MistakeRow, userId: string) => ({
+    user_id: userId,
+    local_id: m.id,
+    game_id: m.gameId,
+    source: m.source ?? 'game',
+    ply: m.ply,
+    fen: m.fen,
+    san: m.san,
+    best_san: m.bestSan,
+    loss_cp: m.lossCp,
+    severity: m.severity,
+    tag: m.tag,
+    phase: m.phase,
+    at: m.at,
+  }),
+
+  puzzle_attempts: (a: PuzzleAttemptRow, userId: string) => ({
+    user_id: userId,
+    local_id: a.id,
+    puzzle_id: a.puzzleId,
+    themes: a.themes,
+    rating: a.rating,
+    correct: a.correct,
+    ms: a.ms,
+    tier_id: a.tierId,
+    at: a.at,
+    // Null, not 0, when a row predates scoring: "no score recorded" and
+    // "scored zero" are different facts and the profile should not confuse
+    // them.
+    attempts: a.attempts ?? null,
+    hint_used: a.hintUsed ?? null,
+    points: a.points ?? null,
+  }),
+
+  tier_progress: (t: TierProgressRow, userId: string) => ({
+    user_id: userId,
+    tier_id: t.id,
+    solved: t.solved,
+    correct: t.correct,
+    cleared: t.cleared,
+    cleared_at: t.clearedAt,
+    updated_at: t.updatedAt,
+  }),
+
+  profiles: (p: ProfileRow, userId: string) => ({
+    user_id: userId,
+    rating: p.rating,
+    rating_deviation: p.ratingDeviation,
+    streak: p.streak,
+    last_session_date: p.lastSessionDate,
+    updated_at: p.updatedAt,
+  }),
+}
+
+/**
+ * Columns the schema owns and the client must never send.
+ *
+ * `id` is generated server-side on the append-only tables. Listing them keeps
+ * the drift check honest: without this it would have to ignore anything it did
+ * not recognise, which is how a check stops catching things.
+ */
+export const SERVER_OWNED: Record<string, string[]> = {
+  games: ['id'],
+  mistakes: ['id'],
+  puzzle_attempts: ['id'],
+  tier_progress: [],
+  profiles: [],
+}
 
 /* ------------------------------------------------------------------ push */
 
@@ -51,97 +162,46 @@ async function pushTables(userId: string): Promise<number> {
   ])
 
   if (games.length) {
-    const { error } = await sb.from('games').upsert(
-      games.map((g) => ({
-        user_id: userId,
-        local_id: g.id,
-        played_at: g.playedAt,
-        human_colour: g.humanColour,
-        opponent_elo: g.opponentElo,
-        opponent_style: g.opponentStyle,
-        result: g.result,
-        reason: g.reason,
-        pgn: g.pgn,
-        acpl: g.acpl,
-        performance_rating: g.performanceRating,
-        analysed_at: g.analysedAt,
-      })),
-      { onConflict: 'user_id,local_id' },
-    )
+    const { error } = await sb
+      .from('games')
+      .upsert(games.map((g) => TO_REMOTE.games(g, userId)), { onConflict: 'user_id,local_id' })
     if (error) throw new Error(`games: ${error.message}`)
     pushed += games.length
   }
 
   if (mistakes.length) {
-    const { error } = await sb.from('mistakes').upsert(
-      mistakes.map((m) => ({
-        user_id: userId,
-        local_id: m.id,
-        game_id: m.gameId,
-        source: m.source ?? 'game',
-        ply: m.ply,
-        fen: m.fen,
-        san: m.san,
-        best_san: m.bestSan,
-        loss_cp: m.lossCp,
-        severity: m.severity,
-        tag: m.tag,
-        phase: m.phase,
-        at: m.at,
-      })),
-      { onConflict: 'user_id,local_id' },
-    )
+    const { error } = await sb
+      .from('mistakes')
+      .upsert(mistakes.map((m) => TO_REMOTE.mistakes(m, userId)), {
+        onConflict: 'user_id,local_id',
+      })
     if (error) throw new Error(`mistakes: ${error.message}`)
     pushed += mistakes.length
   }
 
   if (attempts.length) {
-    const { error } = await sb.from('puzzle_attempts').upsert(
-      attempts.map((a) => ({
-        user_id: userId,
-        local_id: a.id,
-        puzzle_id: a.puzzleId,
-        themes: a.themes,
-        rating: a.rating,
-        correct: a.correct,
-        ms: a.ms,
-        tier_id: a.tierId,
-        at: a.at,
-      })),
-      { onConflict: 'user_id,local_id' },
-    )
+    const { error } = await sb
+      .from('puzzle_attempts')
+      .upsert(attempts.map((a) => TO_REMOTE.puzzle_attempts(a, userId)), {
+        onConflict: 'user_id,local_id',
+      })
     if (error) throw new Error(`attempts: ${error.message}`)
     pushed += attempts.length
   }
 
   if (tiers.length) {
-    const { error } = await sb.from('tier_progress').upsert(
-      tiers.map((t) => ({
-        user_id: userId,
-        tier_id: t.id,
-        solved: t.solved,
-        correct: t.correct,
-        cleared: t.cleared,
-        cleared_at: t.clearedAt,
-        updated_at: t.updatedAt,
-      })),
-      { onConflict: 'user_id,tier_id' },
-    )
+    const { error } = await sb
+      .from('tier_progress')
+      .upsert(tiers.map((t) => TO_REMOTE.tier_progress(t, userId)), {
+        onConflict: 'user_id,tier_id',
+      })
     if (error) throw new Error(`tiers: ${error.message}`)
     pushed += tiers.length
   }
 
-  const { error: pErr } = await sb.from('profiles').upsert(
-    {
-      user_id: userId,
-      rating: profile.rating,
-      rating_deviation: profile.ratingDeviation,
-      streak: profile.streak,
-      last_session_date: profile.lastSessionDate,
-      updated_at: profile.updatedAt,
-    },
-    { onConflict: 'user_id' },
-  )
+  const { error: pErr } = await sb
+    .from('profiles')
+    .upsert(TO_REMOTE.profiles(profile, userId), { onConflict: 'user_id' })
   if (pErr) throw new Error(`profile: ${pErr.message}`)
   pushed += 1
 
@@ -224,6 +284,12 @@ async function pullTables(): Promise<number> {
           ms: r.ms,
           tierId: r.tier_id,
           at: r.at,
+          // `?? undefined` rather than passing the null straight through: the
+          // local field is optional, and storing an explicit null would make
+          // `attempts?: number` a lie for every reader downstream.
+          attempts: r.attempts ?? undefined,
+          hintUsed: r.hint_used ?? undefined,
+          points: r.points ?? undefined,
         })),
       )
       pulled += fresh.length
