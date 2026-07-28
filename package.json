@@ -14,6 +14,7 @@
     "puzzles": "node scripts/build-puzzles.mjs",
     "calibrate": "tsx scripts/calibrate.ts",
     "verify:endgames": "tsx scripts/verify-endgames.ts",
+    "verify:openings": "tsx scripts/verify-openings.ts",
     "sandbox:puzzles": "tsx scripts/sandbox-puzzles.ts",
     "sandbox:drills": "tsx scripts/sandbox-drills.ts",
     "sandbox:tiers": "tsx scripts/sandbox-tiers.ts"

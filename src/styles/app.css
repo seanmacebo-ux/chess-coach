@@ -1264,3 +1264,831 @@ input[type='email'] {
 .bgswatch[aria-pressed='true'] {
   border-color: var(--accent);
 }
+
+/* ==================================================================
+ * LEARN — modules as places
+ *
+ * The rebuild of this screen is as much a visual problem as a
+ * navigational one. The old version put every element in the same
+ * bordered, rounded, 15px box: a pillar heading, a category, a
+ * paragraph of explanation and a level row were visually identical,
+ * so the eye had nothing to sort by and the page read as one grey
+ * mass. That is what "looks generic" actually means in practice —
+ * not the palette, the absence of contrast between levels of
+ * importance.
+ *
+ * So the rules here are: at most one boxed element per level of
+ * nesting, hierarchy carried by size and weight rather than by
+ * another border, and numbers set in tabular figures so lists line
+ * up down the column. Colour stays semantic — one accent, plus the
+ * four line-role tones — and is never used for decoration.
+ * ================================================================== */
+
+/* ---------------------------------------------------------- header */
+
+.view-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s2);
+}
+
+.back {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  line-height: 1;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.back:hover {
+  background: var(--hover);
+}
+
+.view-title {
+  margin: 0;
+  font-size: var(--t-title);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.view-sub {
+  font-size: var(--t-small);
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Lede paragraphs carry the explanation that used to sit in a card.
+   Measure is capped: 15px prose running the full width of a tablet
+   is genuinely harder to read, and the old layout had no limit. */
+.lede {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.sect {
+  margin: var(--s3) 0 calc(-1 * var(--s1));
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------- index */
+
+.learn-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.hero-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-right: var(--s4);
+  border-right: 1px solid var(--border);
+}
+
+.hero-num {
+  font-size: var(--t-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.hero-cap {
+  margin-top: 2px;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hero-bars {
+  flex: 1;
+  min-width: 0;
+}
+
+.hero-line {
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+.hero-line b {
+  font-size: var(--t-lead);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Two columns on anything wider than a small phone. A single column of
+ * five identical full-width cards is precisely the shape that reads as
+ * a list of links rather than a set of destinations.
+ */
+.mod-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s2);
+}
+
+@media (max-width: 360px) {
+  .mod-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mod {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: var(--s3);
+  min-height: 112px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  /* The colour bar is the module's identity. Set per-module below. */
+  border-top: 3px solid var(--mod-tone, var(--border));
+}
+
+.mod:hover {
+  background: var(--surface-hi);
+}
+
+.mod-tactics { --mod-tone: #d98b3a; }
+.mod-endgame { --mod-tone: var(--good); }
+.mod-opening { --mod-tone: #9a7bd0; }
+.mod-positional { --mod-tone: var(--accent); }
+.mod-strategy { --mod-tone: var(--brilliant); }
+.mod-ideas { --mod-tone: var(--text-muted); }
+
+.mod-name {
+  font-size: var(--t-lead);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.mod-blurb {
+  font-size: var(--t-small);
+  color: var(--text-muted);
+}
+
+.mod-stat {
+  margin-top: auto;
+  padding-top: var(--s2);
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mod-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.mod-prog {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.mod-live {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mod-tone) 20%, transparent);
+  color: var(--mod-tone);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ rows */
+
+/*
+ * A list is rules between items, not a stack of boxes. Fifteen boxed
+ * endgames read as fifteen separate things competing for attention;
+ * fifteen ruled rows read as one list you scan.
+ */
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.row-item.col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.row-item:last-child {
+  border-bottom: 0;
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.row-title {
+  font-size: var(--t-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.row-sub {
+  font-size: var(--t-small);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.row-detail {
+  display: block;
+  margin-top: var(--s2);
+  font-size: var(--t-small);
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.rank {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+/* --------------------------------------------------------- feature */
+
+/* The one thing on the screen that should be tapped first. Exactly one
+   per view — the moment there are two, neither is a feature. */
+.feature {
+  padding: var(--s4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+}
+
+.feature-top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+}
+
+.feature-top > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.feature-title {
+  font-size: var(--t-lead);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.feature-hook {
+  font-size: var(--t-small);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.feature-body {
+  margin: var(--s3) 0 0;
+  font-size: var(--t-small);
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.chip.solid {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
+}
+
+/* -------------------------------------------------------- next up */
+
+.next-up {
+  padding: var(--s4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.next-head {
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--s1);
+}
+
+.next-note {
+  margin-top: var(--s3);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* -------------------------------------------------- concept questions */
+
+.q-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.q-item {
+  flex: 1 1 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.q-item.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.q-name {
+  font-size: var(--t-small);
+  font-weight: 650;
+}
+
+.q-blurb {
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.q-board {
+  padding: var(--s3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.q-ask {
+  margin-bottom: var(--s3);
+  font-size: var(--t-lead);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  color: var(--accent-hi);
+}
+
+/* ------------------------------------------------------------ ideas */
+
+.idea-body {
+  padding: 0 0 var(--s3);
+  font-size: var(--t-small);
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.idea-body p {
+  margin: 0 0 var(--s2);
+}
+
+.idea-body .source {
+  color: var(--text-muted);
+  font-size: var(--t-caption);
+  margin: 0;
+}
+
+/* ----------------------------------------------------------- ladder */
+
+/* Collapsed by default. The ladder is reference material — useful when
+   you want it, noise above every list when you do not. */
+.ladder,
+.why {
+  border-top: 1px solid var(--border);
+  padding-top: var(--s3);
+}
+
+.ladder > summary,
+.why > summary {
+  cursor: pointer;
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  list-style: none;
+}
+
+.ladder > summary::-webkit-details-marker,
+.why > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ladder > summary::after,
+.why > summary::after {
+  content: ' +';
+  font-weight: 400;
+}
+
+.ladder[open] > summary::after,
+.why[open] > summary::after {
+  content: ' −';
+}
+
+.ladder .rows {
+  margin-top: var(--s2);
+}
+
+.lvl-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.lvl-name {
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
+.lvl-band {
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lvl-blurb {
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* ==================================================================
+ * OPENINGS
+ * ================================================================== */
+
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.slot-label {
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--s2);
+}
+
+.op-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s2);
+}
+
+.op-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
+  padding: var(--s3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.op-card:hover {
+  background: var(--surface-hi);
+}
+
+.op-name {
+  font-size: var(--t-body);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* The move preview is the thing you actually recognise an opening by,
+   so it gets a mono face and enough contrast to be read, not a caption
+   greyed into the background. */
+.op-moves {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: var(--t-caption);
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.op-meta {
+  margin-top: auto;
+  padding-top: var(--s2);
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------- variation tabs */
+
+/*
+ * Horizontal scroller rather than a wrapped grid. The order is
+ * meaningful — main line first, then the turnings — and wrapping
+ * destroys that reading order at every breakpoint.
+ */
+.var-tabs {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin: 0 calc(-1 * var(--s3));
+  padding-inline: var(--s3);
+}
+
+.var-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.var-tab {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-left: 3px solid var(--role-tone, var(--border));
+}
+
+.var-tab[aria-selected='true'] {
+  background: var(--surface-hi);
+  border-color: var(--role-tone, var(--accent));
+  border-left-color: var(--role-tone, var(--accent));
+}
+
+.role-main { --role-tone: var(--accent); }
+.role-critical { --role-tone: var(--warn); }
+.role-punish { --role-tone: var(--danger); }
+.role-sideline { --role-tone: var(--text-muted); }
+
+.var-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--role-tone);
+}
+
+.var-name {
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------- line briefing */
+
+.line-brief {
+  padding: var(--s4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/*
+ * The evaluation, stated. This exists because the Fried Liver is taught
+ * everywhere as winning and is worth about a pawn — so the number goes
+ * on screen next to the line rather than being implied by adjectives.
+ */
+.eval-badge {
+  display: inline-block;
+  margin-bottom: var(--s3);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--t-caption);
+  font-weight: 650;
+}
+
+.eval-badge.danger {
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  color: var(--danger);
+}
+
+.eval-badge.warn {
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  color: var(--warn);
+}
+
+.eval-badge.good {
+  background: color-mix(in srgb, var(--good) 22%, transparent);
+  color: var(--good);
+}
+
+.line-brief p {
+  margin: 0 0 var(--s3);
+  font-size: var(--t-small);
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.line-brief p:last-child {
+  margin-bottom: 0;
+}
+
+.brief-key {
+  display: inline-block;
+  min-width: 54px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.brief-role {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.field-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.field-text {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.plan {
+  margin: var(--s1) 0 0;
+  padding-left: 18px;
+  font-size: var(--t-small);
+  line-height: 1.6;
+}
+
+.plan li {
+  margin-bottom: var(--s1);
+}
+
+.watch {
+  padding: var(--s3);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  font-size: var(--t-small);
+  line-height: 1.6;
+}
+
+/* ==================================================================
+ * PLAYGROUND
+ * ================================================================== */
+
+.pg {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  margin-top: var(--s3);
+}
+
+.pg-nav {
+  flex: none;
+  width: 40px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.pg-nav:disabled {
+  opacity: 0.35;
+}
+
+.pg-status {
+  flex: 1;
+  text-align: center;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-off {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+/* Deviating is information, not an error — so this is a neutral note
+   with an action, never a red warning. */
+.pg-note {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-top: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+
+.pg-note > span {
+  flex: 1;
+}
+
+.pg-caption {
+  margin-top: var(--s2);
+  font-size: var(--t-caption);
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+/* Moves you played that are not the book's. Dotted underline rather
+   than a colour swap: they are still your line, just not the book's. */
+.moves .move.offbook {
+  color: var(--warn);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.moves .move.blunder {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.moves .move.current.blunder {
+  background: var(--danger);
+  color: #fff;
+}
