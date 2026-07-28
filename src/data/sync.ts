@@ -107,6 +107,11 @@ async function pushTables(userId: string): Promise<number> {
         ms: a.ms,
         tier_id: a.tierId,
         at: a.at,
+        // Null rather than a default: a row written before scoring existed has
+        // no attempt count, and inventing 1 would claim a first-time solve.
+        attempts: a.attempts ?? null,
+        hint_used: a.hintUsed ?? null,
+        points: a.points ?? null,
       })),
       { onConflict: 'user_id,local_id' },
     )
@@ -224,6 +229,9 @@ async function pullTables(): Promise<number> {
           ms: r.ms,
           tierId: r.tier_id,
           at: r.at,
+          attempts: r.attempts ?? undefined,
+          hintUsed: r.hint_used ?? undefined,
+          points: r.points ?? undefined,
         })),
       )
       pulled += fresh.length

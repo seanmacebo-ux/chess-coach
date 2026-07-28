@@ -69,15 +69,44 @@ const T = (
  * clever the motif is. Hanging pieces come first because at 1200 they decide
  * more games than every other motif combined.
  */
+/*
+ * Clear gates ramp with how much calculation the tier demands.
+ *
+ * Every tactics tier used to clear at 20 solved, which made `tactics-1` — see
+ * a hanging piece, mate in one — exactly as much work as `tactics-4`, mate in
+ * two. Those are not the same task and never were. Polgár gives 306 mate-in-one
+ * exercises and 3,412 mate-in-twos: a ratio of about eleven.
+ *
+ * The gates below are NOT that ratio. Eleven times a 20-puzzle gate is 220
+ * puzzles, which at eight a day is a month parked on one tier; that number
+ * describes a training CORPUS, not the point at which you have shown you can
+ * do the thing. What the ratio does establish is that the step from one-ply
+ * recognition to genuine forced calculation is the largest on the ladder, and
+ * a flat 20 hid it completely. So the gates scale with the plies you have to
+ * see:
+ *
+ *     1 ply — recognition        15    tier 1
+ *     2 plies — one idea         24    tiers 2-3
+ *     3 plies — a forced line    40    tiers 4-6
+ *     5+ plies                   55    tiers 7-8
+ *
+ * Accuracy moves the other way. A hanging piece should be near-automatic, so
+ * tier 1 asks for 90% and the deep tiers stay at 80% — demanding more at the
+ * top would just reward grinding the easy end of a hard band.
+ *
+ * Raising a gate above the corpus stock would make a tier unclearable, so
+ * `npm run sandbox:tiers` checks every gate against the puzzles that exist in
+ * each band the tier covers.
+ */
 export const TACTICS_TIERS: Tier[] = [
-  T('tactics', 1, 'Free material', 'Spot what is hanging — yours and theirs. Mate in one.', [600, 1100], ['hangingPiece', 'mateIn1']),
-  T('tactics', 2, 'Forks', 'One piece, two targets. Knights especially.', [800, 1300], ['fork', 'doubleCheck']),
-  T('tactics', 3, 'Pins and skewers', 'Freeze a piece, or drag a big one off a small one.', [1000, 1500], ['pin', 'skewer']),
-  T('tactics', 4, 'Mate in two', 'Forcing sequences. Back rank first.', [1100, 1600], ['mateIn2', 'backRankMate']),
-  T('tactics', 5, 'Discovered attacks', 'Move one piece, unleash another.', [1300, 1700], ['discoveredAttack', 'xRayAttack']),
-  T('tactics', 6, 'Removing the guard', 'Deflect, decoy, or capture the defender.', [1400, 1900], ['deflection', 'attraction', 'capturingDefender', 'interference']),
-  T('tactics', 7, 'Mating nets', 'Mate in three and the named patterns.', [1500, 2000], ['mateIn3', 'smotheredMate', 'anastasiaMate', 'arabianMate', 'hookMate']),
-  T('tactics', 8, 'Quiet moves', 'The hardest tactic is the one that is not a check.', [1700, 2200], ['quietMove', 'intermezzo', 'zugzwang', 'defensiveMove']),
+  T('tactics', 1, 'Free material', 'Spot what is hanging — yours and theirs. Mate in one.', [600, 1100], ['hangingPiece', 'mateIn1'], 15, 0.9),
+  T('tactics', 2, 'Forks', 'One piece, two targets. Knights especially.', [800, 1300], ['fork', 'doubleCheck'], 24, 0.85),
+  T('tactics', 3, 'Pins and skewers', 'Freeze a piece, or drag a big one off a small one.', [1000, 1500], ['pin', 'skewer'], 24, 0.85),
+  T('tactics', 4, 'Mate in two', 'Forcing sequences. Back rank first.', [1100, 1600], ['mateIn2', 'backRankMate'], 40, 0.8),
+  T('tactics', 5, 'Discovered attacks', 'Move one piece, unleash another.', [1300, 1700], ['discoveredAttack', 'xRayAttack'], 40, 0.8),
+  T('tactics', 6, 'Removing the guard', 'Deflect, decoy, or capture the defender.', [1400, 1900], ['deflection', 'attraction', 'capturingDefender', 'interference'], 40, 0.8),
+  T('tactics', 7, 'Mating nets', 'Mate in three and the named patterns.', [1500, 2000], ['mateIn3', 'smotheredMate', 'anastasiaMate', 'arabianMate', 'hookMate'], 55, 0.8),
+  T('tactics', 8, 'Quiet moves', 'The hardest tactic is the one that is not a check.', [1700, 2200], ['quietMove', 'intermezzo', 'zugzwang', 'defensiveMove'], 55, 0.8),
 ]
 
 /**

@@ -62,10 +62,10 @@ export interface PuzzleAttemptRow {
    * scoring existed stay valid, and Dexie needs no version bump because none
    * of these is an index (only the keys in .stores() are).
    *
-   * Not yet synced: sync.ts maps every column by hand, so these stay on the
-   * device until the Supabase migration adds them. That is the right order —
-   * a column that exists locally and not remotely loses nothing, whereas the
-   * reverse throws on every push.
+   * Synced as of the 20260728 migration. They stay optional here because the
+   * remote columns are nullable and rows predating scoring have no value —
+   * `attempts === undefined` means "not recorded", which is a different claim
+   * from `attempts === 1`.
    */
 
   /** How many goes it took. 1 = first time. */
