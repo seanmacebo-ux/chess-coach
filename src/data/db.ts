@@ -74,6 +74,14 @@ export interface PuzzleAttemptRow {
   hintUsed?: boolean
   /** Points earned, after deductions. */
   points?: number
+  /**
+   * Solved with a move the stored Lichess line does not list, which the engine
+   * judged equal or better (see coach/adjudicate.ts). Worth keeping separate
+   * from plain `correct`: "found the book move" and "found a different move
+   * that also wins" are the same score and different evidence, and if the
+   * adjudicator is ever too generous this column is where it shows up.
+   */
+  alternative?: boolean
 }
 
 export interface TierProgressRow {
@@ -84,6 +92,44 @@ export interface TierProgressRow {
   cleared: boolean
   clearedAt: string | null
   updatedAt: string
+}
+
+/**
+ * One rating per pillar, so "how am I doing at endgames" has an answer.
+ *
+ * Until this table existed there was exactly ONE number in the app — the
+ * global `profile.rating` — and it moved only when a game against a bot
+ * finished. Every puzzle, drill, scan and endgame play-out changed nothing at
+ * all. That left the Learn screen unable to answer the only question it exists
+ * to answer: am I getting better, and at which part.
+ *
+ * Rating rather than accuracy, because accuracy on its own is meaningless
+ * without difficulty. Eight from ten on 500-rated puzzles and eight from ten
+ * on 1200-rated ones are not the same event, and a percentage cannot tell them
+ * apart.
+ *
+ * `history` is a capped trail on the row rather than a separate table. The only
+ * question ever asked of it is "which way has this moved lately", which needs a
+ * few dozen points rather than an audit log — and keeping it here means reading
+ * a section's whole story is a single primary-key get.
+ *
+ * Local-only for now: sync.ts maps every Supabase column by hand, so this table
+ * stays on the device until a migration adds it. Same trade as the scoring
+ * fields above, and in the same direction — a local column with no remote
+ * counterpart loses nothing, whereas the reverse throws on every push.
+ */
+export interface SectionRatingRow {
+  /** Pillar id — 'tactics', 'endgame', 'positional', 'strategy', 'opening'. */
+  section: string
+  rating: number
+  /** Glicko deviation. Grows while a section is idle, shrinks as you play it. */
+  rd: number
+  played: number
+  correct: number
+  /** ISO-8601 UTC of the last attempt. Null before the first one. */
+  updatedAt: string | null
+  /** Capped trail of {at, rating}, newest last. Feeds the trend arrow. */
+  history: { at: string; rating: number }[]
 }
 
 /** Single-row table; id is always 1. */
@@ -104,6 +150,7 @@ export class CoachDb extends Dexie {
   puzzleAttempts!: Table<PuzzleAttemptRow, number>
   tierProgress!: Table<TierProgressRow, string>
   profile!: Table<ProfileRow, number>
+  sectionRatings!: Table<SectionRatingRow, string>
 
   constructor() {
     super('chess-coach')
@@ -116,14 +163,38 @@ export class CoachDb extends Dexie {
       tierProgress: 'id, cleared',
       profile: 'id',
     })
+    // v2 adds one store and changes nothing else, so Dexie needs no upgrade
+    // function — existing rows in the v1 stores are carried across untouched.
+    // Only the primary key is declared: every field on the row is read by
+    // primary-key get, never queried, so an index would cost writes and buy
+    // nothing.
+    this.version(2).stores({
+      sectionRatings: 'section',
+    })
   }
 }
 
 export const db = new CoachDb()
 
+/*
+ * The starting rating was 1400 and it was the most expensive number in the
+ * app. The player it shipped for plays at about 420, and nothing anywhere
+ * announced the mismatch — it simply mis-aimed every recommendation at once:
+ * puzzles served at 1250-1550, the Scotch and the Caro-Kann offered as a
+ * repertoire, Lucena and Philidor unlocked, and "spot what is hanging" filed
+ * as already behind him when his actual games show it is exactly where he is.
+ *
+ * 800 is the bottom of "has played some chess" and a far safer place to be
+ * wrong, because being under-rated costs you easy puzzles for a session or two
+ * while being over-rated costs you every recommendation until someone notices.
+ *
+ * This only affects a FRESH install. A device with an existing profile row
+ * keeps whatever it already stored, so correcting a device that has already
+ * booted needs the chess.com import in Settings — see data/chesscom.ts.
+ */
 const DEFAULT_PROFILE: ProfileRow = {
   id: 1,
-  rating: 1400,
+  rating: 800,
   ratingDeviation: 250,
   updatedAt: new Date(0).toISOString(),
   lastSessionDate: null,

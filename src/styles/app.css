@@ -170,6 +170,24 @@ body {
   padding: 0 12px calc(76px + env(safe-area-inset-bottom));
 }
 
+/*
+ * Learn runs wide; everything else does not.
+ *
+ * 560px is the right column for a screen built around a square board — a board
+ * stretched to 1100px just puts the pieces further from your eyes. But Learn is
+ * a browsing surface, used on a desk monitor, with a list-and-detail layout in
+ * it. Squeezing that into 560px is precisely why the openings board came out
+ * unreadable: it was a board inside a card inside a level inside an expanded
+ * pillar card, in a 560px column, and by the time all that padding was paid it
+ * had about 480px left to live in.
+ *
+ * No media query needed — max-width already collapses to the viewport on a
+ * phone, so the narrow case takes care of itself.
+ */
+.app.wide {
+  max-width: 1120px;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -995,6 +1013,12 @@ input[type='email'] {
   border-top: 1px solid var(--border);
 }
 
+/* The bar tracks the shell it belongs to, or it sits as a narrow strip under a
+   wide page and reads as a floating widget. */
+.app.wide .tabs {
+  max-width: 1120px;
+}
+
 /*
  * Icon over label. Six destinations will not fit as text on a 360px phone —
  * they either truncate or shrink below a readable size. A glyph plus an
@@ -1263,4 +1287,563 @@ input[type='email'] {
 
 .bgswatch[aria-pressed='true'] {
   border-color: var(--accent);
+}
+
+/* ================================================================= LEARN
+ *
+ * Everything below serves one structural change: Learn stopped being a stack
+ * of accordions and became an index of six sections plus a full screen for
+ * whichever one you open. The old screen could show one pillar at a time, with
+ * a second accordion per category inside it and a third per opening inside
+ * that — "just a bunch of dropdowns and a bunch of widgets", which was a fair
+ * description of what it had become.
+ *
+ * The layout primitives here are deliberately few: a card grid for the index,
+ * a list-and-detail split for anything with too much content to show at once,
+ * and a ladder for progress. No disclosure anywhere.
+ */
+
+/* ---------------------------------------------------- the section index */
+
+.sec-grid {
+  display: grid;
+  gap: 12px;
+  /* auto-fill rather than a fixed count: three across on the desk monitor,
+     two on a laptop, one on a phone, without a single breakpoint. */
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+}
+
+.sec-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  text-align: left;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 4%) inset,
+    0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.sec-card:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--surface-hi) 0%, var(--surface-hi) 100%);
+  border-color: var(--accent);
+}
+
+.sec-name {
+  font-size: var(--t-lead);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* What is actually inside the section. The index is a menu, and a menu without
+   prices on it is just a list of words. */
+.sec-contents {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: auto;
+}
+
+.sec-go {
+  color: var(--accent);
+  font-weight: 650;
+}
+
+/* ------------------------------------------------------------- ratings */
+
+/*
+ * The number, its trend and its caption, in that priority order. Wraps so the
+ * caption drops onto its own line rather than squeezing the figure — and NO
+ * fixed width anywhere, because these ratings sit in the 400-900 range for a
+ * beginner and a four-digit slot would leave a hole next to every one.
+ */
+.rchip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 2px 6px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.rchip .n {
+  font-size: var(--t-title);
+  font-weight: 750;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* Provisional ratings are greyed rather than hidden. Visible because watching
+   it move is motivating; grey because it is going to move a lot. */
+.rchip.prov .n {
+  color: var(--text-muted);
+}
+
+.rchip .trend {
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+
+.rchip .trend.up {
+  color: var(--accent);
+}
+
+.rchip .trend.down {
+  color: var(--danger);
+}
+
+.tag,
+.rchip .tag {
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  flex-basis: 100%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The explanation. Chess.com puts a number, a delta and a one-line "what this
+   is" on the same surface, which is why their ratings read as information
+   rather than a score in a game nobody explained. This is that line, and it is
+   never behind a click — an explanation you have to go looking for is an
+   explanation for someone who already knows. */
+.expl-line {
+  display: block;
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+}
+
+.expl {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.expl p {
+  margin: 6px 0 0;
+}
+
+/* Progress, drawn as progress. "3/20" in muted grey is a fact; a bar is a
+   position. */
+.bar {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.bar.ok {
+  border-color: var(--accent);
+}
+
+/* ------------------------------------------------------- section header */
+
+.secbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+button.back {
+  padding: 8px 12px;
+  min-height: 38px;
+  font-weight: 650;
+}
+
+/* ------------------------------------------------- list and detail split */
+
+/*
+ * The replacement for nested disclosure.
+ *
+ * A chevron hides content and makes you pay a click to find out whether you
+ * wanted it. A list beside its detail shows you the whole menu AND one full
+ * entry at the same time, and on a wide screen that is strictly more
+ * information for strictly less work. Something is always selected, so the
+ * right-hand column is never an empty "pick something" prompt.
+ */
+.split {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .split {
+    /* minmax(0, 1fr) on the detail column, not 1fr — a bare 1fr refuses to
+       shrink below its content's min-content width, and one long unbroken
+       word in the prose would push the board off the screen. */
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  }
+}
+
+.card.split-list {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (min-width: 900px) {
+  .card.split-list {
+    /* Follows you down a long detail pane, and scrolls itself when the list is
+       longer than the screen — 20 endgames does not fit in a viewport. */
+    position: sticky;
+    top: 12px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+}
+
+.pick-group {
+  padding: 10px 8px 4px;
+}
+
+.pick-group > .small.muted:first-child {
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pick-note {
+  margin-top: 3px;
+}
+
+.pick {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-left: 3px solid var(--border);
+  border-radius: 0 8px 8px 0;
+  background: transparent;
+}
+
+.pick:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.pick[aria-current='true'] {
+  background: var(--surface-hi);
+  border-left-color: var(--accent);
+  border-color: var(--border);
+  border-left-color: var(--accent);
+}
+
+/* Out of band, but present. The whole point of the openings fix: shown and
+   marked rather than filtered away. */
+.pick.off {
+  opacity: 0.62;
+}
+
+.pick.off[aria-current='true'] {
+  opacity: 1;
+}
+
+.pick-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pick-title {
+  font-weight: 650;
+}
+
+/* The 1-2-3 on the endgames worth doing first. The ranking is coaching and it
+   survives — as the order of the one list, not as a second copy of it. */
+.rank {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+
+/* ------------------------------------------------------- opening detail */
+
+/*
+ * The board is the primary element on this screen and it finally gets the
+ * width to prove it. Capped rather than uncapped: past about 640px a diagram
+ * stops gaining anything and starts pushing the explanation off the fold.
+ */
+.boardbox {
+  max-width: 640px;
+}
+
+/* why / gives / concedes / attack read as four parallel answers, so on a wide
+   screen they sit as four, not as a column you scroll. */
+.prose-cols {
+  display: grid;
+  gap: 10px 24px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .prose-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ----------------------------------------------- category / question grid */
+
+.cat-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.cat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The board question for a positional or strategy level. Accented because it
+   is the actual content of those two pillars — there is no puzzle corpus
+   behind them, and the question IS the training. */
+.ask {
+  font-size: var(--t-small);
+  color: var(--accent-hi);
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+  margin-top: auto;
+}
+
+/* A drill you can start right now, as opposed to something to read. */
+.card.drill {
+  border-left: 3px solid var(--accent);
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
+}
+
+/* ------------------------------------------------------------ the wall */
+
+/*
+ * The ladder. Previously a flat stack of divs distinguished only by a border
+ * colour and an opacity step, which is why Sean said it was "strange" — you
+ * could not tell "behind you" from "ahead of you" at 0.4 versus 0.5 opacity,
+ * and the state was never written down in words anywhere.
+ *
+ * Now: a rail with rungs on it, the state spelled out, and progress drawn as
+ * two bars because a tier clears on volume AND accuracy and one merged bar
+ * would hide that.
+ */
+.ladder {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rung {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px 12px;
+  padding: 8px 0 12px;
+}
+
+/* The rail. Runs between the markers so the rungs read as one sequence rather
+   than as N unrelated rows. */
+.rung:not(.last)::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 34px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.rung-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-hi);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  align-self: start;
+  margin-top: 2px;
+  position: relative;
+  z-index: 1;
+  flex: none;
+}
+
+.rung.done .rung-mark {
+  background: var(--good);
+  border-color: var(--good);
+  color: #fff;
+}
+
+.rung.now .rung-mark {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.rung-body {
+  min-width: 0;
+}
+
+/* The level you are actually on gets a panel of its own. On a fifteen-rung
+   ladder, "where am I" has to survive a glance. */
+.rung.now .rung-body {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin: -4px -10px 0;
+}
+
+/* Dimmed, but not to the point of being unreadable — these are the levels you
+   go back to, and the old 0.4 made them look broken rather than optional. */
+.rung.later .rung-body,
+.rung.past .rung-body {
+  opacity: 0.7;
+}
+
+/* The state, in words. Colour is a reinforcement here, never the carrier —
+   "behind you" and "ahead of you" have to be distinguishable without it. */
+.rung-state {
+  font-size: var(--t-small);
+  font-weight: 650;
+  margin-top: 4px;
+}
+
+.rung.done .rung-state {
+  color: var(--good);
+}
+
+.rung.now .rung-state {
+  color: var(--accent-hi);
+}
+
+.rung.later .rung-state,
+.rung.past .rung-state {
+  color: var(--text-muted);
+}
+
+.rung-bars {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+
+@media (min-width: 560px) {
+  .rung-bars {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.rung-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* "You are here" — the single marker that turns a list into a position. */
+.here {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: var(--t-caption);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.here::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* ---------------------------------------------- ratings on the play screen */
+
+/*
+ * Your five section ratings, next to the opponent-strength slider. Picking a
+ * bot without your own number beside it is guessing, and the whole reason the
+ * rating is split five ways is so you can see WHICH part of your game is
+ * holding the total down.
+ */
+.secrate-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.secrate {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+}
+
+/* Section names come out of SECTION_NAME lowercase, because they are written
+   to drop into a sentence ("Do one set in endgames"). As a standalone label
+   they need to read as a label, so they get the same uppercase caption
+   treatment every other card title in the app uses. */
+.secrate > .small.muted:first-child {
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.secrate .rchip {
+  justify-content: flex-start;
+}
+
+.secrate .rchip .n {
+  font-size: var(--t-lead);
+}
+
+.secrate .tag,
+.secrate .rchip .tag {
+  text-align: left;
+  white-space: normal;
+}
+
+.secrate .expl-line {
+  border-left: 0;
+  padding-left: 0;
 }

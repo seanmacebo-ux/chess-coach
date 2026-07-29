@@ -16,6 +16,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { currentAuth, sendMagicLink, signOut, type AuthState } from '../../data/supabase'
 import { syncNow, type SyncResult } from '../../data/sync'
 import { loadPrefs, savePrefs, PUZZLE_COUNTS, type Prefs } from '../../data/settings'
+import { describeImport, fetchChessComProfile } from '../../data/chesscom'
+import { saveProfile } from '../../data/db'
+import {
+  SECTION_IDS,
+  SECTION_NAME,
+  explainSection,
+  getSectionRatings,
+  seedSections,
+  type SectionId,
+  type SectionRating,
+} from '../../coach/rating'
 import { ThemePreview } from '../ThemePreview'
 import {
   BACKGROUNDS,
@@ -45,9 +56,58 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
   const [sync, setSync] = useState<SyncResult | null>(null)
   const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs())
 
+  /* --------------------------------------------------- calibration */
+  const [ccUser, setCcUser] = useState('')
+  const [ccBusy, setCcBusy] = useState(false)
+  const [ccError, setCcError] = useState<string | null>(null)
+  const [ccNote, setCcNote] = useState<string | null>(null)
+  const [sectionRatings, setSectionRatings] = useState<Record<SectionId, SectionRating> | null>(
+    null,
+  )
+
   useEffect(() => {
     void currentAuth().then(setAuth)
+    void getSectionRatings().then(setSectionRatings)
   }, [])
+
+  /**
+   * Pull a real playing strength off chess.com and calibrate against it.
+   *
+   * Seeding is deliberately non-destructive: `seedSections` leaves any section
+   * that already carries attempts alone, because an imported number is an
+   * assumption and the attempts are a measurement. Overwriting the second with
+   * the first would throw away the better evidence.
+   *
+   * The global profile rating is set too, since it is what the puzzle picker
+   * and the opening filter still read.
+   */
+  const importRating = useCallback(async () => {
+    setCcBusy(true)
+    setCcError(null)
+    setCcNote(null)
+    try {
+      const found = await fetchChessComProfile(ccUser)
+      if (!found.calibration) {
+        setCcError(describeImport(found))
+        return
+      }
+      const rating = found.calibration.rating
+      await saveProfile({ rating })
+      const seeded = await seedSections(rating)
+      setSectionRatings(await getSectionRatings())
+      setCcNote(
+        `${describeImport(found)} ${
+          seeded.length === 0
+            ? 'Every section already has training behind it, so none were reset — those numbers are measurements now, not guesses.'
+            : `${seeded.length} section${seeded.length === 1 ? '' : 's'} set to ${rating}.`
+        }`,
+      )
+    } catch (err) {
+      setCcError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCcBusy(false)
+    }
+  }, [ccUser])
 
   const patchPrefs = useCallback((patch: Partial<Prefs>) => {
     setPrefs((p) => {
@@ -156,6 +216,74 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
         {msg && (
           <div className="small" style={{ color: 'var(--danger)' }}>
             {msg}
+          </div>
+        )}
+      </div>
+
+      {/* --------------------------------------------------- calibration */}
+      <div className="card stack">
+        <span className="small muted">Your rating</span>
+
+        <div className="small">
+          Every section below carries its own rating, and they all start from one number. Getting
+          that number right matters more than it looks: it decides how hard your puzzles are, which
+          openings you are shown, and which endgames unlock. Importing it from chess.com beats
+          guessing.
+        </div>
+
+        <div className="row" style={{ gap: 8 }}>
+          <input
+            className="field"
+            style={{ flex: 1 }}
+            placeholder="chess.com username"
+            value={ccUser}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            onChange={(e) => setCcUser(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void importRating()
+            }}
+          />
+          <button className="primary" disabled={ccBusy} onClick={() => void importRating()}>
+            {ccBusy ? 'Checking…' : 'Import'}
+          </button>
+        </div>
+
+        {ccError && (
+          <div className="small" style={{ color: 'var(--danger)' }}>
+            {ccError}
+          </div>
+        )}
+        {ccNote && <div className="small">{ccNote}</div>}
+
+        {/*
+          The ratings are listed here as well as in Learn, because this is the
+          screen where you change the number they came from — seeing what the
+          import actually did to each section, immediately and in place, is the
+          difference between a setting and a leap of faith.
+        */}
+        {sectionRatings && (
+          <div className="stack" style={{ gap: 2, marginTop: 4 }}>
+            {SECTION_IDS.map((id) => {
+              const r = sectionRatings[id]
+              if (!r) return null
+              return (
+                <div key={id} className="row spread hist-row">
+                  <span className="small" style={{ textTransform: 'capitalize' }}>
+                    {SECTION_NAME[id]}
+                  </span>
+                  <span
+                    className="small"
+                    style={{ color: r.provisional ? 'var(--muted)' : 'var(--text)' }}
+                    title={explainSection(r).what}
+                  >
+                    {r.rating}
+                    {r.provisional ? ' · not rated yet' : ''}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

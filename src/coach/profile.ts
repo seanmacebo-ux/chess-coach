@@ -17,6 +17,7 @@
 import { db, getProfile, saveProfile, type MistakeRow } from '../data/db'
 import { TAG_LABEL, TAG_THEMES, type MistakeTag } from './analysis'
 import { CATEGORIES, categoryOf, type Category } from './categories'
+import { recordTierResult } from './rating'
 import { ALL_TIERS, tierById, type Tier } from './tiers'
 
 /** Recency weight halves about every 21 days. */
@@ -316,13 +317,36 @@ export async function tierStatuses(rating: number): Promise<TierStatus[]> {
  * Record a puzzle result against a tier and clear it if the bar is met.
  * A tier clears on volume AND accuracy — grinding 20 puzzles at 40% is not
  * mastery, and letting it count would hollow out the whole ladder.
+ *
+ * This also moves the SECTION RATING, and that is why the extra behaviour was
+ * put here rather than in a new function. Both callers — the puzzle runner and
+ * the endgame play-out — already call this with a tier id, and a tier already
+ * knows its pillar, so hanging the rating update off this seam means every
+ * existing training surface starts feeding the per-section ratings without a
+ * single call site changing. A separate function would have needed each runner
+ * edited to call both, and the one that got forgotten would have been a
+ * section that silently never moved.
+ *
+ * A failure to write the rating must not lose the tier progress, so it is
+ * caught rather than allowed to reject: the tier tally is the older and more
+ * load-bearing record of the two.
  */
 export async function recordTierAttempt(
   tierId: string,
   correct: boolean,
+  /** Difficulty of the specific item, when the caller knows it. Puzzles carry
+   *  their own Lichess rating, which is far better evidence than the tier band
+   *  midpoint — a 900-rated fork and a 1600-rated fork sit in the same tier. */
+  itemRating?: number,
 ): Promise<TierStatus | null> {
   const tier = tierById(tierId)
   if (!tier) return null
+
+  try {
+    await recordTierResult(tierId, correct, itemRating)
+  } catch (err) {
+    console.error('[rating] section update failed, tier progress kept', err)
+  }
 
   const now = new Date().toISOString()
   const existing = await db.tierProgress.get(tierId)

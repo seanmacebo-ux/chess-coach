@@ -20,7 +20,16 @@ import { PuzzleRunner } from './ui/screens/PuzzleRunner'
 import { History } from './ui/screens/History'
 import { Learn } from './ui/screens/Learn'
 import { PlayoutRunner } from './ui/screens/PlayoutRunner'
-import { ENDGAMES, type EndgamePosition } from './coach/endgames'
+import { type EndgamePosition } from './coach/endgames'
+import {
+  getSectionRatings,
+  overallVerdict,
+  SECTION_IDS,
+  SECTION_NAME,
+  type SectionId,
+  type SectionRating,
+} from './coach/rating'
+import { RatingChip, RatingExplainer } from './ui/learn/RatingChip'
 import { ScanRunner, buildScanQuestions, type ScanQuestion } from './ui/screens/ScanRunner'
 import { ThreatRunner, buildThreatQuestions, type ThreatQuestion } from './ui/screens/ThreatRunner'
 import {
@@ -206,7 +215,15 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app">
+    /*
+      Learn runs wide. Everywhere else the 560px column is right — it is a
+      phone-shaped app around a square board, and stretching a board screen to
+      1100px just puts the pieces further from your eyes. But Learn is a
+      browsing surface on a desk monitor with a two-column list-and-detail
+      layout in it, and squeezing that into 560px is exactly why the openings
+      board was unreadable.
+    */
+    <div className={'app' + (tab === 'learn' ? ' wide' : '')}>
       <header className="topbar">
         <div className="brand">
           <span className="mark" aria-hidden="true">
@@ -344,6 +361,16 @@ export default function App() {
           </div>
         ))}
 
+      {/*
+        No longer a browsable tab — a destination you are sent to by Learn.
+        The "Endings" tab used to render the whole ENDGAMES array a third time,
+        alongside the two copies inside Learn: same data, same Play button,
+        three surfaces. Learn is the single home for endgames now.
+
+        The ROUTE survives because the play-out runner has to live somewhere,
+        and returning to Learn on finish is the point — going "back" to a tab
+        that is no longer in the nav would be a dead end.
+      */}
       {tab === 'endgames' &&
         (endgame ? (
           <PlayoutRunner
@@ -356,10 +383,17 @@ export default function App() {
                   : `${endgame.name} — not this time.`,
               )
               setEndgame(null)
+              setTab('learn')
             }}
           />
         ) : (
-          <Endgames onPick={setEndgame} />
+          // Only reachable by leaving the tab mid-playout and coming back.
+          <div className="card row spread">
+            <span className="muted">No endgame loaded.</span>
+            <button className="primary" onClick={() => setTab('learn')}>
+              Pick one in Learn
+            </button>
+          </div>
         ))}
 
       {/* key forces a fresh read of the database each time the tab is opened */}
@@ -400,7 +434,6 @@ export default function App() {
             ['daily', '◎', 'Today'],
             ['play', '♟', 'Play'],
             ['learn', '❖', 'Learn'],
-            ['endgames', '♔', 'Endings'],
             ['history', '◔', 'History'],
             ['settings', '⚙', 'Settings'],
           ] as [Tab, string, string][]
@@ -411,10 +444,7 @@ export default function App() {
             // re-read the database rather than showing a snapshot from
             // whenever the tab was first opened.
             aria-current={tab === id ? 'page' : undefined}
-            onClick={() => {
-              if (id === 'endgames') setEndgame(null)
-              setTab(id)
-            }}
+            onClick={() => setTab(id)}
           >
             <span className="ico" aria-hidden="true">
               {icon}
@@ -430,45 +460,64 @@ export default function App() {
 /* ------------------------------------------------------------------ */
 
 /**
- * The endgame picker.
+ * Your ratings, on the screen where you are choosing an opponent.
  *
- * Every position is shown, not just the ones at your level — the brief was
- * explicitly "my level or lower", and seeing what is coming is half the point
- * of a ladder. Each one states the goal up front, because "win this" and
- * "hold this" are completely different tasks and finding out which one you
- * were meant to be doing afterwards is useless.
+ * The brief: "each game setting or each gameplay feature where it's Learn or me
+ * playing needs to also give my ELO rating in that thing." Correct instinct —
+ * picking a bot strength without your own number next to it is guessing, and
+ * the whole reason the ratings are split by section is so you can see WHICH
+ * part of your game the number is being held up by.
+ *
+ * The comparison line is the useful bit. "Opponent 1400" means nothing on its
+ * own; "1400, which is 360 above you" is a decision.
  */
-function Endgames({ onPick }: { onPick: (p: EndgamePosition) => void }) {
+function YourRatings({
+  overall,
+  sections,
+  opponentElo,
+}: {
+  overall: number
+  sections: Record<SectionId, SectionRating> | null
+  opponentElo: number
+}) {
+  const gap = opponentElo - overall
+  const verdict = sections ? overallVerdict(sections) : null
+
   return (
-    <div className="stack">
-      <div className="card">
-        <div className="small muted">Endgame technique</div>
-        <div className="small" style={{ marginTop: 6 }}>
-          {ENDGAMES.length} positions, every one checked against the engine so the result it
-          claims is the result it actually has. You play; the engine defends at full strength.
-          Half of these are draws to hold rather than wins to convert — that is deliberate, and
-          holding one counts as a pass.
-        </div>
+    <div className="card stack">
+      <div className="row spread">
+        <span className="small muted">Your rating</span>
+        <span className="small muted">against a {opponentElo} bot</span>
       </div>
 
-      <div className="card stack">
-        {ENDGAMES.map((e) => (
-          <button
-            key={e.id}
-            className="lesson-head"
-            style={{ margin: 0, padding: '10px 0', width: '100%' }}
-            onClick={() => onPick(e)}
-          >
-            <span>
-              <span style={{ fontWeight: 600 }}>{e.name}</span>
-              <span className="small muted">{e.why.split('.')[0]}.</span>
-            </span>
-            <span className={'pill ' + (e.goal === 'win' ? 'win' : 'draw')}>
-              {e.goal === 'win' ? 'win it' : 'hold it'}
-            </span>
-          </button>
+      <div className="row spread" style={{ alignItems: 'baseline' }}>
+        <span className="stat">{overall}</span>
+        <span className="small muted" style={{ textAlign: 'right' }}>
+          {gap === 0
+            ? 'An even match on paper.'
+            : gap > 0
+              ? `${gap} points above you. Expect to be under pressure.`
+              : `${Math.abs(gap)} points below you. You should be winning this.`}
+        </span>
+      </div>
+
+      <div className="small muted">
+        This one comes from games: it moves when you win or lose against a rated bot, by more when
+        the result was a surprise. The five below come from training instead, one per part of the
+        game, so you can see which part is holding the number down.
+      </div>
+
+      <div className="secrate-grid">
+        {SECTION_IDS.map((id) => (
+          <div key={id} className="secrate">
+            <div className="small muted">{SECTION_NAME[id]}</div>
+            <RatingChip r={sections?.[id]} />
+            <RatingExplainer r={sections?.[id]} />
+          </div>
         ))}
       </div>
+
+      {verdict && <div className="small">{verdict}</div>}
     </div>
   )
 }
@@ -495,6 +544,17 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   /** Set while a move is on the board but not yet committed. */
   const [pending, setPending] = useState<{ loose: string[] } | null>(null)
 
+  /**
+   * Your own numbers, for the panel next to the strength slider.
+   *
+   * Re-read when a review finishes rather than only on mount, because the game
+   * you just played has by then already moved the overall rating — showing the
+   * pre-game number next to a post-game result is the kind of small lie that
+   * makes people stop trusting the whole display.
+   */
+  const [myRating, setMyRating] = useState<number | null>(null)
+  const [sections, setSections] = useState<Record<SectionId, SectionRating> | null>(null)
+
   const humanColour = orientation
   const status = statusOf(chess.current)
   const turn = colourOf(chess.current)
@@ -517,6 +577,20 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       cancelled = true
     }
   }, [opponent])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const p = await getProfile()
+      const s = await getSectionRatings()
+      if (cancelled) return
+      setMyRating(p.rating)
+      setSections(s)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [review.phase])
 
   const sync = useCallback(() => {
     setFen(chess.current.fen())
@@ -810,6 +884,10 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
             </div>
           )}
         </div>
+      )}
+
+      {myRating !== null && (
+        <YourRatings overall={myRating} sections={sections} opponentElo={elo} />
       )}
 
       <div className="card stack">
