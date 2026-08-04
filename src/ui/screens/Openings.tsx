@@ -34,6 +34,8 @@ import {
   type LineRole,
 } from '../../content/openings'
 import { Playground } from '../Playground'
+import { OpeningTrainer } from '../OpeningTrainer'
+import { coachedPlies } from '../../content/coaching'
 
 const ROLE_LABEL: Record<LineRole, string> = {
   main: 'Main line',
@@ -212,8 +214,27 @@ function OpeningDetail({
 }) {
   const inBand = rating >= opening.band[0] && rating <= opening.band[1]
   const [lineId, setLineId] = useState(mainLine(opening).id)
+  const [training, setTraining] = useState(false)
   const line = opening.lines.find((l) => l.id === lineId) ?? mainLine(opening)
   const badge = evalBadge(line)
+  const coached = coachedPlies(opening.id, line.id)
+
+  /*
+   * Training owns the screen. It is a different activity from browsing the
+   * book — you are being asked for moves — and leaving the variation chips and
+   * the prose on screen would let you read the answer off the page, which is
+   * the one thing a drill cannot allow.
+   */
+  if (training) {
+    return (
+      <OpeningTrainer
+        line={line}
+        side={opening.side}
+        openingId={opening.id}
+        onExit={() => setTraining(false)}
+      />
+    )
+  }
 
   return (
     <div className="stack">
@@ -257,6 +278,19 @@ function OpeningDetail({
         startAtEnd
         caption="Drag any piece — both sides move. Play something else and it will tell you what the book said."
       />
+
+      {/*
+        The drill sits directly under the board, above the prose. Reading about
+        an opening and playing it are different things and the second is what
+        makes it stick, so it should not be below three paragraphs.
+      */}
+      <button className="play-line" onClick={() => setTraining(true)}>
+        <span className="play-line-main">Play this line ▸</span>
+        <span className="play-line-sub">
+          I play {opening.side === 'white' ? 'Black' : 'White'}, you find the moves
+          {coached > 0 ? `, and I talk you through ${coached} of them` : ''}.
+        </span>
+      </button>
 
       <div className="line-brief">
         <div className={`eval-badge ${badge.tone}`}>{badge.text}</div>

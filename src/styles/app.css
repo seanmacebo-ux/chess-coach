@@ -3076,3 +3076,120 @@ button.back {
   line-height: 1.45;
   color: var(--warn);
 }
+
+/* ==================================================================
+ * OPENING TRAINER
+ *
+ * Playing the line rather than reading it. The coach panel is the
+ * primary surface here — it is the thing that makes this different
+ * from a diagram — so it gets real weight rather than caption size.
+ * ================================================================== */
+
+.play-line {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
+.play-line:hover {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
+
+.play-line-main {
+  font-size: var(--t-lead);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--accent-hi);
+}
+
+.play-line-sub {
+  font-size: var(--t-small);
+  color: var(--text-muted);
+}
+
+.trainer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.trainer-prog {
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* The coach panel. Fixed minimum height so the board does not jump
+   every time the text changes length — a board that moves under your
+   finger between moves feels broken. */
+.coach {
+  min-height: 108px;
+  padding: var(--s4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-left: 3px solid var(--accent);
+}
+
+.coach.wrong {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, var(--surface));
+}
+
+.coach.done {
+  border-left-color: var(--good);
+  background: color-mix(in srgb, var(--good) 10%, var(--surface));
+}
+
+.coach-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--s1);
+}
+
+.coach.wrong .coach-role { color: var(--warn); }
+.coach.done .coach-role { color: var(--good); }
+
+.coach-text {
+  font-size: var(--t-body);
+  line-height: 1.55;
+  max-width: 62ch;
+}
+
+.coach-actions {
+  margin-top: var(--s3);
+}
+
+.coach-hint {
+  font-size: var(--t-small);
+  color: var(--accent-hi);
+}
+
+/* Trainer takes the screen — see the comment in OpeningTrainer.tsx. */
+.trainer-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  overflow-y: auto;
+  background: var(--bg);
+  padding: var(--s4);
+  /* Clear the fixed tab bar, which stays reachable on purpose — trapping
+     someone inside a drill is worse than letting them leave mid-line. */
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  max-width: 560px;
+  margin-inline: auto;
+}
