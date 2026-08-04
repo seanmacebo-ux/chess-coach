@@ -117,7 +117,7 @@ export const OPENINGS: Opening[] = [
     name: 'Italian Game',
     side: 'white',
     against: null,
-    band: [600, 1700],
+    band: [100, 1700],
     kind: 'repertoire',
     lines: [
       {
@@ -309,7 +309,7 @@ export const OPENINGS: Opening[] = [
     name: 'Scandinavian Defence',
     side: 'black',
     against: '1.e4',
-    band: [600, 1400],
+    band: [100, 1400],
     kind: 'repertoire',
     lines: [
       {
@@ -564,7 +564,7 @@ export const OPENINGS: Opening[] = [
     name: "Scholar's Mate — how to refuse it",
     side: 'black',
     against: '1.e4',
-    band: [600, 1200],
+    band: [100, 1200],
     kind: 'trap',
     lines: [
       {

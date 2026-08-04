@@ -258,7 +258,10 @@ export async function updateRatingFromGame(
   // RD 250 (fresh) -> K 40; RD 45 (settled) -> K ~20.
   const k = 16 + (p.ratingDeviation / 250) * 24
   const delta = Math.round(k * (score - expected))
-  const rating = Math.max(400, Math.min(2800, p.rating + delta))
+  // Floor at 100, not 400. The old floor sat above real beginners: a player
+  // rated 316 could never have their rating go DOWN, so every loss was
+  // silently discarded and the number they were coached against was fiction.
+  const rating = Math.max(100, Math.min(2800, p.rating + delta))
   const ratingDeviation = Math.max(45, p.ratingDeviation * 0.94)
   await saveProfile({ rating, ratingDeviation })
   return { rating, delta }

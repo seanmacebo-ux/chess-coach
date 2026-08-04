@@ -45,9 +45,13 @@ import {
   TACTICS_TIERS,
   isExerciseBacked,
   puzzleThemes,
+  tiersAtRating,
   tiersFor,
   type Tier,
 } from '../src/coach/tiers'
+import { OPENINGS } from '../src/content/openings'
+import { LESSONS } from '../src/content/lessons'
+import { BOTS } from '../src/engine/roster'
 import type { RawPuzzle } from '../src/data/puzzles'
 
 const PUZZLE_DIR = resolve(import.meta.dirname, '../public/puzzles')
@@ -130,6 +134,56 @@ for (const t of ALL_TIERS) {
   }
 }
 
+/* -------------------------------------------------------------- coverage */
+
+/*
+ * Every rating the app can hold must have something to do at it.
+ *
+ * This is the check that was missing, and its absence cost more than any other
+ * gap found so far. The app's content all started at 600 because that is where
+ * the puzzle corpus starts — and the player it was built for is rated 316. At
+ * 316 the answer to "what should I work on" was 0 of 43 tiers, 0 of 10
+ * openings, 0 of 27 ideas, and a weakest opponent 484 points above him. Every
+ * screen rendered correctly and every one of them was empty.
+ *
+ * Nothing errored, so nothing caught it. A rating floor is not a bug you can
+ * see in a type or a build; it is only visible if you ask the question at a
+ * rating nobody thought to test. So this asks it at every rating from the floor
+ * to the ceiling.
+ *
+ * The floor is 100 because that is where chess.com's ratings bottom out, and a
+ * coach whose lowest supported player is stronger than its actual user is not
+ * a coach.
+ */
+const RATING_FLOOR = 100
+const RATING_CEILING = 2200
+const RATING_STEP = 50
+/** A bot further away than this is not a game, it is a formality. */
+const BOT_REACH = 400
+
+for (let r = RATING_FLOOR; r <= RATING_CEILING; r += RATING_STEP) {
+  if (tiersAtRating(r).length === 0) {
+    fail('coverage', `rating ${r}`, 'no tier is in band — the ladder is empty here')
+  }
+  if (!OPENINGS.some((o) => r >= o.band[0] && r <= o.band[1])) {
+    fail('coverage', `rating ${r}`, 'no opening is aimed at this rating')
+  }
+  if (!LESSONS.some((l) => r >= l.band[0] && l.band[1] >= r)) {
+    fail('coverage', `rating ${r}`, 'no idea is aimed at this rating')
+  }
+  const nearest = BOTS.reduce(
+    (best, b) => (Math.abs(b.elo - r) < Math.abs(best - r) ? b.elo : best),
+    BOTS[0]!.elo,
+  )
+  if (Math.abs(nearest - r) > BOT_REACH) {
+    fail(
+      'coverage',
+      `rating ${r}`,
+      `nearest bot is ${nearest}, ${Math.abs(nearest - r)} points away — nothing playable here`,
+    )
+  }
+}
+
 /* ----------------------------------------------------------------- stock */
 
 /** Distinct puzzles per band carrying at least one of a set of motifs. */
@@ -187,6 +241,7 @@ console.log(`Tiers:      ${ALL_TIERS.length} across ${PILLARS.length} pillars`)
 console.log(`Puzzle-backed: ${ALL_TIERS.filter((t) => puzzleThemes(t).length > 0).length}`)
 console.log(`Exercise-backed: ${ALL_TIERS.filter((t) => isExerciseBacked(t)).length}`)
 console.log(`Stock checks: ${stockReport.length}`)
+console.log(`Coverage:     ratings ${RATING_FLOOR}-${RATING_CEILING} every ${RATING_STEP}`)
 
 // The tightest margin is the interesting number — it says how close the ladder
 // is to outrunning the corpus, which is what a future gate rise would hit.
@@ -199,7 +254,7 @@ for (const s of tightest) {
 }
 
 if (problems.length === 0) {
-  console.log('\n✓ ladder clean — structure, ramp, backing and stock all pass')
+  console.log('\n✓ ladder clean — structure, ramp, backing, coverage and stock all pass')
   process.exit(0)
 }
 

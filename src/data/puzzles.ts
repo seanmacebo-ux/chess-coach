@@ -214,7 +214,22 @@ export async function pickPuzzles(opts: PickOptions): Promise<Puzzle[]> {
   const all = pools.flat()
 
   const inWindow = all.filter((p) => !exclude.has(p.id) && Math.abs(p.rating - rating) <= spread)
-  const pool = inWindow.length >= count ? inWindow : all.filter((p) => !exclude.has(p.id))
+  /*
+   * Below the corpus floor the window is empty and the fallback matters.
+   *
+   * The easiest band shipped is 600-799, so a player rated 316 has NOTHING in
+   * window and used to get a random draw from the whole band — puzzles 300 to
+   * 480 points above them, served as if they were targeted. Sorting the
+   * fallback by rating means they at least get the easiest ones that exist,
+   * which is the honest best available rather than a shrug.
+   */
+  const unseen = all.filter((p) => !exclude.has(p.id))
+  const pool =
+    inWindow.length >= count
+      ? inWindow
+      : rating < MIN_BAND
+        ? [...unseen].sort((a, b) => a.rating - b.rating)
+        : unseen
 
   const wantedSet = new Set<string>()
   const wanted: Puzzle[] = []

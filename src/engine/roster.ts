@@ -52,6 +52,35 @@ export interface Bot {
 }
 
 export const BOTS: Bot[] = [
+  /*
+   * The bottom two exist because the roster started at 800 and the player it
+   * was built for is rated 316. "Weakest opponent, 484 points above you" is not
+   * a difficulty setting, it is a closed door — and it was the same failure as
+   * the old 1400 default: one number chosen from the wrong end of the range,
+   * silently making every recommendation wrong at once.
+   */
+  {
+    id: 'bud',
+    name: 'Bud',
+    elo: 350,
+    style: 'human',
+    face: '🌱',
+    bio: 'Knows the rules. That is genuinely the whole list.',
+    plays: 'Moves pieces to squares. Sometimes good squares, by accident.',
+    weakness: 'Everything hangs, all the time. This is the opponent to practise scanning for loose pieces against, because there will always be one.',
+    calibrated: false,
+  },
+  {
+    id: 'kit',
+    name: 'Kit',
+    elo: 550,
+    style: 'human',
+    face: '🐈',
+    bio: 'Has noticed that pieces can be defended and is trying it out.',
+    plays: 'Develops a bit, castles sometimes, grabs anything left en prise.',
+    weakness: 'No plan past the opening, and misses one-move threats. Attack something twice and it usually falls.',
+    calibrated: false,
+  },
   {
     id: 'pip',
     name: 'Pip',

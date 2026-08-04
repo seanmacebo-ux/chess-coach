@@ -953,7 +953,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           Opponent strength — <strong style={{ color: 'var(--text)' }}>{elo}</strong>
           <input
             type="range"
-            min={800}
+            min={300}
             max={2200}
             step={100}
             value={elo}

@@ -99,7 +99,7 @@ const T = (
  * each band the tier covers.
  */
 export const TACTICS_TIERS: Tier[] = [
-  T('tactics', 1, 'Free material', 'Spot what is hanging — yours and theirs. Mate in one.', [600, 1100], ['hangingPiece', 'mateIn1'], 15, 0.9),
+  T('tactics', 1, 'Free material', 'Spot what is hanging — yours and theirs. Mate in one.', [100, 1100], ['hangingPiece', 'mateIn1'], 15, 0.9),
   T('tactics', 2, 'Forks', 'One piece, two targets. Knights especially.', [800, 1300], ['fork', 'doubleCheck'], 24, 0.85),
   T('tactics', 3, 'Pins and skewers', 'Freeze a piece, or drag a big one off a small one.', [1000, 1500], ['pin', 'skewer'], 24, 0.85),
   T('tactics', 4, 'Mate in two', 'Forcing sequences. Back rank first.', [1100, 1600], ['mateIn2', 'backRankMate'], 40, 0.8),
@@ -136,8 +136,8 @@ export const TACTICS_TIERS: Tier[] = [
  * is precisely how the old endgame-3 stayed broken without anyone noticing.
  */
 export const ENDGAME_TIERS: Tier[] = [
-  T('endgame', 1, 'Overkill mates', 'Two rooks, queen and rook, the staircase. Mechanical — no theory needed.', [600, 900], ['mate-staircase', 'mate-2r', 'mate-qr'], 10, 0.9, 'playout'),
-  T('endgame', 2, 'The box', 'K+Q and K+R against a lone king. Bring your king. Never stalemate.', [600, 1000], ['mate-kq', 'mate-kr'], 10, 0.9, 'playout'),
+  T('endgame', 1, 'Overkill mates', 'Two rooks, queen and rook, the staircase. Mechanical — no theory needed.', [100, 900], ['mate-staircase', 'mate-2r', 'mate-qr'], 10, 0.9, 'playout'),
+  T('endgame', 2, 'The box', 'K+Q and K+R against a lone king. Bring your king. Never stalemate.', [100, 1000], ['mate-kq', 'mate-kr'], 10, 0.9, 'playout'),
   T('endgame', 3, 'What cannot mate', 'Two knights cannot force it. Knowing the draws saves you points.', [900, 1100], ['insufficient-material'], 8, 0.9, 'quiz'),
   T('endgame', 4, 'Use your king', 'In the endgame the king is a fighting piece. Basic opposition.', [1000, 1199], ['opposition', 'king-activity'], 12, 0.85, 'playout'),
   T('endgame', 5, 'King and pawn', 'K+P vs K in full. King in front of the pawn, and the rook-pawn exception.', [1200, 1399], ['pawnEndgame', 'key-squares'], 15, 0.85, 'playout'),
@@ -158,7 +158,7 @@ export const ENDGAME_TIERS: Tier[] = [
  * "find the move" puzzles; they are "read the position" questions.
  */
 export const POSITIONAL_TIERS: Tier[] = [
-  T('positional', 1, 'Safety scan', 'Before anything else: what of mine is loose?', [600, 1200], ['piece-safety'], 15, 0.85),
+  T('positional', 1, 'Safety scan', 'Before anything else: what of mine is loose?', [100, 1200], ['piece-safety'], 15, 0.85),
   T('positional', 2, 'Development', 'Pieces out, king safe, centre contested.', [800, 1300], ['development', 'centre']),
   T('positional', 3, 'Open files', 'Where do the rooks belong, and why.', [1100, 1600], ['open-file', 'rook-placement']),
   T('positional', 4, 'Weak squares', 'Holes, outposts, and the knight that lives there.', [1200, 1700], ['outpost', 'weak-square']),
@@ -183,7 +183,7 @@ export const STRATEGY_TIERS: Tier[] = [
 
 /** OPENING — repertoire, not memorisation. Deliberately the shortest ladder. */
 export const OPENING_TIERS: Tier[] = [
-  T('opening', 1, 'Principles', 'Centre, development, king safety. Why they are rules.', [600, 1200], ['opening-principles'], 10, 0.85),
+  T('opening', 1, 'Principles', 'Centre, development, king safety. Why they are rules.', [100, 1200], ['opening-principles'], 10, 0.85),
   T('opening', 2, 'Traps to survive', 'The tricks that actually get played at your level.', [800, 1400], ['opening-trap']),
   T('opening', 3, 'Your white repertoire', 'One first move. Lines against each reply.', [1000, 2200], ['repertoire-white'], 30, 0.75),
   T('opening', 4, 'Black vs 1.e4', 'One answer, learned properly.', [1000, 2200], ['repertoire-black-e4'], 30, 0.75),
