@@ -231,6 +231,7 @@ function OpeningDetail({
         line={line}
         side={opening.side}
         openingId={opening.id}
+        rating={rating}
         onExit={() => setTraining(false)}
       />
     )
