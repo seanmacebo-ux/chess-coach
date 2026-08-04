@@ -16,7 +16,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { currentAuth, sendMagicLink, signOut, type AuthState } from '../../data/supabase'
 import { syncNow, type SyncResult } from '../../data/sync'
 import { loadPrefs, savePrefs, PUZZLE_COUNTS, type Prefs } from '../../data/settings'
-import { describeImport, fetchChessComProfile } from '../../data/chesscom'
+import {
+  describeImport,
+  fetchChessComProfile,
+  fetchRecentGames,
+  importGames,
+} from '../../data/chesscom'
 import { saveProfile } from '../../data/db'
 import {
   SECTION_IDS,
@@ -61,6 +66,8 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
   const [ccBusy, setCcBusy] = useState(false)
   const [ccError, setCcError] = useState<string | null>(null)
   const [ccNote, setCcNote] = useState<string | null>(null)
+  const [gamesBusy, setGamesBusy] = useState(false)
+  const [gamesNote, setGamesNote] = useState<string | null>(null)
   const [sectionRatings, setSectionRatings] = useState<Record<SectionId, SectionRating> | null>(
     null,
   )
@@ -81,6 +88,42 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
    * The global profile rating is set too, since it is what the puzzle picker
    * and the opening filter still read.
    */
+  /**
+   * Pull the games themselves, not just the number.
+   *
+   * This is the one that matters. Everything the coach knew came from games
+   * against its own bots, and those do not play like the people you actually
+   * lose to — so the weakness profile, the ladder ordering and every
+   * recommendation downstream were learned from a synthetic opponent. Real
+   * games make the coaching about your chess.
+   *
+   * Games arrive un-analysed and are reviewed on demand from History: the
+   * import is instant, an engine pass over twenty games is not, and making you
+   * wait for all of them before seeing any would be the wrong trade.
+   */
+  const importMyGames = useCallback(async () => {
+    setGamesBusy(true)
+    setGamesNote(null)
+    setCcError(null)
+    try {
+      const games = await fetchRecentGames(ccUser, { max: 20 })
+      if (games.length === 0) {
+        setGamesNote('No rated standard games found on that account.')
+        return
+      }
+      const { added, skipped } = await importGames(games)
+      setGamesNote(
+        `${added} game${added === 1 ? '' : 's'} imported${
+          skipped > 0 ? `, ${skipped} already had` : ''
+        }. Open History and hit Review on any of them — that runs the engine over your moves and shows what you should have played.`,
+      )
+    } catch (err) {
+      setCcError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setGamesBusy(false)
+    }
+  }, [ccUser])
+
   const importRating = useCallback(async () => {
     setCcBusy(true)
     setCcError(null)
@@ -246,7 +289,7 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
             }}
           />
           <button className="primary" disabled={ccBusy} onClick={() => void importRating()}>
-            {ccBusy ? 'Checking…' : 'Import'}
+            {ccBusy ? 'Checking…' : 'Rating'}
           </button>
         </div>
 
@@ -256,6 +299,30 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
           </div>
         )}
         {ccNote && <div className="small">{ccNote}</div>}
+
+        {/*
+          Two separate imports on purpose. The rating is one number and
+          calibrates the whole app in a second; the games are the actual
+          coaching material and cost a network round-trip per month of
+          history. Bundling them would make the fast, always-useful one wait
+          for the slow one.
+        */}
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            className="ghost"
+            style={{ flex: 1 }}
+            disabled={gamesBusy || ccUser.trim() === ''}
+            onClick={() => void importMyGames()}
+          >
+            {gamesBusy ? 'Fetching games…' : 'Import my last 20 games'}
+          </button>
+        </div>
+        {gamesNote && <div className="small">{gamesNote}</div>}
+        <div className="small muted">
+          Your real games are what the coach should be learning from — the bots here do not play
+          like the people you actually lose to. Imported games appear in History with a Review
+          button.
+        </div>
 
         {/*
           The ratings are listed here as well as in Learn, because this is the

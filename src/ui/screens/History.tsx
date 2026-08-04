@@ -10,8 +10,10 @@
  * that only celebrates is a scoreboard; this is supposed to be a diagnosis.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { db, getProfile, type GameRow, type PuzzleAttemptRow } from '../../data/db'
+import { analyseGame, acpl, performanceRating, type MoveAssessment } from '../../coach/analysis'
+import { GameReview } from './GameReview'
 import {
   balanceVerdict,
   categoryTrends,
@@ -62,9 +64,59 @@ function when(iso: string): string {
   return d.toISOString().slice(0, 10)
 }
 
+/**
+ * Reviewing a game from the list.
+ *
+ * Games arrive from the chess.com import un-analysed, because importing twenty
+ * of them is instant and analysing twenty is not. So the engine pass runs when
+ * you ask for it, on the one game you want to look at, and the result is
+ * written back so it only ever happens once per game.
+ */
+function useGameReview() {
+  const [busy, setBusy] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState<{
+    moves: MoveAssessment[]
+    colour: 'white' | 'black'
+    acpl: number
+    perf: number
+  } | null>(null)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+
+  const review = useCallback(async (g: GameRow) => {
+    if (g.id === undefined) return
+    setBusy(g.id)
+    setError(null)
+    setProgress(null)
+    try {
+      const moves = await analyseGame(g.pgn, {
+        colour: g.humanColour,
+        onProgress: (done, total) => setProgress({ done, total }),
+      })
+      const avg = acpl(moves)
+      const perf = performanceRating(avg)
+      // Write it back so a second look is instant.
+      await db.games.update(g.id, {
+        acpl: avg,
+        performanceRating: perf,
+        analysedAt: new Date().toISOString(),
+      })
+      setOpen({ moves, colour: g.humanColour === 'w' ? 'white' : 'black', acpl: avg, perf })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(null)
+      setProgress(null)
+    }
+  }, [])
+
+  return { busy, error, open, progress, review, close: () => setOpen(null) }
+}
+
 export function History() {
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const gr = useGameReview()
 
   useEffect(() => {
     let cancelled = false
@@ -129,6 +181,19 @@ export function History() {
       : null
 
   const nothingYet = games.length === 0 && attempts.length === 0
+
+  // The review owns the screen, same as it does after a live game.
+  if (gr.open) {
+    return (
+      <GameReview
+        moves={gr.open.moves}
+        colour={gr.open.colour}
+        acpl={gr.open.acpl}
+        perf={gr.open.perf}
+        onClose={gr.close}
+      />
+    )
+  }
 
   return (
     <div className="stack">
@@ -270,16 +335,31 @@ export function History() {
       {games.length > 0 && (
         <div className="card stack">
           <span className="small muted">Games</span>
+          {gr.error && (
+            <div className="small" style={{ color: 'var(--danger)' }}>
+              Review failed: {gr.error}
+            </div>
+          )}
           {games.map((g) => (
             <div key={g.id} className="row spread hist-row">
               <span className={'pill ' + g.result}>{g.result}</span>
               <span className="small" style={{ flex: 1 }}>
                 vs {g.opponentStyle} {g.opponentElo} as {g.humanColour === 'w' ? 'white' : 'black'}
+                <span className="muted"> · {when(g.playedAt)}</span>
               </span>
-              <span className="small muted">
-                {g.acpl === null ? 'not reviewed' : `${g.acpl} acpl`}
-              </span>
-              <span className="small muted">{when(g.playedAt)}</span>
+              {gr.busy === g.id ? (
+                <span className="small muted">
+                  reviewing{gr.progress ? ` ${gr.progress.done}/${gr.progress.total}` : '…'}
+                </span>
+              ) : (
+                <button
+                  className="chip"
+                  disabled={gr.busy !== null}
+                  onClick={() => void gr.review(g)}
+                >
+                  {g.acpl === null ? 'Review' : `${g.acpl} acpl`}
+                </button>
+              )}
             </div>
           ))}
         </div>

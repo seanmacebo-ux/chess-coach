@@ -26,6 +26,8 @@
  * how you get a user who does not trust the app.
  */
 
+import { db, type GameRow } from './db'
+
 export type TimeClass = 'rapid' | 'blitz' | 'bullet' | 'daily'
 
 /** Preference order. Rapid is the closest match to what the app trains. */
@@ -139,4 +141,235 @@ export function describeImport(result: ChessComImport): string {
 
   const base = `Imported ${rating} from your ${LABEL[from]} rating, over ${games} games.`
   return others ? `${base} (Also saw ${others} — rapid is the closest match to what this trains.)` : base
+}
+
+/* ================================================================== */
+/* Games                                                               */
+/* ================================================================== */
+
+/**
+ * Import the games you actually played, so the coach reviews real chess.
+ *
+ * Everything the app knew until now came from games against its own bots — and
+ * those bots do not play like the people you lose to. The weakness profile,
+ * the ladder ordering and every recommendation downstream were all learned
+ * from a synthetic opponent, which is a coach studying footage of a different
+ * player.
+ *
+ * NOT VERIFIED AGAINST THE LIVE API. The container this was written in cannot
+ * reach api.chess.com — the network policy denies it — so the endpoint shapes
+ * below are from the public API documentation and the response handling is
+ * defensive rather than confirmed. It runs in the browser, where the API is
+ * reachable and sends permissive CORS headers. Treat the first real import as
+ * the test; every field access here tolerates a missing value rather than
+ * throwing, so a shape surprise degrades to "fewer games imported" instead of
+ * a broken screen.
+ */
+
+export interface ChessComGame {
+  /** Game page on chess.com, and the natural unique id. */
+  url: string
+  pgn: string
+  /** Seconds since epoch, when the game ended. */
+  endTime: number
+  timeClass: TimeClass
+  rated: boolean
+  /** Which colour you had. */
+  colour: 'w' | 'b'
+  yourRating: number
+  opponent: string
+  opponentRating: number
+  result: 'win' | 'loss' | 'draw'
+  /** How it ended, in chess.com's vocabulary. */
+  reason: string
+}
+
+interface RawSide {
+  username?: string
+  rating?: number
+  result?: string
+}
+
+interface RawGame {
+  url?: string
+  pgn?: string
+  end_time?: number
+  time_class?: string
+  rated?: boolean
+  rules?: string
+  white?: RawSide
+  black?: RawSide
+}
+
+/**
+ * chess.com reports the result per side. Only "win" is a win; everything else
+ * is a loss or a draw, and the draw list is the part that is easy to get wrong
+ * — treating "stalemate" or "repetition" as a loss would quietly bias every
+ * statistic the app derives.
+ */
+const DRAW_RESULTS = new Set([
+  'agreed',
+  'repetition',
+  'stalemate',
+  'insufficient',
+  'timevsinsufficient',
+  '50move',
+])
+
+/** Plain-English endings, since chess.com's tokens leak into the UI. */
+const REASON_TEXT: Record<string, string> = {
+  win: 'won',
+  checkmated: 'checkmated',
+  resigned: 'resigned',
+  timeout: 'lost on time',
+  abandoned: 'abandoned',
+  agreed: 'draw agreed',
+  repetition: 'draw by repetition',
+  stalemate: 'stalemate',
+  insufficient: 'insufficient material',
+  timevsinsufficient: 'timeout vs insufficient material',
+  '50move': 'fifty-move rule',
+}
+
+function normalise(raw: RawGame, user: string): ChessComGame | null {
+  // Only standard chess. Bughouse and the variants share the endpoint and
+  // would poison the analysis — chess.js cannot even load some of them.
+  if ((raw.rules ?? 'chess') !== 'chess') return null
+  if (!raw.pgn || !raw.url || typeof raw.end_time !== 'number') return null
+
+  const whiteName = (raw.white?.username ?? '').toLowerCase()
+  const blackName = (raw.black?.username ?? '').toLowerCase()
+  const colour: 'w' | 'b' = whiteName === user ? 'w' : blackName === user ? 'b' : 'w'
+  // If neither side matches, this is not their game — do not guess.
+  if (whiteName !== user && blackName !== user) return null
+
+  const you = colour === 'w' ? raw.white : raw.black
+  const them = colour === 'w' ? raw.black : raw.white
+  const yourResult = you?.result ?? ''
+
+  const result: 'win' | 'loss' | 'draw' =
+    yourResult === 'win' ? 'win' : DRAW_RESULTS.has(yourResult) ? 'draw' : 'loss'
+
+  const theirResult = them?.result ?? ''
+  const reason =
+    result === 'win'
+      ? `opponent ${REASON_TEXT[theirResult] ?? theirResult}`
+      : (REASON_TEXT[yourResult] ?? yourResult)
+
+  const tc = raw.time_class
+  const timeClass: TimeClass =
+    tc === 'rapid' || tc === 'blitz' || tc === 'bullet' || tc === 'daily' ? tc : 'rapid'
+
+  return {
+    url: raw.url,
+    pgn: raw.pgn,
+    endTime: raw.end_time,
+    timeClass,
+    rated: raw.rated ?? false,
+    colour,
+    yourRating: you?.rating ?? 0,
+    opponent: them?.username ?? 'unknown',
+    opponentRating: them?.rating ?? 0,
+    result,
+    reason: reason || 'game over',
+  }
+}
+
+export interface GameFetchOptions {
+  /** Stop after this many games, newest first. */
+  max?: number
+  /** Only rated games. Unrated games are practice and skew the profile. */
+  ratedOnly?: boolean
+}
+
+/**
+ * The most recent games, newest first.
+ *
+ * Walks the monthly archives backwards rather than fetching everything: an
+ * account with three years of history is dozens of megabytes, and the coach
+ * only ever asks about recent form — the weakness profile already halves the
+ * weight of anything older than three weeks.
+ */
+export async function fetchRecentGames(
+  username: string,
+  opts: GameFetchOptions = {},
+): Promise<ChessComGame[]> {
+  const { max = 20, ratedOnly = true } = opts
+  const user = username.trim().toLowerCase().replace(/^@/, '')
+  if (!user) throw new Error('Enter a chess.com username.')
+
+  const archiveRes = await fetch(
+    `https://api.chess.com/pub/player/${encodeURIComponent(user)}/games/archives`,
+    { headers: { Accept: 'application/json' } },
+  )
+  if (archiveRes.status === 404) throw new Error(`No chess.com account called "${user}".`)
+  if (!archiveRes.ok) throw new Error(`chess.com returned ${archiveRes.status}.`)
+
+  const { archives } = (await archiveRes.json()) as { archives?: string[] }
+  if (!archives?.length) return []
+
+  const out: ChessComGame[] = []
+  // Newest month first, and stop as soon as we have enough.
+  for (const url of [...archives].reverse()) {
+    if (out.length >= max) break
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!res.ok) continue
+    const { games } = (await res.json()) as { games?: RawGame[] }
+    if (!games?.length) continue
+
+    const month = games
+      .map((g) => normalise(g, user))
+      .filter((g): g is ChessComGame => g !== null)
+      .filter((g) => (ratedOnly ? g.rated : true))
+      .sort((a, b) => b.endTime - a.endTime)
+
+    out.push(...month)
+  }
+
+  return out.slice(0, max)
+}
+
+/**
+ * Store imported games, skipping ones already held.
+ *
+ * Deduped on the chess.com URL, which is the only genuinely unique id these
+ * have. `playedAt` alone is not safe — bullet games finish in the same second
+ * — and matching on PGN length would collide across short games.
+ *
+ * `acpl` is left null: importing is instant and analysing is not, so the games
+ * arrive un-analysed and get reviewed on demand. Importing twenty games and
+ * making you wait through twenty engine passes to see any of them would be the
+ * wrong trade.
+ */
+export async function importGames(
+  games: ChessComGame[],
+): Promise<{ added: number; skipped: number }> {
+  const existing = await db.games.toArray()
+  // The URL is stored in the PGN's [Link ...] header by chess.com, so the
+  // existing rows can be checked without a schema change.
+  const seen = new Set(existing.map((g) => linkOf(g.pgn)).filter(Boolean))
+
+  const fresh = games.filter((g) => !seen.has(g.url))
+  if (fresh.length > 0) {
+    const rows: GameRow[] = fresh.map((g) => ({
+      playedAt: new Date(g.endTime * 1000).toISOString(),
+      humanColour: g.colour,
+      opponentElo: g.opponentRating,
+      opponentStyle: `chess.com · ${g.opponent}`,
+      result: g.result,
+      reason: g.reason,
+      pgn: g.pgn,
+      acpl: null,
+      performanceRating: null,
+      analysedAt: null,
+    }))
+    await db.games.bulkAdd(rows)
+  }
+  return { added: fresh.length, skipped: games.length - fresh.length }
+}
+
+/** The chess.com game URL out of a PGN's [Link "..."] header, if present. */
+export function linkOf(pgn: string): string | null {
+  const m = /\[Link "([^"]+)"\]/.exec(pgn)
+  return m?.[1] ?? null
 }
