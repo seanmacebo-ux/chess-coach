@@ -1,37 +1,97 @@
 /**
- * Learn — an index of places you go, not a stack of things that expand.
+ * Learn — an index of six sections, and a full screen for whichever one you
+ * open. Two levels. That is the whole navigation model.
  *
- * WHAT CHANGED AND WHY. This screen used to be five accordion cards, each
- * containing more accordions: a pillar opened to reveal categories, a category
- * opened to reveal a paragraph, and the openings pillar opened to reveal
- * openings that themselves opened. Three levels of disclosure on one scroll,
- * every level rendered in the same bordered box at the same type size.
+ * WHAT THIS REPLACED, and why it had to go. The previous version held
+ * `open: Pillar | null`, so exactly one pillar could be expanded at a time and
+ * opening Endgames closed Tactics. Inside Tactics was a second accordion per
+ * category. Inside Openings was a third per opening. Nothing was playable until
+ * you were three clicks deep, the opening board inherited padding from three
+ * nested cards and came out unreadable, and the whole screen read as — Sean's
+ * words — "just a bunch of dropdowns and a bunch of widgets". He was right.
  *
- * That fails in a specific way rather than a vague one. Nothing on the screen
- * had a location: you could not be "in" endgames, only scrolled to a part of
- * the page where endgames happened to be expanded, and opening a second pillar
- * pushed the first one somewhere you had to hunt for. There was no back, so
- * there was no forward either. Accordions are for optional detail attached to
- * something you are already looking at — they are not navigation, and using
- * them as navigation is most of why the whole app read as one undifferentiated
- * surface.
+ * The rules now:
  *
- * So: the index lists five modules. Tapping one goes there. Each module owns a
- * full view with a title and a way back, and each one puts something you can
- * touch above the fold — a board, a drill, a ranked list — rather than a
- * paragraph explaining what it would train if it were built.
+ *   EVERY SECTION IS VISIBLE AT ONCE on the index. No expanding, no "one open
+ *   at a time". You see all six, their ratings, and their progress, and you
+ *   choose. That single change removes the entire class of complaint.
+ *
+ *   A SECTION OWNS THE WHOLE SCREEN when you open it. It is not a drawer inside
+ *   a list; it is a page, with a back control. Which is why the openings board
+ *   can finally be large.
+ *
+ *   NOTHING NESTS MORE THAN ONE LEVEL. Where a section has more content than
+ *   fits, it uses list-and-detail rather than disclosure — see `sections.tsx`.
+ *
+ *   NO BARE NUMBERS. Every rating on this screen says what it is, how it last
+ *   moved, and what would move it next, on the surface where it appears. A
+ *   metric you cannot interpret is decoration with extra steps.
+ *
+ * Two content rules carried over from the old file, because they were right:
+ *
+ *   EVERYTHING AT YOUR LEVEL OR BELOW IS SHOWN, and clearly marked. Hiding
+ *   cleared material makes the ladder feel shorter than it is and removes the
+ *   thing you go back to when a weakness resurfaces. Material above you is
+ *   shown too, marked, because seeing what is coming is half of why a ladder
+ *   works. The openings module used to violate this by hard-filtering on the
+ *   rating band; it no longer does.
+ *
+ *   RECOMMENDATIONS ARE RANKED, not listed. "Here are 20 endgames" is a menu;
+ *   "master these three next, in this order, because they decide the most games
+ *   at your rating" is coaching. The ranking survives — as the order of the one
+ *   list, rather than as a second copy of it.
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { PILLARS, tiersFor, type Pillar, type Tier } from '../../coach/tiers'
+import { PILLARS, tiersFor, type Pillar } from '../../coach/tiers'
 import { tierStatuses, type TierStatus } from '../../coach/profile'
 import { getProfile } from '../../data/db'
-import { LESSONS, lessonsAtRating, type Lesson } from '../../content/lessons'
-import { CATEGORIES, type Category } from '../../coach/categories'
+import { getSectionRatings, type SectionId, type SectionRating } from '../../coach/rating'
+import { LESSONS } from '../../content/lessons'
+import { CATEGORIES } from '../../coach/categories'
 import { ENDGAMES, type EndgamePosition } from '../../coach/endgames'
-import { openingsAtRating } from '../../content/openings'
-import { Playground } from '../Playground'
-import { Openings, ViewHeader } from './Openings'
+import { OPENINGS } from '../../content/openings'
+import { Bar, RatingChip, RatingExplainer } from '../learn/RatingChip'
+import { Ladder } from '../learn/Ladder'
+import {
+  ConceptSection,
+  EndgameSection,
+  IdeasSection,
+  OpeningsSection,
+  TacticsSection,
+} from '../learn/sections'
+
+/**
+ * Ideas is a peer section, not a pillar — it has no tier ladder and no rating
+ * of its own, because it is reading rather than training. It used to be a card
+ * bolted on after the pillars, which made one of the six things the app
+ * teaches look like a footnote.
+ */
+export type SectionKey = Pillar | 'ideas'
+
+const SECTIONS: { key: SectionKey; name: string; blurb: string }[] = [
+  ...PILLARS.map((p) => ({ key: p.id as SectionKey, name: p.name, blurb: p.blurb })),
+  { key: 'ideas', name: 'Ideas', blurb: 'The thinking behind the moves.' },
+]
+
+/** What is actually in each section, stated on its card so the index is a menu
+ *  with prices on it rather than six identical tiles. */
+function contentsOf(key: SectionKey, lessonsAtLevel: number): string {
+  switch (key) {
+    case 'tactics':
+      return `${CATEGORIES.length} categories to drill, plus the candidate-move trainer`
+    case 'endgame':
+      return `${ENDGAMES.length} positions to play out against the engine`
+    case 'positional':
+      return `${tiersFor('positional').length} board questions, plus the loose-piece scan`
+    case 'strategy':
+      return `${tiersFor('strategy').length} board questions, plus the threat trainer`
+    case 'opening':
+      return `${OPENINGS.length} openings with the plan behind each one`
+    case 'ideas':
+      return `${LESSONS.length} concept cards, ${lessonsAtLevel} of them aimed at you`
+  }
+}
 
 export interface LearnProps {
   /** Launch a puzzle set built from these motifs. */
@@ -46,517 +106,197 @@ export interface LearnProps {
   onStartCandidates: () => void
 }
 
-type View = Pillar | 'ideas' | null
-
-export function Learn(props: LearnProps) {
+export function Learn({
+  onTrainCategory,
+  onPlayEndgame,
+  onStartScan,
+  onStartThreat,
+  onStartCandidates,
+}: LearnProps) {
   const [rating, setRating] = useState(1400)
   const [statuses, setStatuses] = useState<TierStatus[]>([])
-  const [view, setView] = useState<View>(null)
+  const [ratings, setRatings] = useState<Record<SectionId, SectionRating> | null>(null)
+  /** null is the index. Anything else is that section, full screen. */
+  const [view, setView] = useState<SectionKey | null>(null)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       const p = await getProfile()
       const s = await tierStatuses(p.rating)
+      const r = await getSectionRatings()
       if (cancelled) return
       setRating(p.rating)
       setStatuses(s)
+      setRatings(r)
     })()
     return () => {
       cancelled = true
     }
   }, [])
 
+  // Opening a section is a page change, so it starts at the top. Without this
+  // you land halfway down a section because you tapped a card that was halfway
+  // down the index.
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [view])
+
   const byId = useMemo(() => new Map(statuses.map((s) => [s.tier.id, s])), [statuses])
-  const back = () => setView(null)
+  const lessonsAtLevel = LESSONS.filter(
+    (l) => rating >= l.band[0] && rating <= l.band[1],
+  ).length
 
-  if (view === 'opening') return <Openings rating={rating} onBack={back} />
-  if (view === 'tactics')
+  if (view === null) {
     return (
-      <TacticsView
+      <Index
         rating={rating}
+        statuses={statuses}
+        ratings={ratings}
         byId={byId}
-        onTrain={props.onTrainCategory}
-        onStartCandidates={props.onStartCandidates}
-        onBack={back}
+        lessonsAtLevel={lessonsAtLevel}
+        onOpen={setView}
       />
     )
-  if (view === 'endgame')
-    return <EndgameView rating={rating} byId={byId} onPlay={props.onPlayEndgame} onBack={back} />
-  if (view === 'positional' || view === 'strategy')
-    return (
-      <ConceptView
-        pillar={view}
-        byId={byId}
-        onStartScan={props.onStartScan}
-        onStartThreat={props.onStartThreat}
-        onBack={back}
-      />
-    )
-  if (view === 'ideas') return <IdeasView lessons={lessonsAtRating(rating)} onBack={back} />
-
-  return <Index rating={rating} statuses={statuses} byId={byId} onOpen={setView} />
-}
-
-/* ------------------------------------------------------------- index */
-
-/** What each module actually contains, so the card says something true. */
-function moduleStat(pillar: Pillar, rating: number): string {
-  switch (pillar) {
-    case 'tactics':
-      return `${CATEGORIES.length} categories, 28,800 puzzles`
-    case 'endgame':
-      return `${ENDGAMES.length} positions, engine-verified`
-    case 'opening': {
-      const mine = openingsAtRating(rating)
-      return `${mine.length} openings, ${mine.reduce((n, o) => n + o.lines.length, 0)} lines`
-    }
-    case 'positional':
-      return `${tiersFor('positional').length} levels, 1 drill`
-    case 'strategy':
-      return `${tiersFor('strategy').length} levels, 1 drill`
   }
+
+  const meta = SECTIONS.find((s) => s.key === view)!
+  const isPillar = view !== 'ideas'
+  const sectionRating = isPillar ? ratings?.[view as SectionId] : undefined
+
+  return (
+    <div className="stack">
+      <div className="secbar">
+        <button className="ghost back" onClick={() => setView(null)}>
+          ← All sections
+        </button>
+        <span className="small muted">Learn</span>
+      </div>
+
+      <div className="card stack">
+        <div className="row spread" style={{ alignItems: 'flex-start', gap: 16 }}>
+          <span>
+            <div className="focus-title">{meta.name}</div>
+            <div className="small muted">{meta.blurb}</div>
+          </span>
+          {isPillar && <RatingChip r={sectionRating} />}
+        </div>
+        {isPillar && <RatingExplainer r={sectionRating} full />}
+      </div>
+
+      {view === 'tactics' && (
+        <TacticsSection
+          rating={rating}
+          onTrain={onTrainCategory}
+          onStartCandidates={onStartCandidates}
+        />
+      )}
+      {view === 'endgame' && <EndgameSection rating={rating} onPlay={onPlayEndgame} />}
+      {view === 'opening' && <OpeningsSection rating={rating} />}
+      {(view === 'positional' || view === 'strategy') && (
+        <ConceptSection pillar={view} onStartScan={onStartScan} onStartThreat={onStartThreat} />
+      )}
+      {view === 'ideas' && <IdeasSection rating={rating} />}
+
+      {/* The wall. A primary element of the section, not a footnote under the
+          drills — it is the answer to "what have I done and what is left". */}
+      {isPillar && <Ladder tiers={tiersFor(view as Pillar)} byId={byId} rating={rating} />}
+    </div>
+  )
 }
+
+/* ------------------------------------------------------------------ */
 
 function Index({
   rating,
   statuses,
+  ratings,
   byId,
+  lessonsAtLevel,
   onOpen,
 }: {
   rating: number
   statuses: TierStatus[]
+  ratings: Record<SectionId, SectionRating> | null
   byId: Map<string, TierStatus>
-  onOpen: (v: View) => void
+  lessonsAtLevel: number
+  onOpen: (k: SectionKey) => void
 }) {
   const cleared = statuses.filter((s) => s.cleared).length
-  const open = statuses.filter((s) => s.inBand && !s.cleared).length
-  const lessons = lessonsAtRating(rating)
+  const openNow = statuses.filter((s) => s.inBand && !s.cleared).length
 
   return (
     <div className="stack">
-      <div className="learn-hero">
-        <div className="hero-rating">
-          <span className="hero-num">{rating}</span>
-          <span className="hero-cap">your rating</span>
+      <div className="card">
+        <div className="row spread">
+          <span className="small muted">Everything the app can teach you</span>
+          <span className="small muted">
+            {cleared} / {statuses.length} cleared
+          </span>
         </div>
-        <div className="hero-bars">
-          <div className="hero-line">
-            <b>{open}</b> levels open to you right now
-          </div>
-          <div className="hero-line muted">
-            {cleared} of {statuses.length} cleared · everything below you stays open
-          </div>
+        <div className="small" style={{ marginTop: 6 }}>
+          Six sections, {statuses.length} levels, {CATEGORIES.length} tactical categories,{' '}
+          {ENDGAMES.length} endgames, {OPENINGS.length} openings and {LESSONS.length} ideas. Your
+          overall rating is <strong>{rating}</strong>, and at that strength{' '}
+          <strong>{openNow}</strong> levels are open to you right now — everything below you stays
+          open to go back to, and everything above you is visible rather than hidden.
+        </div>
+        <div className="small muted" style={{ marginTop: 6 }}>
+          Each section carries its own rating, because <strong>{rating}</strong> as a single number
+          cannot tell you whether it is your endgames letting you down or your tactics. Open a
+          section and it says in plain words what its number means, how it last moved, and what
+          would move it next.
         </div>
       </div>
 
-      <div className="mod-grid">
-        {PILLARS.map((p) => {
-          const tiers = tiersFor(p.id)
-          const atLevel = tiers.filter((t) => byId.get(t.id)?.inBand).length
+      <div className="sec-grid">
+        {SECTIONS.map((s) => {
+          const tiers = s.key === 'ideas' ? [] : tiersFor(s.key as Pillar)
           const done = tiers.filter((t) => byId.get(t.id)?.cleared).length
+          const isPillar = s.key !== 'ideas'
+          const r = isPillar ? ratings?.[s.key as SectionId] : undefined
+
           return (
-            <button key={p.id} className={`mod mod-${p.id}`} onClick={() => onOpen(p.id)}>
-              <span className="mod-name">{p.name}</span>
-              <span className="mod-blurb">{p.blurb}</span>
-              <span className="mod-stat">{moduleStat(p.id, rating)}</span>
-              <span className="mod-foot">
-                <span className="mod-prog">
-                  {done}/{tiers.length}
-                </span>
-                {atLevel > 0 && <span className="mod-live">{atLevel} at your level</span>}
+            <button key={s.key} className="sec-card" onClick={() => onOpen(s.key)}>
+              <span className="row spread" style={{ alignItems: 'flex-start', gap: 10 }}>
+                <span className="sec-name">{s.name}</span>
+                {isPillar ? <RatingChip r={r} /> : <span className="tag">reading</span>}
               </span>
+
+              <span className="small muted">{s.blurb}</span>
+
+              {isPillar && <RatingExplainer r={r} />}
+
+              {/*
+                Ideas has no ladder to clear, so it gets the one measure that
+                does apply to it — how much of the set is written for where you
+                are. Without this the card had a hole in it where the other five
+                have a progress bar, which made the newest peer section look
+                like the afterthought it used to be.
+              */}
+              {isPillar ? (
+                <>
+                  <Bar done={done} total={tiers.length} />
+                  <span className="small muted">
+                    {done} of {tiers.length} levels cleared ·{' '}
+                    {tiers.filter((t) => byId.get(t.id)?.inBand).length} open at {rating}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Bar done={lessonsAtLevel} total={LESSONS.length} />
+                  <span className="small muted">
+                    {lessonsAtLevel} written for {rating} · the rest are marked, not hidden
+                  </span>
+                </>
+              )}
+
+              <span className="small sec-contents">{contentsOf(s.key, lessonsAtLevel)}</span>
+              <span className="sec-go small">Open →</span>
             </button>
           )
         })}
-
-        <button className="mod mod-ideas" onClick={() => onOpen('ideas')}>
-          <span className="mod-name">Ideas</span>
-          <span className="mod-blurb">The short things worth knowing.</span>
-          <span className="mod-stat">
-            {lessons.length} at your level, {LESSONS.length} in all
-          </span>
-          <span className="mod-foot" />
-        </button>
       </div>
-    </div>
-  )
-}
-
-/* ----------------------------------------------------------- tactics */
-
-function TacticsView({
-  rating,
-  byId,
-  onTrain,
-  onStartCandidates,
-  onBack,
-}: {
-  rating: number
-  byId: Map<string, TierStatus>
-  onTrain: (motifs: string[], label: string) => void
-  onStartCandidates: () => void
-  onBack: () => void
-}) {
-  const [openCat, setOpenCat] = useState<string | null>(null)
-
-  return (
-    <div className="stack">
-      <ViewHeader
-        title="Tactics"
-        sub={`${CATEGORIES.length} categories, every one playable now`}
-        onBack={onBack}
-      />
-
-      <FeatureDrill
-        title="Candidate moves"
-        hook="Which moves would you even look at? Pick before you calculate."
-        body="The other drills ask for the best move. This one asks what was on your list — because you cannot find a move you never considered, and calculating one idea deeply while missing the other two is the most common way club games are lost."
-        cta="Train"
-        onStart={onStartCandidates}
-      />
-
-      <h3 className="sect">Categories</h3>
-      <p className="lede">
-        Tap Train and you get a set built from that category alone — three tries each, points off
-        for a miss and more off for a nudge. Served at {Math.max(600, rating - 150)}–
-        {Math.min(2200, rating + 150)}, so it stays hard enough to be worth doing.
-      </p>
-
-      <div className="rows">
-        {CATEGORIES.map((c) => (
-          <div key={c.id} className="row-item">
-            <button
-              className="row-main"
-              onClick={() => setOpenCat(openCat === c.id ? null : c.id)}
-              aria-expanded={openCat === c.id}
-            >
-              <span className="row-title">{c.name}</span>
-              <span className="row-sub">{c.teaches}</span>
-              {openCat === c.id && <CategoryDetail category={c} />}
-            </button>
-            <button className="chip" onClick={() => onTrain(c.motifs, c.name)}>
-              Train
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <Ladder pillar="tactics" byId={byId} />
-    </div>
-  )
-}
-
-function CategoryDetail({ category }: { category: Category }) {
-  return (
-    <span className="row-detail">
-      {category.why}
-      <br />
-      <span className="muted">
-        Covers: {category.motifs.slice(0, 6).join(', ')}
-        {category.motifs.length > 6 ? `, and ${category.motifs.length - 6} more` : ''}.
-      </span>
-    </span>
-  )
-}
-
-/* ---------------------------------------------------------- endgames */
-
-/**
- * Which endgames to learn next.
- *
- * Ranked, not listed. The order is the order they decide games in: the mates
- * first because you cannot convert anything without them, then king and pawn
- * because every endgame collapses into it, then rooks because rook endings are
- * the most common ending there is.
- */
-const MASTER_ORDER = ['mate-kq', 'mate-kr', 'opposition', 'key-squares', 'lucena', 'philidor']
-
-function EndgameView({
-  rating,
-  byId,
-  onPlay,
-  onBack,
-}: {
-  rating: number
-  byId: Map<string, TierStatus>
-  onPlay: (p: EndgamePosition) => void
-  onBack: () => void
-}) {
-  const ranked = useMemo(() => {
-    const score = (e: EndgamePosition) => {
-      const i = MASTER_ORDER.findIndex((m) => e.concepts.includes(m))
-      return i === -1 ? 99 : i
-    }
-    return [...ENDGAMES].sort((a, b) => score(a) - score(b))
-  }, [])
-  const next = ranked.slice(0, 3)
-
-  return (
-    <div className="stack">
-      <ViewHeader
-        title="Endgames"
-        sub={`${ENDGAMES.length} positions, every result engine-checked`}
-        onBack={onBack}
-      />
-
-      <p className="lede">
-        You play, the engine defends at full strength, and holding a draw counts as a pass — half
-        of these are draws to save rather than wins to convert.
-      </p>
-
-      <div className="next-up">
-        <div className="next-head">Master these three next, in this order</div>
-        {next.map((e, i) => (
-          <div key={e.id} className="row-item">
-            <span className="row-main">
-              <span className="row-title">
-                <span className="rank">{i + 1}</span> {e.name}
-              </span>
-              <span className="row-sub">{e.why.split('.')[0]}.</span>
-            </span>
-            <button className="chip" onClick={() => onPlay(e)}>
-              Play
-            </button>
-          </div>
-        ))}
-        <div className="next-note">
-          Mates first — you cannot convert anything without them. Then king and pawn, because every
-          endgame eventually becomes one. Then the rook endings, which are the ones you reach most.
-        </div>
-      </div>
-
-      <h3 className="sect">All {ENDGAMES.length}</h3>
-      <div className="rows">
-        {ranked.map((e) => (
-          <div key={e.id} className="row-item">
-            <span className="row-main">
-              <span className="row-title">{e.name}</span>
-              <span className="row-sub">
-                {e.goal === 'win' ? 'Convert' : 'Hold'} as {e.youPlay === 'w' ? 'White' : 'Black'},
-                inside {e.moveCap} moves.
-              </span>
-            </span>
-            <button className="chip" onClick={() => onPlay(e)}>
-              Play
-            </button>
-          </div>
-        ))}
-      </div>
-      <p className="lede muted">
-        Nothing here is locked. At {rating} the first six are the ones that pay; the rest are there
-        when you want them.
-      </p>
-
-      <Ladder pillar="endgame" byId={byId} />
-    </div>
-  )
-}
-
-/* ---------------------------------------- positional and strategy */
-
-/**
- * These two pillars are concept-led rather than position-led: there is no
- * corpus of "space advantage" puzzles the way there is for forks. So each tier
- * gets its question — the thing to actually ask yourself at the board.
- *
- * The board below them is the honest version of "make it a playground". It
- * does not grade you, because nothing here can be graded from the position
- * alone; it lets you set an idea up and look at it while the question stays on
- * screen. Pretending to score a "weak squares" answer would be inventing a
- * right answer, which is the one thing this app is not allowed to do.
- */
-const QUESTIONS: Record<string, string> = {
-  'positional-1': 'Before anything else: which of my pieces is attacked and not defended?',
-  'positional-2': 'Are my pieces out, is my king safe, and who owns the centre?',
-  'positional-3': 'Which file is open or about to open, and which rook belongs on it?',
-  'positional-4': 'Is there a square their pawns can never attack again? Can a knight live there?',
-  'positional-5': 'Which pawn is weak, and can it be attacked more times than it is defended?',
-  'positional-6': 'Is my bishop blocked by my own pawns? Can I move the pawns or trade the bishop?',
-  'positional-7': 'I have more space — do I have a way to use it, or am I just further forward?',
-  'positional-8': 'What do they want to play next? Can I make it impossible instead of reacting?',
-  'strategy-1': 'If I passed right now, what would they play? That is the threat.',
-  'strategy-2': 'Name three plans before choosing one. Which fits this structure?',
-  'strategy-3': 'How many pieces attack their king, how many defend, and can I add another?',
-  'strategy-4': 'Trade the attacker, block the line, or run the king. Which is available?',
-  'strategy-5': 'If I make this pawn break, what does the position look like afterwards?',
-  'strategy-6': 'I am winning. What is the simplest path that cannot go wrong?',
-}
-
-function ConceptView({
-  pillar,
-  byId,
-  onStartScan,
-  onStartThreat,
-  onBack,
-}: {
-  pillar: 'positional' | 'strategy'
-  byId: Map<string, TierStatus>
-  onStartScan: () => void
-  onStartThreat: () => void
-  onBack: () => void
-}) {
-  const tiers = tiersFor(pillar)
-  const [asked, setAsked] = useState<string | null>(tiers[0]?.id ?? null)
-  const question = asked ? QUESTIONS[asked] : undefined
-
-  return (
-    <div className="stack">
-      <ViewHeader
-        title={pillar === 'positional' ? 'Position' : 'Strategy'}
-        sub={pillar === 'positional' ? 'Read the board.' : 'Control the game.'}
-        onBack={onBack}
-      />
-
-      {pillar === 'positional' ? (
-        <FeatureDrill
-          title="Spot the loose piece"
-          hook="Real positions. Which of your pieces are attacked with nothing defending them?"
-          body="The highest-value habit below 1600. Forks and pins only work because something was loose first, so this trains the cause rather than the symptom — and it is the same question the blunder check asks during a real game."
-          cta="Train"
-          onStart={onStartScan}
-        />
-      ) : (
-        <FeatureDrill
-          title="Read the threat"
-          hook="If you passed right now, what would they play? Answer before you plan."
-          body="Most players below 1600 only ever calculate their own ideas, which is exactly why tactics feel like surprises. Takes a few seconds to build — every position is searched twice to work out what they actually want."
-          cta="Train"
-          onStart={onStartThreat}
-        />
-      )}
-
-      <h3 className="sect">The questions</h3>
-      <p className="lede">
-        These are questions, not puzzles. There is no corpus of "good bishop" positions the way
-        there is for forks, so rather than serve random tactics and call it positional training,
-        each level gives you the question to ask at the board. Pick one, then use the board below
-        to set the idea up and look at it.
-      </p>
-
-      <div className="q-list">
-        {tiers.map((t) => (
-          <button
-            key={t.id}
-            className={'q-item' + (asked === t.id ? ' on' : '')}
-            onClick={() => setAsked(t.id)}
-          >
-            <span className="q-name">{t.name}</span>
-            <span className="q-blurb">{t.blurb}</span>
-          </button>
-        ))}
-      </div>
-
-      {question && (
-        <div className="q-board">
-          <div className="q-ask">{question}</div>
-          <Playground
-            book={[]}
-            orientation="white"
-            caption="A free board. Drag either side, build the structure you want to look at, and ask the question above. Nothing here is scored — there is no single right answer to score."
-          />
-        </div>
-      )}
-
-      <Ladder pillar={pillar} byId={byId} />
-    </div>
-  )
-}
-
-/* -------------------------------------------------------------- ideas */
-
-function IdeasView({ lessons, onBack }: { lessons: Lesson[]; onBack: () => void }) {
-  const [openId, setOpenId] = useState<string | null>(lessons[0]?.id ?? null)
-  return (
-    <div className="stack">
-      <ViewHeader title="Ideas" sub={`${lessons.length} at your level`} onBack={onBack} />
-      <div className="rows">
-        {lessons.map((l) => (
-          <div key={l.id} className="row-item col">
-            <button
-              className="row-main"
-              aria-expanded={openId === l.id}
-              onClick={() => setOpenId(openId === l.id ? null : l.id)}
-            >
-              <span className="row-title">{l.title}</span>
-              <span className="row-sub">{l.hook}</span>
-            </button>
-            {openId === l.id && (
-              <div className="idea-body">
-                <p>{l.body}</p>
-                <p className="try">
-                  <b>Try this.</b> {l.practice}
-                </p>
-                <p className="source">{l.source}</p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------ shared */
-
-function FeatureDrill({
-  title,
-  hook,
-  body,
-  cta,
-  onStart,
-}: {
-  title: string
-  hook: string
-  body: string
-  cta: string
-  onStart: () => void
-}) {
-  return (
-    <div className="feature">
-      <div className="feature-top">
-        <div>
-          <div className="feature-title">{title}</div>
-          <div className="feature-hook">{hook}</div>
-        </div>
-        <button className="chip solid" onClick={onStart}>
-          {cta}
-        </button>
-      </div>
-      <p className="feature-body">{body}</p>
-    </div>
-  )
-}
-
-function Ladder({ pillar, byId }: { pillar: Pillar; byId: Map<string, TierStatus> }) {
-  const tiers = tiersFor(pillar)
-  return (
-    <details className="ladder">
-      <summary>The ladder — {tiers.length} levels</summary>
-      <div className="rows">
-        {tiers.map((t) => (
-          <TierRow key={t.id} tier={t} status={byId.get(t.id)} />
-        ))}
-      </div>
-    </details>
-  )
-}
-
-function TierRow({ tier, status }: { tier: Tier; status: TierStatus | undefined }) {
-  const state = status?.cleared ? 'done' : status?.inBand ? 'now' : 'later'
-  return (
-    <div className={'lvl ' + state}>
-      <div className="lvl-top">
-        <span className="lvl-name">{tier.name}</span>
-        <span className="lvl-band">
-          {state === 'done'
-            ? 'cleared'
-            : state === 'now'
-              ? `${status?.solved ?? 0}/${tier.clear.solved}`
-              : `${tier.band[0]}+`}
-        </span>
-      </div>
-      <div className="lvl-blurb">{tier.blurb}</div>
     </div>
   )
 }

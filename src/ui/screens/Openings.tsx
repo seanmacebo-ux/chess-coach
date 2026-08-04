@@ -27,8 +27,8 @@
 
 import { useState } from 'react'
 import {
+  OPENINGS,
   mainLine,
-  openingsAtRating,
   type Opening,
   type OpeningLine,
   type LineRole,
@@ -69,46 +69,49 @@ function evalBadge(line: OpeningLine): { text: string; tone: string } {
   }
 }
 
-export interface OpeningsProps {
+export interface OpeningsSectionProps {
   rating: number
-  onBack: () => void
 }
 
-export function Openings({ rating, onBack }: OpeningsProps) {
-  const mine = openingsAtRating(rating)
+/**
+ * List and detail, not disclosure — the section owns the screen already, so a
+ * chosen opening replaces the list rather than expanding inside it.
+ *
+ * Every opening is shown, including ones aimed above your rating, with the ones
+ * outside your band marked rather than hidden. Hard-filtering on the band was
+ * the old behaviour and it meant the answer to "what will I play later" was an
+ * empty space.
+ */
+export function OpeningsSection({ rating }: OpeningsSectionProps) {
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const selected = mine.find((o) => o.id === openId) ?? null
+  const selected = OPENINGS.find((o) => o.id === openId) ?? null
   if (selected) {
-    return <OpeningDetail opening={selected} onBack={() => setOpenId(null)} />
+    return <OpeningDetail opening={selected} rating={rating} onBack={() => setOpenId(null)} />
   }
 
-  const repertoire = mine.filter((o) => o.kind === 'repertoire')
-  const traps = mine.filter((o) => o.kind === 'trap')
+  const repertoire = OPENINGS.filter((o) => o.kind === 'repertoire')
+  const traps = OPENINGS.filter((o) => o.kind === 'trap')
   const white = repertoire.filter((o) => o.side === 'white')
   const vsE4 = repertoire.filter((o) => o.against === '1.e4')
   const vsD4 = repertoire.filter((o) => o.against === '1.d4')
 
-  const lineCount = mine.reduce((n, o) => n + o.lines.length, 0)
+  const lineCount = OPENINGS.reduce((n, o) => n + o.lines.length, 0)
+  const atLevel = OPENINGS.filter((o) => rating >= o.band[0] && rating <= o.band[1]).length
 
   return (
     <div className="stack">
-      <ViewHeader
-        title="Openings"
-        sub={`${mine.length} openings, ${lineCount} lines — all playable`}
-        onBack={onBack}
-      />
-
       <p className="lede">
-        Repertoire, not memorisation. Everything here produces the same
-        structures every game, so what you learn is the plan rather than move
-        twelve. Chosen for {rating} — nothing outside your band is shown.
+        Repertoire, not memorisation — {OPENINGS.length} openings and {lineCount} playable lines.
+        Everything here produces the same structures every game, so what you learn is the plan
+        rather than move twelve. {atLevel} are aimed at {rating} right now; the rest are shown
+        anyway, marked, because what you will play next year is worth seeing.
       </p>
 
       <div className="slots">
-        <Slot label="As White" openings={white} onPick={setOpenId} />
-        <Slot label="Against 1.e4" openings={vsE4} onPick={setOpenId} />
-        <Slot label="Against 1.d4" openings={vsD4} onPick={setOpenId} />
+        <Slot label="As White" openings={white} rating={rating} onPick={setOpenId} />
+        <Slot label="Against 1.e4" openings={vsE4} rating={rating} onPick={setOpenId} />
+        <Slot label="Against 1.d4" openings={vsD4} rating={rating} onPick={setOpenId} />
       </div>
 
       {traps.length > 0 && (
@@ -116,7 +119,12 @@ export function Openings({ rating, onBack }: OpeningsProps) {
           <h3 className="sect">Traps worth knowing</h3>
           <div className="op-grid">
             {traps.map((o) => (
-              <OpeningCard key={o.id} opening={o} onPick={() => setOpenId(o.id)} />
+              <OpeningCard
+                key={o.id}
+                opening={o}
+                rating={rating}
+                onPick={() => setOpenId(o.id)}
+              />
             ))}
           </div>
         </>
@@ -128,21 +136,28 @@ export function Openings({ rating, onBack }: OpeningsProps) {
 function Slot({
   label,
   openings,
+  rating,
   onPick,
 }: {
   label: string
   openings: Opening[]
+  rating: number
   onPick: (id: string) => void
 }) {
   return (
     <div className="slot">
       <div className="slot-label">{label}</div>
       {openings.length === 0 ? (
-        <div className="small muted">Nothing at your level yet.</div>
+        <div className="small muted">Nothing here yet.</div>
       ) : (
         <div className="op-grid">
           {openings.map((o) => (
-            <OpeningCard key={o.id} opening={o} onPick={() => onPick(o.id)} />
+            <OpeningCard
+              key={o.id}
+              opening={o}
+              rating={rating}
+              onPick={() => onPick(o.id)}
+            />
           ))}
         </div>
       )}
@@ -150,14 +165,25 @@ function Slot({
   )
 }
 
-function OpeningCard({ opening, onPick }: { opening: Opening; onPick: () => void }) {
+function OpeningCard({
+  opening,
+  rating,
+  onPick,
+}: {
+  opening: Opening
+  rating: number
+  onPick: () => void
+}) {
   const main = mainLine(opening)
+  const inBand = rating >= opening.band[0] && rating <= opening.band[1]
+  const ahead = opening.band[0] > rating
   return (
-    <button className="op-card" onClick={onPick}>
+    <button className={'op-card' + (inBand ? '' : ' off-band')} onClick={onPick}>
       <span className="op-name">{opening.name}</span>
       <span className="op-moves">{firstMoves(main.moves, 6)}</span>
       <span className="op-meta">
-        {opening.lines.length} lines · {opening.band[0]}–{opening.band[1]}
+        {opening.lines.length} lines ·{' '}
+        {inBand ? 'at your level' : ahead ? `aimed at ${opening.band[0]}+` : 'below you now'}
       </span>
     </button>
   )
@@ -175,7 +201,16 @@ function firstMoves(moves: string[], n: number): string {
 
 /* ------------------------------------------------------------------ */
 
-function OpeningDetail({ opening, onBack }: { opening: Opening; onBack: () => void }) {
+function OpeningDetail({
+  opening,
+  rating,
+  onBack,
+}: {
+  opening: Opening
+  rating: number
+  onBack: () => void
+}) {
+  const inBand = rating >= opening.band[0] && rating <= opening.band[1]
   const [lineId, setLineId] = useState(mainLine(opening).id)
   const line = opening.lines.find((l) => l.id === lineId) ?? mainLine(opening)
   const badge = evalBadge(line)
@@ -184,11 +219,11 @@ function OpeningDetail({ opening, onBack }: { opening: Opening; onBack: () => vo
     <div className="stack">
       <ViewHeader
         title={opening.name}
-        sub={
+        sub={`${
           opening.side === 'white'
             ? 'As White'
             : `As Black${opening.against ? ` against ${opening.against}` : ''}`
-        }
+        } · ${inBand ? 'at your level' : `aimed at ${opening.band[0]}–${opening.band[1]}`}`}
         onBack={onBack}
       />
 

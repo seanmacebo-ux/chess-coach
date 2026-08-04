@@ -16,6 +16,14 @@
  *   A wrong move is shown, not swallowed. You see the piece land, then it
  *   comes back — so you can tell WHAT you played, not just that you failed.
  *
+ *   NOT-THE-BOOK-MOVE IS NOT THE SAME AS WRONG. Lichess ships one line per
+ *   puzzle and this used to compare your move against it as a string, so an
+ *   equally fast mate down the other diagonal, a transposition, or the same
+ *   rook taken by the other piece all came back "wrong" — and were written
+ *   into the weakness profile as real mistakes. Now the engine is asked first,
+ *   and it explains how the two moves relate either way. See
+ *   coach/adjudicate.ts for the rules and why each threshold is where it is.
+ *
  *   The category is named up front. You are told this is a "two things at
  *   once" puzzle before you solve it. That makes it easier, deliberately:
  *   knowing the family and still having to find the move is how you build the
@@ -33,9 +41,23 @@ import { briefing, type Puzzle } from '../../data/puzzles'
 import { db } from '../../data/db'
 import { recordTierAttempt } from '../../coach/profile'
 import { explainWrongMove, tagForThemes } from '../../coach/analysis'
+import { adjudicate, type Verdict } from '../../coach/adjudicate'
 import { categoryOf } from '../../coach/categories'
 
-type Phase = 'solving' | 'wrong' | 'solved' | 'shown'
+/**
+ * 'checking' is the engine deciding whether the move you just played is a
+ * legitimate alternative. It sits between the move landing and the verdict
+ * because the search takes a moment and a board that freezes with no
+ * explanation reads as a hang.
+ */
+type Phase = 'solving' | 'checking' | 'wrong' | 'solved' | 'shown'
+
+/**
+ * How long the rejected move stays on the board before it is taken back.
+ * Shorter than the old 1200ms because the move has already been sitting there
+ * for the length of the engine search — you have seen it.
+ */
+const SHOW_MISTAKE_MS = 900
 
 /** Goes per puzzle before the answer is revealed. */
 const MAX_TRIES = 3
@@ -80,13 +102,25 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
   const [hintSquare, setHintSquare] = useState<string | null>(null)
   /** The move in algebraic, once revealed. */
   const [answerSan, setAnswerSan] = useState<string | null>(null)
-  /** Why the last wrong move fails, in words. */
+  /** Why the last wrong move fails, in words. Board-only, so it is instant. */
   const [whyWrong, setWhyWrong] = useState<string | null>(null)
+  /** The engine's account of how your move compares — set when it was ACCEPTED. */
+  const [altNote, setAltNote] = useState<string | null>(null)
+  /** Same thing when it was REJECTED. Kept apart so neither leaks into the other's panel. */
+  const [bookNote, setBookNote] = useState<string | null>(null)
+  /** Your accepted move left the stored line, so the puzzle stopped early. */
+  const [diverged, setDiverged] = useState(false)
   // Refs shadow the counters because finish() reads them from inside a
   // setTimeout, where the state snapshot would be stale.
   const missesRef = useRef(0)
   const hintRef = useRef(false)
   const startedAt = useRef(Date.now())
+  /**
+   * Adjudication is async and the board does not wait for it. Every puzzle
+   * load — and every reveal — bumps this, and a search whose token has gone
+   * stale is dropped rather than applied to a position that has moved on.
+   */
+  const checkToken = useRef(0)
 
   /* Load a puzzle. */
   useEffect(() => {
@@ -98,6 +132,9 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
     setPhase('solving')
     setAnswerSan(null)
     setWhyWrong(null)
+    setAltNote(null)
+    setBookNote(null)
+    setDiverged(false)
     setMisses(0)
     setHintUsed(false)
     setHintSquare(null)
@@ -105,6 +142,7 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
     missesRef.current = 0
     hintRef.current = false
     startedAt.current = Date.now()
+    checkToken.current++
   }, [puzzle])
 
   const dests = useMemo(
@@ -113,7 +151,12 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
   )
 
   const finish = useCallback(
-    async (correct: boolean) => {
+    /**
+     * `alternative` means it was solved with a move the stored line does not
+     * list. It scores exactly the same — the engine already agreed it is as
+     * good — and is recorded only so the two can be told apart later.
+     */
+    async (correct: boolean, alternative = false) => {
       if (!puzzle) return
       setPhase(correct ? 'solved' : 'shown')
 
@@ -136,6 +179,7 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
         attempts: missesRef.current + 1,
         hintUsed: hintRef.current,
         points: got,
+        alternative,
       })
 
       // A failed puzzle is a real hole in your vision, so it goes in the same
@@ -169,6 +213,10 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
   /** Reveal the answer and end the puzzle. Shared by "show me" and running out. */
   const reveal = useCallback(() => {
     if (!puzzle) return
+    // Any adjudication still in flight is about a puzzle that is now over.
+    // Without this, a search that lands after "Show me" would call finish()
+    // a second time and overwrite the revealed answer with a verdict.
+    checkToken.current++
     // Show the KEY MOVE, not the finished position. Play only the move that was
     // due, name it in algebraic, and leave the rest of the line alone.
     const board = new Chess(chess.current.fen())
@@ -220,6 +268,81 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
     [puzzle, finish],
   )
 
+  /**
+   * You played something the stored line does not have. Ask the engine whether
+   * it is genuinely worse before charging you for it.
+   */
+  const judgeAlternative = useCallback(
+    async (fenBefore: string, bookUci: string, played: string) => {
+      if (!puzzle) return
+      const token = checkToken.current
+
+      let verdict: Verdict | null = null
+      try {
+        verdict = await adjudicate(fenBefore, bookUci, played)
+      } catch (err) {
+        // Engine unavailable, or the search came back empty. Fall through to
+        // the old string comparison rather than waving the move through:
+        // being wrongly marked wrong is the bug being fixed here, but quietly
+        // passing a real blunder would be the worse one.
+        console.warn('[puzzle] adjudication failed, falling back to the stored line', err)
+      }
+
+      // The board moved on while we were searching — next puzzle, or the
+      // answer was revealed. Whatever we found is about a position that is no
+      // longer in front of the player.
+      if (token !== checkToken.current) return
+
+      if (verdict?.accepted) {
+        setWhyWrong(null)
+        setBookNote(null)
+        setAltNote(verdict.explain)
+        /*
+         * End the puzzle here, solved.
+         *
+         * The rest of a Lichess line is a script: the opponent's replies are
+         * read straight out of puzzle.line and they are only legal in the
+         * position the book move produces. Play something else — even
+         * something better — and the next scripted reply is a move that does
+         * not exist on this board, so chess.js throws and the runner either
+         * crashes or silently swallows it.
+         *
+         * The alternatives were to re-derive the remainder with the engine (a
+         * full solve per move, on a phone, while the user waits) or to stop
+         * and say so. Stopping is not a consolation prize: the move scores
+         * exactly what the book move scores, and the divergence is stated
+         * rather than hidden.
+         */
+        setDiverged(step + 1 < puzzle.line.length)
+        void finish(true, true)
+        return
+      }
+
+      const used = missesRef.current + 1
+      missesRef.current = used
+      setMisses(used)
+      // Two explanations, deliberately. The board-only one is concrete about
+      // this square ("your knight is attacked there and nothing defends it");
+      // the engine one says how your move stands to the book move, which is
+      // the part you cannot see by looking.
+      setWhyWrong(explainWrongMove(fenBefore, played))
+      setBookNote(verdict?.explain ?? null)
+      setAltNote(null)
+      setPhase('wrong')
+      // Show the mistake on the board before taking it back — you need to see
+      // what you played, not just be told it was wrong.
+      window.setTimeout(() => {
+        if (token !== checkToken.current) return
+        chess.current.undo()
+        setFen(chess.current.fen())
+        setLastMove(undefined)
+        if (used >= MAX_TRIES) reveal()
+        else setPhase('solving')
+      }, SHOW_MISTAKE_MS)
+    },
+    [puzzle, step, finish, reveal],
+  )
+
   const onMove = useCallback(
     (from: Key, to: Key) => {
       if (!puzzle || phase !== 'solving') return
@@ -241,25 +364,16 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
       setLastMove([from, to])
 
       if (!isRight) {
-        const used = missesRef.current + 1
-        missesRef.current = used
-        setMisses(used)
-        // Say WHY it fails, not just that it does. Computed from the position
-        // before the move, board-only, so it appears instantly.
-        setWhyWrong(explainWrongMove(fenBefore, played))
-        setPhase('wrong')
-        // Show the mistake on the board before taking it back — you need to
-        // see what you played, not just be told it was wrong.
-        window.setTimeout(() => {
-          chess.current.undo()
-          setFen(chess.current.fen())
-          setLastMove(undefined)
-          if (used >= MAX_TRIES) reveal()
-          else setPhase('solving')
-        }, 1200)
+        // Not wrong — not yet. The move stays on the board while the engine
+        // decides, and 'checking' empties the destination map so nothing else
+        // can be dropped in the meantime.
+        setPhase('checking')
+        void judgeAlternative(fenBefore, expected, played)
         return
       }
       setWhyWrong(null)
+      setBookNote(null)
+      setAltNote(null)
 
       const next = step + 1
       setStep(next)
@@ -269,7 +383,7 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
         playReply(next)
       }
     },
-    [puzzle, phase, step, finish, playReply, reveal],
+    [puzzle, phase, step, finish, playReply, judgeAlternative],
   )
 
   /**
@@ -358,6 +472,14 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
             )}
           </div>
         )}
+        {phase === 'checking' && (
+          <div>
+            <strong>Checking…</strong>{' '}
+            <span className="muted">
+              That is not the move on file. Asking the engine whether it is just as good.
+            </span>
+          </div>
+        )}
         {phase === 'wrong' && (
           <div>
             <strong>Not that one.</strong>{' '}
@@ -367,12 +489,32 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
                 ? `${triesLeft} ${triesLeft === 1 ? 'try' : 'tries'} left.`
                 : 'That was the last try.'}
             </span>
+            {bookNote && (
+              <div className="small muted" style={{ marginTop: 4 }}>
+                {bookNote}
+              </div>
+            )}
           </div>
         )}
         {phase === 'solved' && (
           <div>
-            <strong>Correct{earned !== null ? ` — ${earned} pts` : ''}.</strong>{' '}
-            <span className="muted">{describeThemes(puzzle.themes)}</span>
+            {/*
+              An accepted alternative is a teaching moment, not a pass mark.
+              The headline says so and the engine's sentence takes the place of
+              the generic motif blurb, because "you found a different move that
+              mates just as fast" is the thing worth reading.
+            */}
+            <strong>
+              {altNote ? 'That works too' : 'Correct'}
+              {earned !== null ? ` — ${earned} pts` : ''}.
+            </strong>{' '}
+            <span className="muted">{altNote ?? describeThemes(puzzle.themes)}</span>
+            {diverged && (
+              <div className="small muted" style={{ marginTop: 4 }}>
+                Your move leaves the line this puzzle stores, so it stops here rather than playing
+                a reply that no longer exists. Full marks. {describeThemes(puzzle.themes)}
+              </div>
+            )}
           </div>
         )}
         {phase === 'shown' && (
@@ -420,10 +562,27 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
       <div className="row" style={{ gap: 8 }}>
         {!done ? (
           <>
-            <button className="ghost" style={{ flex: 1 }} disabled={hintUsed} onClick={takeHint}>
+            {/*
+              Both are held shut while a move is being adjudicated. "Show me"
+              mid-search would end the puzzle underneath a verdict that has not
+              landed yet, and the token guard would then throw that verdict
+              away — correct, but the user would have watched the board decide
+              something and then ignore it.
+            */}
+            <button
+              className="ghost"
+              style={{ flex: 1 }}
+              disabled={hintUsed || phase !== 'solving'}
+              onClick={takeHint}
+            >
               {hintUsed ? 'Nudge used' : `Nudge (−${POINTS_HINT})`}
             </button>
-            <button className="ghost" style={{ flex: 1 }} onClick={reveal}>
+            <button
+              className="ghost"
+              style={{ flex: 1 }}
+              disabled={phase !== 'solving'}
+              onClick={reveal}
+            >
               Show me
             </button>
           </>
