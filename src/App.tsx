@@ -44,7 +44,9 @@ import type { DailySession } from './coach/session'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
 import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
-import { analyseGame, acpl, performanceRating } from './coach/analysis'
+import { analyseGame, acpl, performanceRating, type MoveAssessment } from './coach/analysis'
+import { GameReview } from './ui/screens/GameReview'
+import { BOTS, suggestedBot, type Bot } from './engine/roster'
 import { updateRatingFromGame } from './coach/profile'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
@@ -76,6 +78,18 @@ type ReviewState = { phase: 'idle' } | { phase: 'running'; done: number; total: 
   acpl: number
   perf: number
   blunders: number
+  /**
+   * Every move you played, with what the engine wanted instead.
+   *
+   * This used to be dropped on the floor. `analyseGame` already returned the
+   * played move, the better move, what it cost and why for every ply — all of
+   * it was written to IndexedDB for the weakness profile and NONE of it was
+   * ever shown back, so the entire post-game review was "you averaged 87
+   * centipawns and logged 3 blunders". A number and a count is a score, not
+   * coaching: it tells you that you were bad without telling you where, and
+   * there is nothing you can do differently next game as a result.
+   */
+  moves: MoveAssessment[]
 }
 
 export default function App() {
@@ -541,6 +555,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   // Read once per game rather than per render — flipping the setting
   // mid-game would change the rules underneath you.
   const [blunderCheck] = useState(() => loadPrefs().blunderCheck)
+  const [showReview, setShowReview] = useState(false)
   /** Set while a move is on the board but not yet committed. */
   const [pending, setPending] = useState<{ loose: string[] } | null>(null)
 
@@ -715,6 +730,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           acpl: avg,
           perf,
           blunders: assessments.filter((a) => a.severity === 'blunder').length,
+          moves: assessments,
         })
       } catch (err) {
         setErrorMsg(`analysis failed: ${err instanceof Error ? err.message : String(err)}`)
@@ -774,6 +790,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       // still be gating the engine effect, and the new game would sit frozen.
       setPending(null)
       setReview({ phase: 'idle' })
+      setShowReview(false)
       setOrientation(side)
       setLastMove(undefined)
       setFen(chess.current.fen())
@@ -786,6 +803,21 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const botThinking = engineState === 'thinking'
   // No further input while a move is waiting to be confirmed or taken back.
   const playable = status.over || botThinking || pending ? null : humanColour
+
+  // The review owns the whole screen. It is a different activity from playing
+  // — you are studying a finished game — and squeezing it under the board
+  // would put the thing you came to look at below three cards of controls.
+  if (showReview && review.phase === 'done') {
+    return (
+      <GameReview
+        moves={review.moves}
+        colour={humanColour}
+        acpl={review.acpl}
+        perf={review.perf}
+        onClose={() => setShowReview(false)}
+      />
+    )
+  }
 
   return (
     <div className="stack">
@@ -874,13 +906,21 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
             </div>
           )}
           {review.phase === 'done' && (
-            <div className="small">
-              You averaged <strong>{review.acpl}</strong> centipawns lost per move — that's about{' '}
-              <strong>{review.perf}</strong> strength.{' '}
-              {review.blunders === 0
-                ? 'No blunders.'
-                : `${review.blunders} blunder${review.blunders === 1 ? '' : 's'} logged.`}{' '}
-              <span className="muted">Tomorrow's session will target what showed up.</span>
+            <div className="stack">
+              <div className="small">
+                You averaged <strong>{review.acpl}</strong> centipawns lost per move — that's about{' '}
+                <strong>{review.perf}</strong> strength.{' '}
+                {review.blunders === 0
+                  ? 'No blunders.'
+                  : `${review.blunders} blunder${review.blunders === 1 ? '' : 's'} logged.`}
+              </div>
+              {/* The summary is the headline; the review is the coaching. Making
+                  it a button rather than inlining it keeps the end-of-game card
+                  short, and going in is a deliberate act — you look at your
+                  mistakes when you are ready to. */}
+              <button className="chip solid" onClick={() => setShowReview(true)}>
+                Review my mistakes →
+              </button>
             </div>
           )}
         </div>
@@ -889,6 +929,24 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       {myRating !== null && (
         <YourRatings overall={myRating} sections={sections} opponentElo={elo} />
       )}
+
+      {/*
+        The roster comes first, the slider second.
+        "Opponent strength: 1400" makes difficulty feel like a settings value
+        you are adjusting rather than a person you are trying to beat, and
+        nobody remembers beating Bot 1400. Picking Sofia — who squeezes you
+        positionally and is slow to strike — is a decision with a plan attached
+        to it. The slider stays underneath for when you want a specific number.
+      */}
+      <BotRoster
+        rating={myRating ?? 800}
+        elo={elo}
+        style={style}
+        onPick={(b) => {
+          setElo(b.elo)
+          setStyle(b.style)
+        }}
+      />
 
       <div className="card stack">
         <label className="field">
@@ -933,6 +991,98 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           as black
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * The opponent roster.
+ *
+ * Each card is a (rating, style) pair the slider could already produce —
+ * picking one just sets both. What it adds is an opponent with a name, a way
+ * of playing and a stated weakness, which is the difference between choosing a
+ * difficulty and choosing who to play.
+ *
+ * The weakness is the coaching content and the reason this is not just
+ * decoration: "over-values the tactic, will win a pawn at the cost of her
+ * position" tells you how to play the game before it starts, which is what
+ * preparing for an opponent actually is.
+ */
+function BotRoster({
+  rating,
+  elo,
+  style,
+  onPick,
+}: {
+  rating: number
+  elo: number
+  style: Style
+  onPick: (b: Bot) => void
+}) {
+  const suggested = suggestedBot(rating)
+  const [openId, setOpenId] = useState<string | null>(null)
+
+  return (
+    <div className="card stack">
+      <div className="row spread">
+        <span className="small muted">Choose your opponent</span>
+        <span className="small muted">{BOTS.length} bots</span>
+      </div>
+
+      <div className="bot-grid">
+        {BOTS.map((b) => {
+          const active = b.elo === elo && b.style === style
+          const isNext = b.id === suggested.id
+          return (
+            <button
+              key={b.id}
+              className={'bot' + (active ? ' on' : '') + (isNext ? ' next' : '')}
+              onClick={() => {
+                onPick(b)
+                setOpenId(openId === b.id ? null : b.id)
+              }}
+            >
+              <span className="bot-face" aria-hidden="true">
+                {b.face}
+              </span>
+              <span className="bot-id">
+                <span className="bot-name">{b.name}</span>
+                <span className="bot-elo">{b.elo}</span>
+              </span>
+              {isNext && <span className="bot-tag">next up</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {openId && <BotCard bot={BOTS.find((b) => b.id === openId)!} />}
+    </div>
+  )
+}
+
+function BotCard({ bot }: { bot: Bot }) {
+  return (
+    <div className="bot-card">
+      <div className="bot-bio">
+        <b>
+          {bot.face} {bot.name}, {bot.elo}
+        </b>{' '}
+        {bot.bio}
+      </div>
+      <div className="small">
+        <span className="brief-key">Plays</span> {bot.plays}
+      </div>
+      <div className="small">
+        <span className="brief-key">Weakness</span> {bot.weakness}
+      </div>
+      {!bot.calibrated && (
+        <div className="bot-caveat">
+          Aimed at {bot.elo}, not measured at it. The bots currently play stronger than their
+          labels — see FINDINGS.md. Fixed by replacing the move policy, not by relabelling.
+        </div>
+      )}
     </div>
   )
 }

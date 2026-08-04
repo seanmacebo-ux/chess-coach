@@ -2864,3 +2864,215 @@ button.back {
 .op-card.off-band:hover {
   opacity: 1;
 }
+
+/* ==================================================================
+ * GAME REVIEW
+ *
+ * The post-game screen used to be one sentence. Everything here
+ * exists to answer "where did I go wrong" with a position rather
+ * than a number.
+ * ================================================================== */
+
+.rev-tally {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s2);
+}
+
+.tally {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--s3) var(--s2);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.tally-n {
+  font-size: var(--t-title);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tally-l {
+  margin-top: 3px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tally.danger .tally-n { color: var(--danger); }
+.tally.warn .tally-n { color: var(--warn); }
+.tally.good .tally-n { color: var(--accent); }
+.tally.muted .tally-n { color: var(--text-muted); }
+
+.rev-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+}
+
+.rev-count {
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 84px;
+  text-align: center;
+}
+
+/*
+ * Your move and the better move as two halves of one control.
+ *
+ * Side by side rather than stacked on purpose: the comparison IS the
+ * lesson, and a toggle that moves the board between two positions
+ * teaches more than any sentence about centipawns.
+ */
+.rev-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+  margin-top: var(--s3);
+}
+
+.rev-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-left: 3px solid var(--rev-tone, var(--border));
+}
+
+.rev-opt.yours { --rev-tone: var(--danger); }
+.rev-opt.better { --rev-tone: var(--accent); }
+
+.rev-opt.on {
+  background: var(--surface-hi);
+  border-color: var(--rev-tone);
+  border-left-color: var(--rev-tone);
+}
+
+.rev-opt:disabled {
+  opacity: 0.4;
+}
+
+.rev-opt-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rev-tone);
+}
+
+.rev-opt-move {
+  font-size: var(--t-body);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
+ * BOT ROSTER
+ *
+ * Opponents with faces. A slider labelled 1400 is a setting; Sofia,
+ * who squeezes you positionally and is slow to strike, is someone you
+ * can form a plan against before move one.
+ * ================================================================== */
+
+.bot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--s2);
+}
+
+.bot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  text-align: left;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  min-height: 52px;
+}
+
+.bot:hover {
+  background: var(--surface-hi);
+}
+
+.bot.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+/* The one to play next gets a quiet marker, not a shout — it is a
+   suggestion, and the whole roster stays pickable. */
+.bot.next:not(.on) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.bot-face {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.bot-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bot-name {
+  font-size: var(--t-small);
+  font-weight: 650;
+}
+
+.bot-elo {
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bot-tag {
+  position: absolute;
+  top: -7px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bot-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  border-radius: var(--radius);
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+}
+
+.bot-bio {
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+.bot-caveat {
+  font-size: var(--t-caption);
+  line-height: 1.45;
+  color: var(--warn);
+}
