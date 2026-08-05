@@ -14,3 +14,4 @@ public/sf/
 # thing tracked, because it explains the rule to whoever reads this next.
 books/*
 !books/README.md
+scripts/browser-check/dist/
