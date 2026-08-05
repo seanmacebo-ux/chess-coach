@@ -553,6 +553,75 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
           </div>
         </div>
       </div>
+
+      <BuildInfo />
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Which build am I actually looking at.
+ *
+ * An offline-first PWA will serve last week's bundle without saying so, which
+ * makes "I can't see the new design" impossible to diagnose from either end.
+ * The commit and build time are stamped in at build time, so the answer is a
+ * string on screen rather than a guess.
+ *
+ * The button is the escape hatch. `registerType: 'autoUpdate'` with skipWaiting
+ * and clientsClaim IS configured and does normally work, but a stale worker on
+ * a phone that has been installed to the home screen can still hold on through
+ * an ordinary reload. Unregistering every worker and deleting every cache is
+ * the one thing that always wins, and it costs nothing — the app is local-first
+ * and the caches refill on next load.
+ */
+function BuildInfo() {
+  const [clearing, setClearing] = useState(false)
+
+  const forceUpdate = useCallback(async () => {
+    setClearing(true)
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map((r) => r.unregister()))
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map((k) => caches.delete(k)))
+      }
+    } catch {
+      // Nothing to do — the reload below is still worth attempting.
+    }
+    // Cache-busted so the HTML itself cannot come from a stale entry.
+    window.location.replace(`${window.location.pathname}?v=${Date.now()}`)
+  }, [])
+
+  const built = (() => {
+    try {
+      return new Date(__BUILD_TIME__).toLocaleString()
+    } catch {
+      return __BUILD_TIME__
+    }
+  })()
+
+  return (
+    <div className="card stack">
+      <span className="small muted">This build</span>
+      <div className="row spread">
+        <span className="small">
+          <code>{__BUILD_SHA__}</code>
+          <span className="muted"> · built {built}</span>
+        </span>
+      </div>
+      <button className="ghost" disabled={clearing} onClick={() => void forceUpdate()}>
+        {clearing ? 'Clearing…' : 'Force update'}
+      </button>
+      <div className="small muted">
+        The app caches itself so it works offline, which means it can keep serving an old version
+        after a deploy. If something looks out of date, check the commit above against what you
+        expect — then use this, which unregisters the service worker and empties every cache.
+      </div>
     </div>
   )
 }

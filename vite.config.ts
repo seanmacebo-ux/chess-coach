@@ -1,6 +1,27 @@
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/*
+ * Build stamp.
+ *
+ * This app is an offline-first PWA, which means the service worker will
+ * happily serve a build from last week and nothing on screen says so. "I can't
+ * see the new design" is then unanswerable from either end — Sean cannot tell
+ * me what he is looking at and I cannot tell him whether it is current.
+ *
+ * So the commit and the build time go into the bundle and get shown in
+ * Settings. Not decoration: it turns "is it live?" from a guess into a string
+ * he can read out.
+ */
+function gitSha(): string {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim()
+  } catch {
+    return 'unknown'
+  }
+}
 
 // base must match the GitHub Pages subpath (https://<user>.github.io/chess-coach/).
 // Override with BASE=/ for local-only or custom-domain builds.
@@ -8,6 +29,10 @@ const base = process.env.BASE ?? '/chess-coach/'
 
 export default defineConfig({
   base,
+  define: {
+    __BUILD_SHA__: JSON.stringify(gitSha()),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({
