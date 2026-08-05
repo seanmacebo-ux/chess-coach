@@ -202,6 +202,44 @@ export async function recordTierResult(
 }
 
 /**
+ * How unsure a rating from `games` games deserves to be.
+ *
+ * This exists because an imported rating was being stored with whatever
+ * confidence the profile already had, so 316 from EIGHT games was treated
+ * exactly as firmly as 316 from eight hundred. Sean said it himself — "we
+ * might be wrong with that, I haven't played enough" — and he was right: at
+ * that sample the true strength could reasonably be anywhere across a couple
+ * of hundred points.
+ *
+ * The consequence of getting this wrong is not cosmetic. RD drives K, so a
+ * falsely-confident rating also adapts SLOWLY — the app would be both wrong
+ * and stubborn about it. Wide deviation on a small sample means the first
+ * dozen puzzles move the number hard, which is exactly the behaviour you want
+ * when the starting point is a guess.
+ *
+ * 350/sqrt(n) is the usual shape: 5 games gives ±157, 8 gives ±124, 50 gives
+ * the floor. Capped at the fresh-profile value so an import can never claim
+ * more uncertainty than knowing nothing at all.
+ */
+export function rdFromSample(games: number): number {
+  if (games <= 0) return RD_START
+  return Math.max(RD_FLOOR, Math.min(RD_START, Math.round(350 / Math.sqrt(games))))
+}
+
+/**
+ * The range a rating actually implies, as a sentence.
+ *
+ * A point estimate invites you to believe it. "316, and your real strength is
+ * probably between 192 and 440" is the same information without the false
+ * precision, and it explains why the app is about to move the number a lot.
+ */
+export function ratingRange(rating: number, rd: number): string {
+  const lo = Math.max(100, Math.round(rating - rd))
+  const hi = Math.round(rating + rd)
+  return `${rating} — really somewhere between ${lo} and ${hi} until there is more to go on`
+}
+
+/**
  * Set untrained sections to a known rating, without touching trained ones.
  *
  * Used by the chess.com import. Deliberately non-destructive: a section with
@@ -210,7 +248,7 @@ export async function recordTierResult(
  * the sections it actually changed so the caller can say so rather than
  * claiming a blanket reset.
  */
-export async function seedSections(rating: number): Promise<SectionId[]> {
+export async function seedSections(rating: number, rd = RD_START): Promise<SectionId[]> {
   const rows = await db.sectionRatings.toArray()
   const byId = new Map(rows.map((r) => [r.section, r]))
   const seeded: SectionId[] = []
@@ -218,7 +256,10 @@ export async function seedSections(rating: number): Promise<SectionId[]> {
   for (const id of SECTION_IDS) {
     const existing = byId.get(id)
     if (existing && existing.played > 0) continue
-    await db.sectionRatings.put({ ...blank(id, rating) })
+    // The deviation travels with the rating. Seeding five sections from an
+    // eight-game import and then calling them settled is the same mistake in
+    // five more places.
+    await db.sectionRatings.put({ ...blank(id, rating), rd })
     seeded.push(id)
   }
   return seeded

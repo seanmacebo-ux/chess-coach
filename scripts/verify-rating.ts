@@ -137,6 +137,61 @@ for (const [truth, start] of [
   )
 }
 
+/* --- small samples must self-correct fast ---------------------------- */
+
+/*
+ * The claim being tested: an imported rating backed by few games is stored
+ * with a wide deviation, and a wide deviation makes the number move FASTER
+ * toward the truth.
+ *
+ * This matters because the alternative is an app that is both wrong and
+ * stubborn. Sean's rating came from eight games; if that is stored as
+ * confidently as a settled one, a beginner who is actually 500 spends weeks
+ * being served material for a 316 while the rating crawls.
+ */
+function rdFromSample(games: number): number {
+  if (games <= 0) return RD_START
+  return Math.max(RD_FLOOR, Math.min(RD_START, Math.round(350 / Math.sqrt(games))))
+}
+
+check(
+  'fewer games means more uncertainty',
+  rdFromSample(5) > rdFromSample(20) && rdFromSample(20) > rdFromSample(200),
+  `5:${rdFromSample(5)} 20:${rdFromSample(20)} 200:${rdFromSample(200)}`,
+)
+
+/**
+ * Same wrong starting rating, same true strength, same results — only the
+ * starting deviation differs. The wide one must close the gap faster.
+ */
+function gapAfter(startRd: number, n: number): number {
+  const TRUTH = 600
+  const START = 316
+  let seed = 999
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296
+    return seed / 4294967296
+  }
+  let rating = START
+  let rd = startRd
+  for (let i = 0; i < n; i++) {
+    const opponent = TRUTH - 200 + Math.floor(rnd() * 400)
+    const correct = rnd() < expected(TRUTH, opponent)
+    const next = step(rating, rd, opponent, correct)
+    rating = next.rating
+    rd = next.rd
+  }
+  return Math.abs(rating - TRUTH)
+}
+
+const wide = gapAfter(rdFromSample(8), 30)
+const narrow = gapAfter(RD_FLOOR, 30)
+check(
+  'a small-sample import corrects faster than a settled one',
+  wide < narrow,
+  `wide rd left a ${wide.toFixed(0)}-point gap, settled rd left ${narrow.toFixed(0)}`,
+)
+
 /* --- report --------------------------------------------------------- */
 
 if (problems.length === 0) {

@@ -28,6 +28,8 @@ import {
   SECTION_NAME,
   explainSection,
   getSectionRatings,
+  ratingRange,
+  rdFromSample,
   seedSections,
   type SectionId,
   type SectionRating,
@@ -135,11 +137,15 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
         return
       }
       const rating = found.calibration.rating
-      await saveProfile({ rating })
-      const seeded = await seedSections(rating)
+      // Carry the sample size into the uncertainty. An eight-game rating that
+      // is stored as confidently as an eight-hundred-game one is both wrong
+      // and slow to correct, because RD is what drives how fast it moves.
+      const rd = rdFromSample(found.calibration.games)
+      await saveProfile({ rating, ratingDeviation: rd })
+      const seeded = await seedSections(rating, rd)
       setSectionRatings(await getSectionRatings())
       setCcNote(
-        `${describeImport(found)} ${
+        `${describeImport(found)} Stored as ${ratingRange(rating, rd)}. ${
           seeded.length === 0
             ? 'Every section already has training behind it, so none were reset — those numbers are measurements now, not guesses.'
             : `${seeded.length} section${seeded.length === 1 ? '' : 's'} set to ${rating}.`
