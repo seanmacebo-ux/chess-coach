@@ -37,7 +37,7 @@
   --good: #5c8bb0;
   --brilliant: #26c2a3;
 
-  --shadow-board: 0 8px 28px rgb(0 0 0 / 45%);
+  --shadow-board: 0 4px 14px rgb(0 0 0 / 32%);
   --hover: #45413c;
 
   --radius: 10px;
@@ -97,7 +97,7 @@
     --good: #3d6a8c;
     --brilliant: #0f8f78;
 
-    --shadow-board: 0 6px 20px rgb(0 0 0 / 14%);
+    --shadow-board: 0 3px 10px rgb(0 0 0 / 10%);
     --hover: #e2dfd9;
 
     color-scheme: light;
@@ -122,7 +122,7 @@
   --good: #3d6a8c;
   --brilliant: #0f8f78;
 
-  --shadow-board: 0 6px 20px rgb(0 0 0 / 14%);
+  --shadow-board: 0 3px 10px rgb(0 0 0 / 10%);
   --hover: #e2dfd9;
 
   color-scheme: light;
@@ -257,58 +257,68 @@ body {
   width: 100%;
   aspect-ratio: 1;
   /* Padding IS the frame. box-sizing:border-box keeps the whole thing square,
-     and equal padding leaves the playing surface square too. */
-  padding: 9px;
-  border-radius: 16px;
+     and equal padding leaves the playing surface square too.
+
+     7px, not 9. A thick frame plus a gradient plus a recess plus a drop shadow
+     is four depth cues on one object, and four is what "too 3d" looks like.
+     The frame stays because a board needs an edge; it got thinner so the edge
+     is a line rather than a moulding. */
+  padding: 7px;
+  border-radius: 14px;
   /*
    * The frame takes its colour from the board's own dark squares, darkened.
    * Deriving it from the page surface instead made it near-white in light
    * mode — a board floating on a white card rather than sitting in a frame.
    * Tying it to --sq-dark means walnut gets a walnut frame and slate gets a
    * slate one, automatically, for all 18 materials.
+   *
+   * The gradient used to run 78% → 92% → 62% black, a 30-point sweep across
+   * 7px of frame, which is a lighting effect on something too small to light.
+   * It is a flat tone now with a hint of fall-off — enough that the frame is
+   * not a sticker, not enough that it pretends to be a bevel.
    */
   background: linear-gradient(
     160deg,
-    color-mix(in srgb, var(--sq-dark, var(--surface-hi)) 78%, #000),
-    color-mix(in srgb, var(--sq-dark, var(--surface)) 92%, #000) 55%,
-    color-mix(in srgb, var(--sq-dark, var(--bg)) 62%, #000)
+    color-mix(in srgb, var(--sq-dark, var(--surface-hi)) 80%, #000),
+    color-mix(in srgb, var(--sq-dark, var(--surface)) 86%, #000)
   );
   box-shadow:
-    /* catch light on the top edge */
-    0 1px 0 rgb(255 255 255 / 7%) inset,
     /* thin dark line where the frame meets the board */
-    0 0 0 1px rgb(0 0 0 / 22%),
+    0 0 0 1px rgb(0 0 0 / 20%),
     var(--shadow-board);
 }
 
 /* The playing surface, recessed into the frame. */
 .board-wrap .cg-wrap,
 .board-wrap > div {
-  border-radius: 7px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
-/* Inner shadow sells the recess. Sits above the board, below the pieces, and
-   must never eat a click. */
+/* The line where the frame meets the playing surface. Sits above the board,
+   below the pieces, and must never eat a click.
+
+   This used to carry a 6px inset blur as well, to "sell the recess". Between
+   that, the frame gradient and the drop shadow the board was lit from three
+   directions at once and the top two ranks sat in a permanent smudge. What is
+   left is the hairline, which is the part that was doing the work. */
 .board-wrap::after {
   content: '';
   position: absolute;
-  inset: 9px;
-  border-radius: 7px;
+  inset: 7px;
+  border-radius: 6px;
   pointer-events: none;
-  box-shadow:
-    0 0 0 1px rgb(0 0 0 / 25%),
-    0 2px 6px rgb(0 0 0 / 22%) inset;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 22%);
   z-index: 3;
 }
 
 @media (max-width: 380px) {
   /* Reclaim the frame on small phones — board size beats decoration. */
   .board-wrap {
-    padding: 6px;
+    padding: 5px;
   }
   .board-wrap::after {
-    inset: 6px;
+    inset: 5px;
   }
 }
 
@@ -1069,28 +1079,77 @@ input[type='email'] {
   padding: 8px 0 8px 10px;
 }
 
-/* Piece-set picker: shows the actual knight from each set, at tap size. */
+/*
+ * Piece-set picker: three squares of the board you have actually chosen, with
+ * a king, a knight and a black pawn standing on them.
+ *
+ * It used to be one knight on a flat card. Two problems with that. A knight is
+ * the least representative piece in any set — it is the one every designer
+ * goes to town on — so eighteen knights told you which set had the fanciest
+ * horse and nothing about how the set would read in a game. And on the card
+ * surface the black pieces vanished, so you could not judge the only thing
+ * that actually matters: whether the two colours separate at a glance.
+ *
+ * The alternating squares fix both. Every set is now shown on the same board
+ * material you play on, with a piece on each shade.
+ */
 .pieceswatch {
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 4px;
+  width: 88px;
+  height: 40px;
+  min-height: 40px;
+  padding: 3px 0;
   border-radius: 10px;
   border: 2px solid transparent;
-  background: var(--surface-hi);
-  display: grid;
-  place-items: center;
+  /* Clipped to the padding box so the three colour bands line up exactly with
+     the three flex children, whatever the border does. */
+  background-clip: padding-box;
+  background-image: linear-gradient(
+    90deg,
+    var(--sq-light, var(--surface-hi)) 0 33.34%,
+    var(--sq-dark, var(--surface)) 33.34% 66.67%,
+    var(--sq-light, var(--surface-hi)) 66.67% 100%
+  );
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
 }
 
 .pieceswatch img {
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   height: 100%;
   object-fit: contain;
   pointer-events: none;
 }
 
+/* Selection is a ring, not a fill — a fill would cover the board strip, which
+   is the entire content of the swatch. */
 .pieceswatch[aria-pressed='true'] {
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/*
+ * The non-commercial mark. Was a whole second heading with nine sets under it,
+ * which made a licence look like a style of chess piece. It is a property of
+ * those nine sets, so it is a mark on those nine sets.
+ */
+.pieceswatch.nc::after {
+  content: 'NC';
+  position: absolute;
+  /* Inside the swatch. Hung outside it, the row above clipped the top of the
+     badge on every second line. */
+  top: 2px;
+  right: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  padding: 2px 3px;
+  border-radius: 4px;
+  color: var(--bg);
+  background: var(--muted);
 }
 
 /* ------------------------------------------------------ puzzle category */
@@ -3501,10 +3560,18 @@ button.back {
   background: color-mix(in srgb, var(--bg) 88%, transparent);
 }
 
-/* The board is the hero of every screen it appears on. */
-.board-wrap {
-  box-shadow: var(--e3);
-}
+/*
+ * NOT a board shadow here.
+ *
+ * This block used to read `.board-wrap { box-shadow: var(--e3) }`, which was a
+ * bug as much as a taste error: box-shadow is not additive, so a later rule
+ * with the same specificity REPLACED the frame's whole shadow list — the inset
+ * top-edge highlight and the hairline where frame meets board both vanished,
+ * and what was left was one big drop shadow. Crisp detail out, blur in, which
+ * is exactly what Sean meant by "trying to be too 3d".
+ *
+ * The frame keeps its own shadow, defined once where it is built.
+ */
 
 /* The Learn header. One question — where am I, how much is open. */
 .learn-top {

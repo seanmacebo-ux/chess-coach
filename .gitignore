@@ -8,3 +8,9 @@ public/sf/
 # calibration/ IS committed on purpose — the reports are the evidence behind
 # every claim about how strong the bots actually are. Sean should be able to
 # open them without running anything.
+
+# books/ is where book files go. Ignored, deliberately — THIS REPOSITORY IS
+# PUBLIC, so a committed PDF is a published PDF. books/README.md is the one
+# thing tracked, because it explains the rule to whoever reads this next.
+books/*
+!books/README.md

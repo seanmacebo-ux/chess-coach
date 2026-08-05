@@ -370,6 +370,80 @@ export const PIECE_SETS: PieceSet[] = [
   },
 ]
 
+/**
+ * Piece sets, grouped by what they LOOK like.
+ *
+ * They used to be grouped by licence, which is the one property you cannot see
+ * in a swatch. Sean's complaint — "the chess pieces could be better and we
+ * trying to be too 3d" — was partly a picker problem: four genuinely flat sets
+ * ship in this app and there was no way to find them, because Spatial sat
+ * between Fantasy and Bold in one undifferentiated wall of knights sorted by
+ * copyright.
+ *
+ * So style is the grouping now and the licence is a badge on the sets that
+ * carry the restriction. Nothing about the trade is hidden — it moved from a
+ * heading to a mark on the nine sets it applies to, which is where it belongs,
+ * because it is a property of those nine and not a category of chess piece.
+ *
+ * The ids here are checked against PIECE_SETS below, so a set added without a
+ * group fails loudly at import rather than silently vanishing from Settings.
+ */
+export type PieceStyle = 'flat' | 'classic' | 'ornate' | 'playful'
+
+const STYLE_ORDER: { style: PieceStyle; label: string; note: string; ids: string[] }[] = [
+  {
+    style: 'flat',
+    label: 'Flat',
+    note: 'No shading, no depth. Easiest to read at speed.',
+    ids: ['spatial', 'kiwen-suwi', 'rhosgfx', 'staunty'],
+  },
+  {
+    style: 'classic',
+    label: 'Classic',
+    note: 'The Staunton shape, with weight and shadow.',
+    ids: ['cburnett', 'merida', 'chessnut', 'maestro', 'gioco', 'dubrovny', 'pirouetti'],
+  },
+  {
+    style: 'ornate',
+    label: 'Ornate',
+    note: 'Carved and detailed. Best on stone and marble boards.',
+    ids: ['fantasy', 'celtic', 'cardinal', 'tatiana'],
+  },
+  {
+    style: 'playful',
+    label: 'Playful',
+    note: 'Hand-drawn and cartoon. Still perfectly legible.',
+    ids: ['california', 'anarcandy', 'horsey'],
+  },
+]
+
+export const PIECE_GROUPS: {
+  style: PieceStyle
+  label: string
+  note: string
+  sets: PieceSet[]
+}[] = STYLE_ORDER.map((g) => ({
+  style: g.style,
+  label: g.label,
+  note: g.note,
+  sets: g.ids.map((id) => {
+    const set = PIECE_SETS.find((p) => p.id === id)
+    if (!set) throw new Error(`piece group "${g.style}" names unknown set "${id}"`)
+    return set
+  }),
+}))
+
+{
+  const grouped = new Set(PIECE_GROUPS.flatMap((g) => g.sets.map((s) => s.id)))
+  const missing = PIECE_SETS.filter((p) => !grouped.has(p.id)).map((p) => p.id)
+  if (missing.length) throw new Error(`piece sets in no group: ${missing.join(', ')}`)
+}
+
+/** Which style bucket a set is in — for the caption under the picker. */
+export function styleOf(set: PieceSet): PieceStyle {
+  return PIECE_GROUPS.find((g) => g.sets.some((s) => s.id === set.id))!.style
+}
+
 /* ------------------------------------------------------------------ */
 /* Backgrounds                                                         */
 /* ------------------------------------------------------------------ */

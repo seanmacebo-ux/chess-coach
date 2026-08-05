@@ -38,7 +38,7 @@ import { ThemePreview } from '../ThemePreview'
 import {
   BACKGROUNDS,
   BOARD_GROUPS,
-  PIECE_SETS,
+  PIECE_GROUPS,
   boardBackground,
   pieceSrc,
   resolveTheme,
@@ -476,47 +476,47 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
             Pieces
           </div>
           {/*
-            Split by licence, and labelled.
-            The best-looking sets are CC BY-NC-SA, which is fine for a personal
-            training app and a problem the day this is sold. Grouping them under
-            their own heading means that trade is visible at the moment you pick
-            one, rather than buried in a source comment nobody reads.
-          */}
-          <div className="chips">
-            {PIECE_SETS.filter((p) => p.commercial).map((p) => (
-              <button
-                key={p.id}
-                className="pieceswatch"
-                aria-pressed={theme.pieces === p.id}
-                aria-label={`${p.name} pieces`}
-                title={p.blurb}
-                onClick={() => onTheme({ ...theme, pieces: p.id })}
-              >
-                <img src={pieceSrc(p, 'wN')} alt="" aria-hidden="true" />
-              </button>
-            ))}
-          </div>
+            Grouped by STYLE, like the boards above are grouped by material.
+            It used to be split by licence — the one property a swatch cannot
+            show — which meant the four flat sets were scattered through a wall
+            of eighteen knights and there was no way to find them. The licence
+            has not gone quiet: it is an "NC" badge on the nine sets that carry
+            it, which is where a per-set property belongs.
 
-          <div className="small muted" style={{ margin: '10px 0 4px' }}>
-            Non-commercial licence — personal use only
-          </div>
-          <div className="chips">
-            {PIECE_SETS.filter((p) => !p.commercial).map((p) => (
-              <button
-                key={p.id}
-                className="pieceswatch"
-                aria-pressed={theme.pieces === p.id}
-                aria-label={`${p.name} pieces`}
-                title={p.blurb}
-                onClick={() => onTheme({ ...theme, pieces: p.id })}
-              >
-                <img src={pieceSrc(p, 'wN')} alt="" aria-hidden="true" />
-              </button>
-            ))}
-          </div>
+            Each swatch shows king, knight and pawn rather than a lone knight.
+            A knight is the least representative piece in any set — it is the
+            one every designer goes to town on — so eighteen knights told you
+            almost nothing about how a set would actually look on a board.
+          */}
+          {PIECE_GROUPS.map((g) => (
+            <div key={g.style} className="swatch-group">
+              <div className="small muted">
+                {g.label} — {g.note}
+              </div>
+              <div className="chips">
+                {g.sets.map((p) => (
+                  <button
+                    key={p.id}
+                    className={'pieceswatch' + (p.commercial ? '' : ' nc')}
+                    aria-pressed={theme.pieces === p.id}
+                    aria-label={`${p.name} pieces, ${g.label.toLowerCase()}${
+                      p.commercial ? '' : ', non-commercial licence'
+                    }`}
+                    title={`${p.name} — ${p.blurb}`}
+                    onClick={() => onTheme({ ...theme, pieces: p.id })}
+                  >
+                    <img src={pieceSrc(p, 'wK')} alt="" aria-hidden="true" />
+                    <img src={pieceSrc(p, 'wN')} alt="" aria-hidden="true" />
+                    <img src={pieceSrc(p, 'bP')} alt="" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
           <div className="small muted" style={{ marginTop: 6 }}>
             <strong style={{ color: 'var(--text)' }}>{resolved.pieces.name}</strong> —{' '}
             {resolved.pieces.blurb}
+            {!resolved.pieces.commercial && ' Marked NC: personal use only.'}
           </div>
           <div className="small muted" style={{ marginTop: 2, fontStyle: 'italic' }}>
             {resolved.pieces.credit}
