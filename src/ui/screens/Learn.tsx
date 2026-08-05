@@ -227,25 +227,26 @@ function Index({
 
   return (
     <div className="stack">
-      <div className="card">
-        <div className="row spread">
-          <span className="small muted">Everything the app can teach you</span>
-          <span className="small muted">
-            {cleared} / {statuses.length} cleared
-          </span>
+      {/*
+        Was twelve lines of prose, and prose is what "flat" looks like.
+        Everything it said is still true and most of it was not needed at the
+        top of a menu: the counts are on the cards, and what a section rating
+        means is explained on the section page where you can act on it. What is
+        left is the only thing this header has to answer — where am I, and how
+        much is open.
+      */}
+      <div className="learn-top">
+        <div className="learn-top-num">
+          <span className="hero-num">{rating}</span>
+          <span className="hero-cap">your rating</span>
         </div>
-        <div className="small" style={{ marginTop: 6 }}>
-          Six sections, {statuses.length} levels, {CATEGORIES.length} tactical categories,{' '}
-          {ENDGAMES.length} endgames, {OPENINGS.length} openings and {LESSONS.length} ideas. Your
-          overall rating is <strong>{rating}</strong>, and at that strength{' '}
-          <strong>{openNow}</strong> levels are open to you right now — everything below you stays
-          open to go back to, and everything above you is visible rather than hidden.
-        </div>
-        <div className="small muted" style={{ marginTop: 6 }}>
-          Each section carries its own rating, because <strong>{rating}</strong> as a single number
-          cannot tell you whether it is your endgames letting you down or your tactics. Open a
-          section and it says in plain words what its number means, how it last moved, and what
-          would move it next.
+        <div className="learn-top-facts">
+          <div className="learn-top-lead">
+            <b>{openNow}</b> levels open to you now
+          </div>
+          <div className="learn-top-sub">
+            {cleared} of {statuses.length} cleared · nothing below you is ever locked
+          </div>
         </div>
       </div>
 
@@ -257,7 +258,17 @@ function Index({
           const r = isPillar ? ratings?.[s.key as SectionId] : undefined
 
           return (
-            <button key={s.key} className="sec-card" onClick={() => onOpen(s.key)}>
+            <button
+              key={s.key}
+              /*
+               * Tone per section. Six identical cards in the same brown was
+               * most of why this screen read as flat — nothing distinguished
+               * Tactics from Endgames except the word, so the eye had nothing
+               * to navigate by and the whole column merged.
+               */
+              className={`sec-card tone-${s.key}`}
+              onClick={() => onOpen(s.key)}
+            >
               <span className="row spread" style={{ alignItems: 'flex-start', gap: 10 }}>
                 <span className="sec-name">{s.name}</span>
                 {isPillar ? <RatingChip r={r} /> : <span className="tag">reading</span>}
@@ -265,7 +276,13 @@ function Index({
 
               <span className="small muted">{s.blurb}</span>
 
-              {isPillar && <RatingExplainer r={r} />}
+              {/*
+                The rating explainer used to sit here on every card, which meant
+                "Not trained yet — the number is a starting guess" appeared six
+                times down one screen. The same sentence repeated is not
+                information; it is texture. It says it once above the grid now,
+                and the full version lives on the section page.
+              */}
 
               {/*
                 Ideas has no ladder to clear, so it gets the one measure that
