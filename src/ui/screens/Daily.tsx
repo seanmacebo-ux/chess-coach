@@ -70,7 +70,13 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
   return (
     <div className="stack">
       {/* ---------------------------------------------------- header */}
-      <div className="card row spread">
+      {/*
+        The hero, not a card. It used to be the same brown rectangle as the six
+        below it, which meant the one number the whole app is about had exactly
+        the same visual weight as a paragraph of copy — the "flat" complaint in
+        one element.
+      */}
+      <div className="card hero-strip row spread">
         <div>
           <div className="small muted">Your rating</div>
           <div className="stat">{session.rating}</div>
@@ -226,7 +232,11 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
           const mine = inBand.filter((t) => t.tier.pillar === p.id)
           if (mine.length === 0) return null
           return (
-            <div key={p.id}>
+            /* Per-pillar tone, the same five colours the Learn cards use, so a
+               colour means the same thing wherever you meet it. Without this
+               the wall was five identical blocks of grey bricks and the only
+               thing separating Tactics from Endgames was the word. */
+            <div key={p.id} className={`wall-row tone-${p.id}`}>
               <div className="small" style={{ marginBottom: 4 }}>
                 {p.name} <span className="muted">— {p.blurb}</span>
               </div>

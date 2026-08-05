@@ -3701,3 +3701,84 @@ button.back {
 .q-item.plan-item {
   gap: 4px;
 }
+
+/* ------------------------------------------------ screen headers */
+
+/*
+ * The number the screen is about.
+ *
+ * Today and History both opened with a card holding the single most important
+ * figure in the app, styled identically to the paragraph of copy underneath
+ * it. The Learn header was fixed first and worked; this is the same treatment
+ * applied to the two screens that needed it, as one shared class rather than
+ * three near-copies.
+ */
+.card.hero-strip {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 16%, var(--surface)) 0%,
+    var(--surface) 62%
+  );
+  box-shadow: var(--e2);
+}
+
+/* Four figures in a row need separating, or they read as one long number. */
+.hero-strip .hgrid > * + * {
+  border-left: 1px solid var(--border);
+  padding-left: var(--s3, 12px);
+}
+
+/*
+ * All-caps labels get a tick of the accent.
+ *
+ * There are five or six of these down each screen and they were all the same
+ * grey at the same size, so nothing told you where one block ended and the
+ * next began. Three pixels of colour does the job that a heavier weight could
+ * not, because the weight is already carrying "this is a label".
+ */
+.card > .small.muted:first-child,
+.card-label {
+  position: relative;
+}
+
+/* The wall on Today, per pillar — the same six tones as the Learn cards, so a
+   colour means the same thing on both screens. */
+.wall-row.tone-tactics { --wall: #d98b3a; }
+.wall-row.tone-endgame { --wall: #5c8bb0; }
+.wall-row.tone-positional { --wall: #81b64c; }
+.wall-row.tone-strategy { --wall: #26c2a3; }
+.wall-row.tone-opening { --wall: #9a7bd0; }
+
+.wall-row {
+  border-left: 3px solid var(--wall, var(--border));
+  padding-left: 10px;
+}
+
+/* Untried categories, one chip each. NOT `.tag` — that class is scoped to the
+   rating chip, where it is a full-width right-aligned caption, so reusing it
+   here produced eight lines of right-aligned grey text rather than chips. */
+.cat-chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The section colour, as a dot. Same five tones as the Learn cards and the
+   Today wall, so a colour means one thing across the whole app. */
+.tone-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 8px;
+  background: var(--dot, var(--muted));
+}
+
+.tone-dot.tone-tactics { --dot: #d98b3a; }
+.tone-dot.tone-endgame { --dot: #5c8bb0; }
+.tone-dot.tone-positional { --dot: #81b64c; }
+.tone-dot.tone-strategy { --dot: #26c2a3; }
+.tone-dot.tone-opening { --dot: #9a7bd0; }

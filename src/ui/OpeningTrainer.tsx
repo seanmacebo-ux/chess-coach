@@ -41,6 +41,7 @@ import { getEngine } from '../engine/uci'
 import { lineScore } from '../engine/types'
 import { loosePieces } from '../coach/exercises'
 import { recordSectionResult } from '../coach/rating'
+import { recordFinishedGame, outcomeOf } from '../coach/record'
 import { db } from '../data/db'
 import { suggestedBot } from '../engine/roster'
 import type { OpeningLine, Side } from '../content/openings'
@@ -91,6 +92,8 @@ export function OpeningTrainer({
 }: OpeningTrainerProps) {
   /** Guards against recording the same completion twice on a re-render. */
   const recorded = useRef(false)
+  /** Same guard for the play-on GAME, which is a separate thing to record. */
+  const gameRecorded = useRef(false)
   const [mode, setMode] = useState<Mode>('book')
   const [support, setSupport] = useState<string | null>(null)
   const [thinking, setThinking] = useState(false)
@@ -108,6 +111,8 @@ export function OpeningTrainer({
   const [wrongNote, setWrongNote] = useState<string | null>(null)
   const [misses, setMisses] = useState(0)
   const [hint, setHint] = useState(false)
+  /** What the play-on game did to your rating, once it is saved. */
+  const [gameNote, setGameNote] = useState<string | null>(null)
 
   const youMoveFirst = side === 'white'
   /** Plies you are responsible for: even for White, odd for Black. */
@@ -130,6 +135,8 @@ export function OpeningTrainer({
     setSupport(null)
     setThinking(false)
     recorded.current = false
+    gameRecorded.current = false
+    setGameNote(null)
     void opponent.newGame()
   }, [opponent])
 
@@ -208,6 +215,40 @@ export function OpeningTrainer({
   }, [finished, mode, misses, hint, openingId, line.id, lineRating, rating])
 
   const yourColour = side === 'white' ? 'w' : 'b'
+
+  /*
+   * A play-on game is a real game and used to vanish.
+   *
+   * You could finish a full game against a rated bot from the end of an
+   * opening line and there would be no History row, no rating movement and no
+   * review afterwards — the Play tab did all three and this did none of them.
+   * Same class of bug as the training progress that was not being recorded,
+   * and the fix is the shared recorder rather than a third copy of the logic.
+   *
+   * No analysis pass here on purpose: you are mid-lesson and the engine is
+   * already busy giving live support. The game is in History and can be
+   * reviewed from there whenever you want it.
+   */
+  useEffect(() => {
+    if (mode !== 'playon' || gameRecorded.current) return
+    const outcome = outcomeOf(chess.current, yourColour)
+    if (!outcome) return
+    gameRecorded.current = true
+    void recordFinishedGame({
+      pgn: chess.current.pgn(),
+      humanColour: yourColour,
+      result: outcome.result,
+      reason: outcome.reason,
+      opponentElo: bot.elo,
+      opponentStyle: bot.style,
+      source: 'opening-trainer',
+    }).then(({ delta }) => {
+      setGameNote(
+        `Saved to History. Your rating ${delta === 0 ? 'held' : delta > 0 ? `went up ${delta}` : `went down ${-delta}`}.`,
+      )
+    })
+  }, [mode, fen, yourColour, bot])
+
   const playOnYourTurn =
     mode === 'playon' && !thinking && chess.current.turn() === yourColour && !chess.current.isGameOver()
 
@@ -444,6 +485,7 @@ export function OpeningTrainer({
                 : 'Drawn.'
               : (support ??
                 `Out of the book now — this is a real game against ${bot.name}. I will flag anything you leave hanging and tell you when there was something stronger.`)}
+            {gameNote && <div className="small muted" style={{ marginTop: 6 }}>{gameNote}</div>}
           </div>
           <div className="coach-actions">
             <span className="coach-hint">{bot.weakness}</span>

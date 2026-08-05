@@ -19,11 +19,16 @@
  * which is exactly the class of error that put "Nf6 gives f7 a second defender"
  * into the openings file.
  *
- * COVERAGE IS PARTIAL AND SAYS SO. Four of eight categories have a breakdown.
- * The others have candidate positions picked out but the explanations are not
- * written, and a wrong explanation is worse than an absent one — the whole
- * point of a breakdown is that you trust the reason. The UI shows what is
- * missing rather than pretending.
+ * COVERAGE IS NOW COMPLETE — all eight categories. It shipped at four, with
+ * the UI saying so rather than pretending, because a wrong explanation is worse
+ * than an absent one and the whole point of a breakdown is that you trust the
+ * reason. The remaining four were chosen with `scripts/find-breakdowns.ts`,
+ * which searches the corpus by motif and replays each candidate, so every
+ * explanation here was written against a line that had already been checked
+ * rather than one being asserted from memory.
+ *
+ * The `categoriesWithout` helper stays. Categories can be added, and the day
+ * one is, the UI should go back to admitting the gap on its own.
  *
  * Checked by `npm run verify:breakdowns`: every line replays legally from its
  * FEN, and every `ends` claim is asserted.
@@ -154,6 +159,110 @@ export const BREAKDOWNS: Breakdown[] = [
     ends: 'winsMaterial',
     takeaway:
       'When the opponent has no pawn moves left, giving them the move IS the threat. Look for quiet moves before you look for checks.',
+  },
+  {
+    puzzleId: 'LmWls',
+    category: 'material',
+    pattern: 'The trapped queen',
+    fen: 'r4rk1/pp3ppp/2n2n2/3p4/8/2NNPbb1/PPPBK1Pq/R2Q3R w - - 0 18',
+    side: 'white',
+    setup:
+      'You are in check from the bishop on f3, so the choice is narrow. Before you move, look at the black queen on h2: it went hunting, and your rook on h1 is already looking straight up the file at it. Nothing of Black\'s defends h2, and nothing of Black\'s defends f3 either.',
+    steps: [
+      {
+        san: 'Kxf3',
+        why: 'Take it. The bishop giving check has no defender — g3 is its own bishop and bishops do not defend sideways, and the queen on h2 does not see f3. You get out of check and win a piece with the same move.',
+      },
+      {
+        san: 'Qh4',
+        why: 'The queen has to run: your rook on h1 attacks it and h3 is empty, so there is nothing in between. h4 is the only square left on the file — and it is still on the file.',
+      },
+      {
+        san: 'Rxh4',
+        why: 'And that is the queen. She was never escaping: every square she could reach was one your rook already covered. A bishop and a queen for nothing.',
+      },
+    ],
+    ends: 'winsMaterial',
+    takeaway:
+      'Before you deal with a check, look at what the checking side has left hanging. A queen deep in your position with an open file behind it is usually not attacking — it is trapped.',
+  },
+  {
+    puzzleId: 'YcC3V',
+    category: 'sacrifice',
+    pattern: 'Deflection',
+    fen: '2r5/5pkp/2r1p1p1/p1Nn4/8/P6P/2R2PP1/2R3K1 w - - 0 29',
+    side: 'white',
+    setup:
+      'Count the c-file. Your two rooks both hit c8. Black\'s rook on c8 is defended exactly once — by the rook on c6. Two attackers against one defender is not enough on its own, but it becomes enough the moment the defender is made to leave.',
+    steps: [
+      {
+        san: 'Nxe6+',
+        why: 'The knight takes a pawn and gives check at the same time, which is what makes this work — a check has to be answered, so Black does not get to choose whether to deal with it.',
+      },
+      {
+        san: 'Rxe6',
+        why: 'The rook takes the knight and blocks the check. It is the engine\'s choice, and it is also the move that loses: the rook on c6 was the only thing defending c8, and it has just walked off the file.',
+      },
+      {
+        san: 'Rxc8',
+        why: 'Now the count is two attackers against nothing. You gave a knight, you took a pawn and a rook, and the rook on e6 cannot come back.',
+      },
+    ],
+    ends: 'winsMaterial',
+    takeaway:
+      'A defender that has to move is not a defender. When a piece is doing one important job, find the check that makes it do something else.',
+  },
+  {
+    puzzleId: '0SKnZ',
+    category: 'attack',
+    pattern: "Pillsbury's Mate",
+    fen: '3r2k1/1p3pp1/1qpr3p/3n1B2/1P6/2P2PP1/4QRKP/4R3 w - - 6 29',
+    side: 'white',
+    setup:
+      'Black\'s king on g8 has pawns on f7 and g7 and no luft. Count what covers its escape squares: your rook on e1 owns the e-file, and — this is the piece people miss — the bishop on f5 covers h7 from a long way off. The king already has nowhere to go. All that is left is getting a rook to the back rank.',
+    steps: [
+      {
+        san: 'Qe8+',
+        why: 'The queen, for free. It is not a blunder and it is not hope — it is a deflection: the rook on d8 is the only thing guarding e8, and this forces it to capture and stop guarding.',
+      },
+      {
+        san: 'Rxe8',
+        why: 'Forced. It is check, the king cannot move, and nothing else can block on the e-file.',
+      },
+      {
+        san: 'Rxe8#',
+        why: 'Mate. f8 is covered by the rook that just landed, g7 is blocked by Black\'s own pawn, and h7 — the one real escape — is covered by that bishop on f5 you counted at the start.',
+      },
+    ],
+    ends: 'mate',
+    takeaway:
+      'Attacks are arithmetic. Count the escape squares and what covers each one BEFORE you calculate — the sacrifice is only sound because a bishop three squares away was already doing its job.',
+  },
+  {
+    puzzleId: '0TDwx',
+    category: 'endgame',
+    pattern: 'Rook and king on the edge',
+    fen: '6R1/5r2/p5p1/5p1k/P4K2/8/8/8 w - - 0 47',
+    side: 'white',
+    setup:
+      'Four pawns and a rook each, and it is already over. Black\'s king is on h5 — the edge — and your king on f4 covers g4 and g5, which are the only two squares off the h-file it could use. Your rook does the rest.',
+    steps: [
+      {
+        san: 'Rh8+',
+        why: 'The rook swings to the file the king is stuck on. It cannot run to g4 or g5 because your king covers both, so the check has to be blocked.',
+      },
+      {
+        san: 'Rh7',
+        why: 'The only move — the rook interposes. It also loses the rook, which tells you the position was lost two moves ago rather than here.',
+      },
+      {
+        san: 'Rxh7#',
+        why: 'Mate. The rook covers the whole h-file, your king covers g4 and g5, and g6 is Black\'s own pawn. King and rook, nothing else needed.',
+      },
+    ],
+    ends: 'mate',
+    takeaway:
+      'In rook endings the king does the cutting off and the rook does the checking. Put your king where the enemy king wants to run, then bring the rook.',
   },
 ]
 

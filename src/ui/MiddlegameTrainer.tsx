@@ -33,6 +33,7 @@ import { getEngine } from '../engine/uci'
 import { lineScore } from '../engine/types'
 import { loosePieces } from '../coach/exercises'
 import { recordSectionResult } from '../coach/rating'
+import { recordFinishedGame, outcomeOf } from '../coach/record'
 import { db } from '../data/db'
 import { suggestedBot } from '../engine/roster'
 import { planBase, type MiddlegamePlan } from '../content/middlegame'
@@ -59,6 +60,8 @@ export interface MiddlegameTrainerProps {
 export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerProps) {
   const base = useMemo(() => planBase(plan), [plan])
   const recorded = useRef(false)
+  /** Same guard for the play-on GAME, which is a separate thing to record. */
+  const gameRecorded = useRef(false)
   const chess = useRef(new Chess(base.fen))
 
   const [stage, setStage] = useState<Stage>('brief')
@@ -71,6 +74,8 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
   const [hint, setHint] = useState(false)
   const [support, setSupport] = useState<string | null>(null)
   const [thinking, setThinking] = useState(false)
+  /** What the play-on game did to your rating, once it is saved. */
+  const [gameNote, setGameNote] = useState<string | null>(null)
 
   const bot = useMemo(() => suggestedBot(rating), [rating])
   const opponent = useMemo(
@@ -105,6 +110,8 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
     setSupport(null)
     setThinking(false)
     recorded.current = false
+    gameRecorded.current = false
+    setGameNote(null)
     void opponent.newGame()
   }, [base.fen, opponent])
 
@@ -174,6 +181,32 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
       await recordSectionResult('strategy', clean, planRating)
     })()
   }, [finished, stage, misses, hint, plan.id, plan.band])
+
+  /*
+   * A play-on game is a real game, and it used to vanish — no History row, no
+   * rating movement, no review. Same shared recorder the Play tab and the
+   * opening trainer use, so there is one definition of what saving a game
+   * means rather than three that can drift.
+   */
+  useEffect(() => {
+    if (stage !== 'playon' || gameRecorded.current) return
+    const outcome = outcomeOf(chess.current, yourColour)
+    if (!outcome) return
+    gameRecorded.current = true
+    void recordFinishedGame({
+      pgn: chess.current.pgn(),
+      humanColour: yourColour,
+      result: outcome.result,
+      reason: outcome.reason,
+      opponentElo: bot.elo,
+      opponentStyle: bot.style,
+      source: 'middlegame-trainer',
+    }).then(({ delta }) => {
+      setGameNote(
+        `Saved to History. Your rating ${delta === 0 ? 'held' : delta > 0 ? `went up ${delta}` : `went down ${-delta}`}.`,
+      )
+    })
+  }, [stage, fen, yourColour, bot])
 
   const playOnYourTurn =
     stage === 'playon' &&
@@ -467,6 +500,7 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
                     : 'Drawn.'
                   : (support ??
                     `The plan is done and this is a real game now. Keep going with the same idea — I will flag anything you leave hanging.`)}
+                {gameNote && <div className="small muted" style={{ marginTop: 6 }}>{gameNote}</div>}
               </div>
               <div className="coach-actions">
                 <span className="coach-hint">{bot.weakness}</span>

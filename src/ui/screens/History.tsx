@@ -215,7 +215,7 @@ export function History() {
 
   return (
     <div className="stack">
-      <div className="card">
+      <div className="card hero-strip">
         <div className="hgrid">
           <div>
             <div className="small muted">Rating</div>
@@ -265,28 +265,51 @@ export function History() {
         <div className="card stack">
           <span className="small muted">Where you're gaining, and what's slipping</span>
           {snap.verdict && <div className="small">{snap.verdict}</div>}
-          {snap.trends.map((t) => (
-            <div key={t.category.id} className="row spread hist-row">
-              <span style={{ flex: 1 }}>
-                <strong>{t.category.name}</strong>
-                <div className="small muted">
-                  {t.state === 'untested'
-                    ? 'never tried'
-                    : t.recent === 0
+
+          {/*
+            Untried categories get one chip each, not a full row.
+
+            On day one all eight are untested, so this list was eight tall rows
+            whose every line read "never tried" and whose every pill read
+            UNTRIED — a screen taking eight scrolls to say one thing. A
+            category with no data has nothing to show but its name, so its name
+            is all it gets. The rows below are for the ones with a trend to
+            report.
+          */}
+          {snap.trends.some((t) => t.state === 'untested') && (
+            <div className="chips">
+              {snap.trends
+                .filter((t) => t.state === 'untested')
+                .map((t) => (
+                  <span key={t.category.id} className="cat-chip">
+                    {t.category.name}
+                  </span>
+                ))}
+            </div>
+          )}
+
+          {snap.trends
+            .filter((t) => t.state !== 'untested')
+            .map((t) => (
+              <div key={t.category.id} className="row spread hist-row">
+                <span style={{ flex: 1 }}>
+                  <strong>{t.category.name}</strong>
+                  <div className="small muted">
+                    {t.recent === 0
                       ? `nothing for ${t.daysSince} days`
                       : `${t.recentAccuracy}% of ${t.recent} recently` +
                         (t.priorAccuracy !== null ? `, was ${t.priorAccuracy}%` : '')}
-                </div>
-              </span>
-              <span className={'pill ' + TREND_PILL[t.state]}>
-                {t.state === 'gaining' && t.delta !== null
-                  ? `+${t.delta}`
-                  : t.state === 'slipping' && t.delta !== null
-                    ? `${t.delta}`
-                    : TREND_WORD[t.state]}
-              </span>
-            </div>
-          ))}
+                  </div>
+                </span>
+                <span className={'pill ' + TREND_PILL[t.state]}>
+                  {t.state === 'gaining' && t.delta !== null
+                    ? `+${t.delta}`
+                    : t.state === 'slipping' && t.delta !== null
+                      ? `${t.delta}`
+                      : TREND_WORD[t.state]}
+                </span>
+              </div>
+            ))}
           <div className="small muted">
             Two windows: the last fortnight against the month before it. A category you have not
             touched in three weeks counts as slipping even without a wrong answer — that is how

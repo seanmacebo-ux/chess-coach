@@ -44,11 +44,11 @@ import type { DailySession } from './coach/session'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
 import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
-import { analyseGame, acpl, performanceRating, type MoveAssessment } from './coach/analysis'
+import { acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
 import { Climb } from './ui/screens/Climb'
 import { BOTS, suggestedBot, type Bot } from './engine/roster'
-import { updateRatingFromGame } from './coach/profile'
+import { recordFinishedGame, outcomeOf } from './coach/record'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
 import { loadPrefs } from './data/settings'
@@ -675,78 +675,60 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   useEffect(() => {
     const s = statusOf(chess.current)
     if (!s.over || savedRef.current || !booted) return
-    savedRef.current = true
 
     const humanIs = humanColour === 'white' ? 'w' : 'b'
-    const result: 'win' | 'loss' | 'draw' =
-      s.winner === 'draw' || s.winner === null
-        ? 'draw'
-        : s.winner === humanColour
-          ? 'win'
-          : 'loss'
+    const outcome = outcomeOf(chess.current, humanIs)
+    // statusOf and outcomeOf agree on what "over" means, so this cannot fire
+    // today. It is checked before the guard is set rather than after, because
+    // the alternative — marking the game saved and then bailing — would lose
+    // it silently if the two ever diverge.
+    if (!outcome) return
+    savedRef.current = true
     const pgn = chess.current.pgn()
-    const score = result === 'win' ? 1 : result === 'loss' ? 0 : 0.5
 
     void (async () => {
-      const playedAt = new Date().toISOString()
-      const gameId = await db.games.add({
-        playedAt,
-        humanColour: humanIs,
-        opponentElo: elo,
-        opponentStyle: style,
-        result,
-        reason: s.text,
-        pgn,
-        acpl: null,
-        performanceRating: null,
-        analysedAt: null,
-      })
-
-      await updateRatingFromGame(elo, score as 0 | 0.5 | 1)
-
-      try {
-        setReview({ phase: 'running', done: 0, total: 1 })
-        const assessments = await analyseGame(pgn, {
-          colour: humanIs,
+      /*
+       * One definition of "save a game", shared with both trainers.
+       *
+       * This block used to be the only place a bot game was persisted, which
+       * is why a game played out of the opening or middlegame trainer left no
+       * History row and never moved the rating — those screens simply did not
+       * have this code. It now lives in coach/record.ts and all three call it,
+       * so the three cannot drift apart.
+       */
+      setReview({ phase: 'running', done: 0, total: 1 })
+      const { assessments } = await recordFinishedGame(
+        {
+          pgn,
+          humanColour: humanIs,
+          result: outcome.result,
+          reason: s.text,
+          opponentElo: elo,
+          opponentStyle: style,
+          source: 'play',
+        },
+        {
+          analyse: true,
           onProgress: (done, total) => setReview({ phase: 'running', done, total }),
-        })
+        },
+      )
 
-        await db.mistakes.bulkAdd(
-          assessments
-            .filter((a) => a.severity !== 'best' && a.severity !== 'good')
-            .map((a) => ({
-              gameId,
-              ply: a.ply,
-              fen: a.fen,
-              san: a.san,
-              bestSan: a.bestSan,
-              lossCp: a.lossCp,
-              severity: a.severity,
-              tag: a.tag,
-              phase: a.phase,
-              at: playedAt,
-            })),
-        )
-
-        const avg = acpl(assessments)
-        const perf = performanceRating(avg)
-        await db.games.update(gameId, {
-          acpl: avg,
-          performanceRating: perf,
-          analysedAt: new Date().toISOString(),
-        })
-
-        setReview({
-          phase: 'done',
-          acpl: avg,
-          perf,
-          blunders: assessments.filter((a) => a.severity === 'blunder').length,
-          moves: assessments,
-        })
-      } catch (err) {
-        setErrorMsg(`analysis failed: ${err instanceof Error ? err.message : String(err)}`)
+      if (!assessments) {
+        // The game is saved and the rating has moved — the recorder does both
+        // before it touches the engine. Only the review is missing.
+        setErrorMsg('Game saved, but the review could not run.')
         setReview({ phase: 'idle' })
+        return
       }
+
+      const avg = acpl(assessments)
+      setReview({
+        phase: 'done',
+        acpl: avg,
+        perf: performanceRating(avg),
+        blunders: assessments.filter((a) => a.severity === 'blunder').length,
+        moves: assessments,
+      })
     })()
   }, [fen, booted, humanColour, elo, style])
 

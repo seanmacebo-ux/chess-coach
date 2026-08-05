@@ -338,12 +338,22 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
         */}
         {sectionRatings && (
           <div className="stack" style={{ gap: 2, marginTop: 4 }}>
+            {/*
+              Tone dots, and the provisional note said once.
+              
+              This was five rows reading "800 · not rated yet", which on day
+              one is the same sentence five times — the exact thing that made
+              the Learn cards read as flat. The dot carries the same colour the
+              section has everywhere else in the app, so you can find Tactics
+              without reading, and the caveat moves to one line underneath.
+            */}
             {SECTION_IDS.map((id) => {
               const r = sectionRatings[id]
               if (!r) return null
               return (
                 <div key={id} className="row spread hist-row">
-                  <span className="small" style={{ textTransform: 'capitalize' }}>
+                  <span className="small row" style={{ gap: 8, alignItems: 'center' }}>
+                    <i className={`tone-dot tone-${id}`} />
                     {SECTION_NAME[id]}
                   </span>
                   <span
@@ -352,11 +362,16 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
                     title={explainSection(r).what}
                   >
                     {r.rating}
-                    {r.provisional ? ' · not rated yet' : ''}
                   </span>
                 </div>
               )
             })}
+            {SECTION_IDS.some((id) => sectionRatings[id]?.provisional) && (
+              <div className="small muted" style={{ marginTop: 6 }}>
+                Greyed numbers are starting guesses — a section is not really rated until you have
+                trained in it a few times.
+              </div>
+            )}
           </div>
         )}
       </div>
