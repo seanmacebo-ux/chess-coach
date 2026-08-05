@@ -228,48 +228,145 @@ export interface PieceSet {
   blurb: string
   /** Required by the licence — surfaced in Settings. */
   credit: string
+  /**
+   * Whether the licence permits commercial use.
+   *
+   * False means CC BY-NC-SA: fine for a personal training app, and a problem
+   * the day this is ever sold or ad-supported. Carried as data rather than a
+   * comment so the UI can group by it and nobody has to remember.
+   */
+  commercial: boolean
 }
 
 /**
  * Piece sets.
  *
- * Only permissively-licensed sets are shipped. Most of the best-looking
- * lichess sets (maestro, staunty, california, cardinal, anarcandy...) are
- * CC BY-NC-SA — non-commercial only. They'd be fine for personal use, but
- * Sean deliberately took the MIT path on the engine to keep future options
- * open, and quietly baking a non-commercial restriction into the art would
- * undo that decision without him knowing.
+ * THIS FILE PREVIOUSLY SHIPPED ONLY PERMISSIVE SETS, on the reasoning that the
+ * engine took the MIT path to keep future options open and that quietly baking
+ * a non-commercial restriction into the art would undo that decision without
+ * Sean knowing. That reasoning was right; the conclusion changed for one
+ * reason only — he asked for the stylish sets by name, and the stylish ones
+ * are almost all CC BY-NC-SA.
+ *
+ * So the restriction is no longer quiet. Every set carries `commercial`,
+ * Settings groups by it under its own heading, and the trade is his to make
+ * rather than mine to make on his behalf. Nine sets here are non-commercial;
+ * if this is ever sold those nine come out, and the remaining nine still cover
+ * every style.
+ *
+ * Licences are taken from lichess's own COPYING.md rather than assumed.
  */
 export const PIECE_SETS: PieceSet[] = [
   {
+    commercial: true,
     id: 'cburnett', name: 'Classic', dir: 'cburnett',
     blurb: 'The Staunton shape everyone pictures. Clean at any size.',
     credit: 'cburnett by Colin M.L. Burnett — GPLv2+',
   },
   {
+    commercial: true,
     id: 'chessnut', name: 'Chessnut', dir: 'chessnut',
     blurb: 'Rounder, heavier, warmer. Reads well on wood.',
     credit: 'Chessnut by Alexis Luengas — Apache 2.0',
   },
   {
+    commercial: true,
     id: 'fantasy', name: 'Fantasy', dir: 'fantasy',
     blurb: 'Carved and ornate. Best on stone and marble.',
     credit: 'Fantasy by Maurizio Monge — MIT',
   },
   {
+    commercial: true,
     id: 'celtic', name: 'Celtic', dir: 'celtic',
     blurb: 'Knotwork detailing. Busy up close, distinctive at a glance.',
     credit: 'Celtic by Maurizio Monge — MIT',
   },
   {
+    commercial: true,
     id: 'spatial', name: 'Spatial', dir: 'spatial',
     blurb: 'Flat geometric shapes. The most legible set on a phone.',
     credit: 'Spatial by Maurizio Monge — MIT',
   },
   {
+    commercial: true,
     id: 'rhosgfx', name: 'Bold', dir: 'rhosgfx',
     blurb: 'Thick outlines, high contrast. Made for small screens.',
     credit: 'RhosGFX — CC0 (public domain)',
+  },
+  {
+    commercial: true,
+    id: 'merida', name: 'Merida', dir: 'merida',
+    blurb: 'The tournament standard. Heavier than Classic and more elegant with it.',
+    credit: 'Merida by Armando Hernandez Marroquin — GPLv2+',
+  },
+  {
+    commercial: true,
+    id: 'pirouetti', name: 'Pirouetti', dir: 'pirouetti',
+    blurb: 'Soft, hand-turned shapes. Warm without being cartoonish.',
+    credit: 'Pirouetti — AGPLv3+',
+  },
+  {
+    commercial: true,
+    id: 'kiwen-suwi', name: 'Kiwen Suwi', dir: 'kiwen-suwi',
+    blurb: 'Bold flat symbols. Unmistakable at any size.',
+    credit: 'Kiwen Suwi by neverRare — CC BY 4.0',
+  },
+
+  /* ---- non-commercial from here. See the note above the array. ---- */
+
+  {
+    commercial: false,
+    id: 'maestro', name: 'Maestro', dir: 'maestro',
+    blurb: 'The sleek modern set. Probably the best-looking thing here.',
+    credit: 'Maestro by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'staunty', name: 'Staunty', dir: 'staunty',
+    blurb: 'Minimal Staunton, stripped to the silhouette. Very clean.',
+    credit: 'Staunty by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'dubrovny', name: 'Dubrovny', dir: 'dubrovny',
+    blurb: 'Tall and slender, with a lot of air around the pieces.',
+    credit: 'Dubrovny by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'cardinal', name: 'Cardinal', dir: 'cardinal',
+    blurb: 'Sharp and ecclesiastical. Reads beautifully on marble.',
+    credit: 'Cardinal by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'gioco', name: 'Gioco', dir: 'gioco',
+    blurb: 'Rounded and friendly without losing the Staunton shape.',
+    credit: 'Gioco by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'tatiana', name: 'Tatiana', dir: 'tatiana',
+    blurb: 'Fine lines and a lot of detail. The most ornate set here.',
+    credit: 'Tatiana by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'california', name: 'California', dir: 'california',
+    blurb: 'Hand-drawn, slightly wonky, full of character.',
+    credit: 'California by Jerry S. — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'anarcandy', name: 'Anarcandy', dir: 'anarcandy',
+    blurb: 'Cartoon and deliberately silly. Surprisingly easy to read.',
+    credit: 'Anarcandy by caderek — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'horsey', name: 'Horsey', dir: 'horsey',
+    blurb: "Lichess's own joke set. The knight is the whole point.",
+    credit: 'Horsey by cham and michael1241 — CC BY-NC-SA 4.0',
   },
 ]
 

@@ -469,8 +469,33 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
           <div className="small" style={{ marginBottom: 6 }}>
             Pieces
           </div>
+          {/*
+            Split by licence, and labelled.
+            The best-looking sets are CC BY-NC-SA, which is fine for a personal
+            training app and a problem the day this is sold. Grouping them under
+            their own heading means that trade is visible at the moment you pick
+            one, rather than buried in a source comment nobody reads.
+          */}
           <div className="chips">
-            {PIECE_SETS.map((p) => (
+            {PIECE_SETS.filter((p) => p.commercial).map((p) => (
+              <button
+                key={p.id}
+                className="pieceswatch"
+                aria-pressed={theme.pieces === p.id}
+                aria-label={`${p.name} pieces`}
+                title={p.blurb}
+                onClick={() => onTheme({ ...theme, pieces: p.id })}
+              >
+                <img src={pieceSrc(p, 'wN')} alt="" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+
+          <div className="small muted" style={{ margin: '10px 0 4px' }}>
+            Non-commercial licence — personal use only
+          </div>
+          <div className="chips">
+            {PIECE_SETS.filter((p) => !p.commercial).map((p) => (
               <button
                 key={p.id}
                 className="pieceswatch"
