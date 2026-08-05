@@ -40,6 +40,8 @@ import { EngineOpponent } from '../engine/opponent'
 import { getEngine } from '../engine/uci'
 import { lineScore } from '../engine/types'
 import { loosePieces } from '../coach/exercises'
+import { recordSectionResult } from '../coach/rating'
+import { db } from '../data/db'
 import { suggestedBot } from '../engine/roster'
 import type { OpeningLine, Side } from '../content/openings'
 
@@ -74,10 +76,21 @@ export interface OpeningTrainerProps {
   openingId: string
   /** Your rating, so the bot you play on against is aimed at you. */
   rating: number
+  /** Difficulty of the line, for the rating update. Band midpoint of the opening. */
+  lineRating?: number
   onExit: () => void
 }
 
-export function OpeningTrainer({ line, side, openingId, rating, onExit }: OpeningTrainerProps) {
+export function OpeningTrainer({
+  line,
+  side,
+  openingId,
+  rating,
+  lineRating,
+  onExit,
+}: OpeningTrainerProps) {
+  /** Guards against recording the same completion twice on a re-render. */
+  const recorded = useRef(false)
   const [mode, setMode] = useState<Mode>('book')
   const [support, setSupport] = useState<string | null>(null)
   const [thinking, setThinking] = useState(false)
@@ -116,6 +129,7 @@ export function OpeningTrainer({ line, side, openingId, rating, onExit }: Openin
     setMode('book')
     setSupport(null)
     setThinking(false)
+    recorded.current = false
     void opponent.newGame()
   }, [opponent])
 
@@ -156,6 +170,42 @@ export function OpeningTrainer({ line, side, openingId, rating, onExit }: Openin
   useEffect(() => {
     if (finished && phase !== 'done') setPhase('done')
   }, [finished, phase])
+
+  /*
+   * Finishing a line is training, and it recorded nothing at all.
+   *
+   * The trainer shipped without touching the Openings rating or the attempt
+   * log, so you could learn the Italian, play it through cleanly, and every
+   * number in the app would be exactly where it started. Sean noticed
+   * immediately: "when I learn something it doesn't track progress on that."
+   *
+   * One attempt per completed line, not per move. A twelve-move line is one
+   * thing learned, and scoring it as twelve successes would let the opening
+   * rating outrun every other section by simply being longer.
+   *
+   * Clean run only counts as correct. Getting there with three wrong turns is
+   * progress worth logging and is not the same as knowing it.
+   */
+  useEffect(() => {
+    if (!finished || recorded.current || mode !== 'book') return
+    recorded.current = true
+    const clean = misses === 0
+    void (async () => {
+      await db.puzzleAttempts.add({
+        puzzleId: `opening:${openingId}:${line.id}`,
+        themes: 'repertoire',
+        rating: lineRating ?? rating,
+        correct: clean,
+        ms: 0,
+        tierId: null,
+        at: new Date().toISOString(),
+        attempts: misses + 1,
+        hintUsed: hint,
+        points: clean ? 10 : 4,
+      })
+      await recordSectionResult('opening', clean, lineRating ?? rating)
+    })()
+  }, [finished, mode, misses, hint, openingId, line.id, lineRating, rating])
 
   const yourColour = side === 'white' ? 'w' : 'b'
   const playOnYourTurn =

@@ -232,6 +232,7 @@ function OpeningDetail({
         side={opening.side}
         openingId={opening.id}
         rating={rating}
+        lineRating={Math.round((opening.band[0] + opening.band[1]) / 2)}
         onExit={() => setTraining(false)}
       />
     )

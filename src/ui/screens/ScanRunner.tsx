@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Board } from '../Board'
 import { db } from '../../data/db'
+import { recordTierAttempt } from '../../coach/profile'
 // Question generation lives in coach/drills.ts so it can be sandboxed from
 // Node. This file keeps only rendering and scoring.
 import type { ScanQuestion } from '../../coach/drills'
@@ -31,6 +32,9 @@ export interface ScanRunnerProps {
   questions: ScanQuestion[]
   onDone: (result: { correct: number; total: number }) => void
 }
+
+/** The ladder rung this drill IS — see tiers.ts. */
+const SCAN_TIER = 'positional-1'
 
 export function ScanRunner({ questions, onDone }: ScanRunnerProps) {
   const [index, setIndex] = useState(0)
@@ -77,12 +81,21 @@ export function ScanRunner({ questions, onDone }: ScanRunnerProps) {
       rating: 0,
       correct: wasRight,
       ms: Date.now() - startedAt.current,
-      tierId: null,
+      tierId: SCAN_TIER,
       at: new Date().toISOString(),
       attempts: 1,
       hintUsed: false,
       points: wasRight ? 5 : 0,
     })
+    /*
+     * Move the ladder and the Position rating too.
+     *
+     * The attempt row alone was not progress — it showed up in History and fed
+     * the trend chart, and the tier stayed at 0/15 while the section rating
+     * kept saying "not trained yet". Doing the drill perfectly five times
+     * changed no number anywhere, which is the app failing at its whole job.
+     */
+    await recordTierAttempt(SCAN_TIER, wasRight)
   }, [q, wasRight])
 
   const next = useCallback(() => {

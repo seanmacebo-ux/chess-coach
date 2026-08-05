@@ -163,18 +163,39 @@ export async function recordTierResult(
 ): Promise<SectionRating | null> {
   const tier = tierById(tierId)
   if (!tier) return null
+  // The item is the opponent. Its own rating where the caller knows it —
+  // a puzzle carries a real one — otherwise the middle of the tier's band,
+  // which is the honest estimate of what that tier is asking of you.
+  return recordSectionResult(
+    tier.pillar,
+    correct,
+    itemRating ?? Math.round((tier.band[0] + tier.band[1]) / 2),
+  )
+}
 
-  const section = tier.pillar
+/**
+ * Record a result straight against a section.
+ *
+ * Needed because not every training surface belongs to one tier. The
+ * candidate-move drill is tactics but sits above the ladder rather than on a
+ * rung of it, and finishing an opening line is opening practice without being
+ * "opening-3". Before this existed those surfaces recorded NOTHING — you could
+ * drill loose pieces perfectly five times and the Position rating would still
+ * say "not trained yet", which is the app failing at the one thing it claims
+ * to do.
+ */
+export async function recordSectionResult(
+  section: SectionId,
+  correct: boolean,
+  itemRating: number,
+): Promise<SectionRating | null> {
   const now = new Date()
   const nowMs = now.getTime()
 
   const profile = await getProfile()
   const existing = (await db.sectionRatings.get(section)) ?? blank(section, profile.rating)
 
-  // The item is the opponent. Its own rating where the caller knows it — a
-  // puzzle carries a real one — otherwise the middle of the tier's band, which
-  // is the honest estimate of what that tier is asking of you.
-  const opponent = itemRating ?? Math.round((tier.band[0] + tier.band[1]) / 2)
+  const opponent = itemRating
 
   const rd = decayedRd(existing, nowMs)
   // K scales with how unsure we are, so early attempts move fast and a settled

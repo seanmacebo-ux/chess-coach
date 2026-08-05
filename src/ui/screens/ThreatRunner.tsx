@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Board } from '../Board'
 import { db } from '../../data/db'
+import { recordTierAttempt } from '../../coach/profile'
 // Question generation lives in coach/drills.ts so it can be sandboxed from
 // Node. This file keeps only rendering and scoring.
 import type { ThreatQuestion } from '../../coach/drills'
@@ -33,6 +34,9 @@ export interface ThreatRunnerProps {
   questions: ThreatQuestion[]
   onDone: (result: { correct: number; total: number }) => void
 }
+
+/** The ladder rung this drill IS — see tiers.ts. */
+const THREAT_TIER = 'strategy-1'
 
 export function ThreatRunner({ questions, onDone }: ThreatRunnerProps) {
   const [index, setIndex] = useState(0)
@@ -61,12 +65,14 @@ export function ThreatRunner({ questions, onDone }: ThreatRunnerProps) {
         rating: 0,
         correct: right,
         ms: Date.now() - startedAt.current,
-        tierId: null,
+        tierId: THREAT_TIER,
         at: new Date().toISOString(),
         attempts: 1,
         hintUsed: false,
         points: right ? 5 : 0,
       })
+      // Ladder and Strategy rating, not just the History row. See ScanRunner.
+      await recordTierAttempt(THREAT_TIER, right)
     },
     [q, picked],
   )

@@ -17,6 +17,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Board } from '../Board'
 import { db } from '../../data/db'
+import { recordSectionResult } from '../../coach/rating'
+import { getProfile } from '../../data/db'
 // Question generation lives in coach/drills.ts so it can be sandboxed from
 // Node. This file keeps only rendering and scoring.
 import { CANDIDATE_PICK_LIMIT, CANDIDATE_TOP_N, type CandidateQuestion } from '../../coach/drills'
@@ -96,6 +98,17 @@ export function CandidateRunner({ questions, onDone }: CandidateRunnerProps) {
       hintUsed: false,
       points: hits * 3,
     })
+    /*
+     * Straight to the Tactics rating rather than through a tier.
+     *
+     * This drill is tactics but it sits above the ladder rather than on a rung
+     * of it — there is no "candidate moves" tier and inventing one to hang this
+     * off would put a fake rung in the wall. Difficulty is taken as your own
+     * rating, because the positions come from the band you are served and the
+     * exercise is "did you look around", which is equally hard at any strength.
+     */
+    const p = await getProfile()
+    await recordSectionResult('tactics', hits >= 2, p.rating)
   }, [q, hits])
 
   const next = useCallback(() => {
