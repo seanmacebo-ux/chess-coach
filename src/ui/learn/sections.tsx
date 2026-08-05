@@ -21,6 +21,8 @@ import { ENDGAMES, type EndgamePosition } from '../../coach/endgames'
 import { LESSONS, lessonsAtRating, type Lesson } from '../../content/lessons'
 import { tiersFor } from '../../coach/tiers'
 import { Playground } from '../Playground'
+import { BreakdownView } from '../BreakdownView'
+import { breakdownFor } from '../../content/breakdowns'
 
 export { OpeningsSection } from '../screens/Openings'
 
@@ -71,6 +73,31 @@ export function TacticsSection({
   onStartCandidates: () => void
 }) {
   const [openCat, setOpenCat] = useState<string | null>(null)
+  const [studying, setStudying] = useState<string | null>(null)
+
+  /*
+   * Learn teaches the pattern; Puzzles tests whether you can find it.
+   *
+   * This section used to be eight Train buttons that each called the puzzle
+   * picker — the same thing the Puzzles tab did, reached through a different
+   * door. Now a category opens its BREAKDOWN: one real position, the pattern
+   * named, the line walked with a reason per move. Practice is a hand-off at
+   * the end rather than the whole content.
+   */
+  const study = studying ? breakdownFor(studying as never) : undefined
+  if (study && studying) {
+    const cat = CATEGORIES.find((c) => c.id === studying)
+    return (
+      <BreakdownView
+        breakdown={study}
+        onBack={() => setStudying(null)}
+        onPractise={() => {
+          setStudying(null)
+          if (cat) onTrain(cat.motifs, cat.name)
+        }}
+      />
+    )
+  }
 
   return (
     <div className="stack">
@@ -81,30 +108,43 @@ export function TacticsSection({
         onStart={onStartCandidates}
       />
 
-      <h3 className="sect">Categories</h3>
+      <h3 className="sect">Patterns</h3>
       <p className="lede">
-        Tap Train and you get a set built from that category alone — three tries each, points off
-        for a miss and more off for a nudge. Served at {Math.max(600, rating - 150)}–
-        {Math.min(2200, rating + 150)}, so it stays hard enough to be worth doing.
+        This is the breakdown half — one real position per pattern, walked move by move with the
+        reason for each one. When you want to be TESTED rather than taught, that is the Puzzles
+        tab, where difficulty climbs with every solve. Practice sets are still here as a hand-off
+        at the end of each breakdown, served at {Math.max(600, rating - 150)}–
+        {Math.min(2200, rating + 150)}.
       </p>
 
       <div className="rows">
-        {CATEGORIES.map((c) => (
-          <div key={c.id} className="row-item">
-            <button
-              className="row-main"
-              onClick={() => setOpenCat(openCat === c.id ? null : c.id)}
-              aria-expanded={openCat === c.id}
-            >
-              <span className="row-title">{c.name}</span>
-              <span className="row-sub">{c.teaches}</span>
-              {openCat === c.id && <CategoryDetail category={c} />}
-            </button>
-            <button className="chip" onClick={() => onTrain(c.motifs, c.name)}>
-              Train
-            </button>
-          </div>
-        ))}
+        {CATEGORIES.map((c) => {
+          const has = breakdownFor(c.id)
+          return (
+            <div key={c.id} className="row-item">
+              <button
+                className="row-main"
+                onClick={() => setOpenCat(openCat === c.id ? null : c.id)}
+                aria-expanded={openCat === c.id}
+              >
+                <span className="row-title">{c.name}</span>
+                <span className="row-sub">{c.teaches}</span>
+                {openCat === c.id && <CategoryDetail category={c} />}
+              </button>
+              {has ? (
+                <button className="chip solid" onClick={() => setStudying(c.id)}>
+                  Break it down
+                </button>
+              ) : (
+                /* No written explanation yet. Saying so beats a Train button
+                   that pretends this category has been taught. */
+                <button className="chip" onClick={() => onTrain(c.motifs, c.name)} title="No breakdown written for this one yet">
+                  Practise
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

@@ -46,6 +46,7 @@ import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
 import { analyseGame, acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
+import { Climb } from './ui/screens/Climb'
 import { BOTS, suggestedBot, type Bot } from './engine/roster'
 import { updateRatingFromGame } from './coach/profile'
 import { db, getProfile } from './data/db'
@@ -262,6 +263,16 @@ export default function App() {
         <Play initialElo={seed.elo} initialStyle={seed.style} initialColour={seed.colour} />
       )}
 
+      {/*
+        The Puzzles tab IS the climb now.
+        It used to be a themed set, which made it indistinguishable from
+        Learn -> Tactics -> Train — same picker, same runner, different door.
+        A set cannot adapt: by the time it knows you found them easy it has
+        already chosen all eight. The climb serves one at a time and lets the
+        last answer choose the next. Explicit hand-offs — the daily session,
+        or a category picked in Learn — still run as sets, because those are
+        deliberate selections rather than a search for your ceiling.
+      */}
       {tab === 'puzzles' &&
         (drill ? (
           <PuzzleRunner
@@ -287,12 +298,7 @@ export default function App() {
             }}
           />
         ) : (
-          <div className="card">
-            <strong>No puzzle set loaded.</strong>{' '}
-            <span className="muted">
-              Open Today and start a session, or pick a category from Learn.
-            </span>
-          </div>
+          <Climb onExit={() => setTab('learn')} />
         ))}
 
       {tab === 'scan' &&
@@ -447,6 +453,11 @@ export default function App() {
           [
             ['daily', '◎', 'Today'],
             ['play', '♟', 'Play'],
+            // Puzzles had no front door at all — it was reachable only by
+            // being handed there from Today or Learn, which is most of why it
+            // read as an extension of Learn rather than its own thing. The
+            // climb needs somewhere to live.
+            ['puzzles', '⚡', 'Puzzles'],
             ['learn', '❖', 'Learn'],
             ['history', '◔', 'History'],
             ['settings', '⚙', 'Settings'],

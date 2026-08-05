@@ -3180,7 +3180,16 @@ button.back {
 .trainer-screen {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  /*
+   * BELOW the tab bar, which sits at 20.
+   *
+   * This was 30, which put the overlay on top of the tabs and made them
+   * unclickable — so entering the opening trainer or a breakdown trapped you
+   * there with only its own back button. The comment underneath claimed the
+   * tab bar "stays reachable on purpose"; it was not, and a full-screen mode
+   * you cannot navigate out of is worse than one that never took the screen.
+   */
+  z-index: 15;
   display: flex;
   flex-direction: column;
   gap: var(--s3);
@@ -3262,4 +3271,87 @@ button.back {
   background: var(--text);
   opacity: 0.75;
   overflow: visible;
+}
+
+/* ==================================================================
+ * THE CLIMB
+ *
+ * Puzzles as a difficulty progression. The number is the point — a
+ * themed set ends with "5 of 8", a climb ends with "you got to 640",
+ * which is a thing you can beat tomorrow.
+ * ================================================================== */
+
+.climb {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.climb-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-right: var(--s4);
+  border-right: 1px solid var(--border);
+}
+
+.climb-num {
+  font-size: var(--t-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.climb-cap {
+  margin-top: 2px;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.climb-stats {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+}
+
+.climb-stats b {
+  font-size: var(--t-body);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-right: 3px;
+}
+
+.climb-stats .hot b {
+  color: var(--warn);
+}
+
+/* Lives, not a streak counter. Three misses ends the run — below 1000 a
+   single miss is a slip, and ejecting someone for it teaches caution
+   rather than calculation. */
+.climb-lives {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.climb-lives i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.climb-lives i.on {
+  background: var(--accent);
 }
