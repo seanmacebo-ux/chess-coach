@@ -194,7 +194,12 @@ export function Learn({
       {view === 'endgame' && <EndgameSection rating={rating} onPlay={onPlayEndgame} />}
       {view === 'opening' && <OpeningsSection rating={rating} />}
       {(view === 'positional' || view === 'strategy') && (
-        <ConceptSection pillar={view} onStartScan={onStartScan} onStartThreat={onStartThreat} />
+        <ConceptSection
+          pillar={view}
+          rating={rating}
+          onStartScan={onStartScan}
+          onStartThreat={onStartThreat}
+        />
       )}
       {view === 'ideas' && <IdeasSection rating={rating} />}
 

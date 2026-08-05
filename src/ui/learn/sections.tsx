@@ -22,6 +22,8 @@ import { LESSONS, lessonsAtRating, type Lesson } from '../../content/lessons'
 import { tiersFor } from '../../coach/tiers'
 import { Playground } from '../Playground'
 import { BreakdownView } from '../BreakdownView'
+import { MiddlegameTrainer } from '../MiddlegameTrainer'
+import { plansFor } from '../../content/middlegame'
 import { breakdownFor } from '../../content/breakdowns'
 
 export { OpeningsSection } from '../screens/Openings'
@@ -262,19 +264,69 @@ const QUESTIONS: Record<string, string> = {
 
 export function ConceptSection({
   pillar,
+  rating,
   onStartScan,
   onStartThreat,
 }: {
   pillar: 'positional' | 'strategy'
+  rating: number
   onStartScan: () => void
   onStartThreat: () => void
 }) {
   const tiers = tiersFor(pillar)
   const [asked, setAsked] = useState<string | null>(tiers[0]?.id ?? null)
+  const [planId, setPlanId] = useState<string | null>(null)
   const question = asked ? QUESTIONS[asked] : undefined
+
+  /*
+   * Middlegame plans live under Strategy rather than Openings.
+   *
+   * They are reached FROM an opening — and that handoff exists, on each
+   * opening's page — but what they teach is holding a scheme for six moves,
+   * which is what this section is for. Filing them under Openings would also
+   * have hidden them from anyone who came here asking the actual question,
+   * which is "what am I supposed to be doing in the middle of the game".
+   */
+  const plans = pillar === 'strategy' ? plansFor(rating) : []
+  const plan = planId ? plans.find((p) => p.id === planId) : null
+  if (plan) {
+    return <MiddlegameTrainer plan={plan} rating={rating} onExit={() => setPlanId(null)} />
+  }
 
   return (
     <div className="stack">
+      {pillar === 'strategy' && plans.length > 0 && (
+        <>
+          <h3 className="sect">Middlegame plans</h3>
+          <p className="lede">
+            The opening ends and the game starts. Each of these picks up from a position one of
+            your openings actually reaches, names the structure and what the opponent wants, and
+            then walks the plan one move at a time — with a real game against a bot from the same
+            position at the end. Every move is engine-checked, so a plan that hangs something
+            cannot ship.
+          </p>
+          <div className="q-list">
+            {plans.map((p) => {
+              const inBand = rating >= p.band[0] && rating <= p.band[1]
+              return (
+                <button key={p.id} className="q-item plan-item" onClick={() => setPlanId(p.id)}>
+                  <span className="q-name">{p.name}</span>
+                  <span className="q-blurb">{p.structure}</span>
+                  <span className="small muted">
+                    You are {p.side} ·{' '}
+                    {inBand
+                      ? 'at your level'
+                      : p.band[0] > rating
+                        ? `aimed at ${p.band[0]}+`
+                        : 'below you now'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+
       {pillar === 'positional' ? (
         <Feature
           title="Spot the loose piece"

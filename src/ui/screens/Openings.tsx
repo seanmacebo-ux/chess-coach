@@ -35,6 +35,8 @@ import {
 } from '../../content/openings'
 import { Playground } from '../Playground'
 import { OpeningTrainer } from '../OpeningTrainer'
+import { MiddlegameTrainer } from '../MiddlegameTrainer'
+import { plansForOpening } from '../../content/middlegame'
 import { coachedPlies } from '../../content/coaching'
 
 const ROLE_LABEL: Record<LineRole, string> = {
@@ -215,7 +217,16 @@ function OpeningDetail({
   const inBand = rating >= opening.band[0] && rating <= opening.band[1]
   const [lineId, setLineId] = useState(mainLine(opening).id)
   const [training, setTraining] = useState(false)
+  const [planId, setPlanId] = useState<string | null>(null)
   const line = opening.lines.find((l) => l.id === lineId) ?? mainLine(opening)
+  /*
+   * The join between the two halves. Knowing twelve moves and then having no
+   * idea what move thirteen is FOR is the universal complaint about opening
+   * study, and until now this app had the first half and nothing else. A plan
+   * is offered here only if one exists for this opening — the list is six
+   * plans, not ten, and an empty promise is worse than a missing button.
+   */
+  const plans = plansForOpening(opening.id)
   const badge = evalBadge(line)
   const coached = coachedPlies(opening.id, line.id)
 
@@ -225,6 +236,11 @@ function OpeningDetail({
    * the prose on screen would let you read the answer off the page, which is
    * the one thing a drill cannot allow.
    */
+  const plan = planId ? plans.find((p) => p.id === planId) : null
+  if (plan) {
+    return <MiddlegameTrainer plan={plan} rating={rating} onExit={() => setPlanId(null)} />
+  }
+
   if (training) {
     return (
       <OpeningTrainer
@@ -293,6 +309,25 @@ function OpeningDetail({
           {coached > 0 ? `, and I talk you through ${coached} of them` : ''}.
         </span>
       </button>
+
+      {/*
+        Directly under "Play this line", because it is the next question. The
+        subtitle names the structure rather than the plan, since "what does the
+        board look like" is how you recognise it over a board.
+      */}
+      {plans.map((p) => (
+        <button key={p.id} className="play-line plan-line" onClick={() => setPlanId(p.id)}>
+          {/* Plan names lead with the opening they come from, which is right in
+              a list of six and redundant on the opening's own page. */}
+          <span className="play-line-main">
+            Then what? — {p.name.split('—').slice(1).join('—').trim() || p.name} ▸
+          </span>
+          <span className="play-line-sub">
+            The middlegame this opening produces: {p.steps.length} steps, played out one move at a
+            time, then a real game from the same position.
+          </span>
+        </button>
+      ))}
 
       <div className="line-brief">
         <div className={`eval-badge ${badge.tone}`}>{badge.text}</div>
