@@ -43,6 +43,7 @@ import type { Square } from 'chess.js'
 import type { Key } from 'chessground/types'
 import { Board } from '../Board'
 import { TAG_LABEL, type MoveAssessment, type Severity } from '../../coach/analysis'
+import { EvalMeter, oddsSwing } from '../EvalMeter'
 
 const SEVERITY_LABEL: Record<Severity, string> = {
   best: 'Best',
@@ -52,8 +53,16 @@ const SEVERITY_LABEL: Record<Severity, string> = {
   blunder: 'Blunder',
 }
 
-/** Cost in the units people actually think in. */
-function costInWords(lossCp: number): string {
+/**
+ * Cost in the units people actually think in.
+ *
+ * `cpAfter` is checked first because material language is wrong for a mate:
+ * Nf6 in the Scholar's Mate loses no material at all and the loss shows as
+ * 1000cp, so "gave up a queen" was both inaccurate and less alarming than the
+ * truth.
+ */
+function costInWords(lossCp: number, cpAfter?: number): string {
+  if (cpAfter !== undefined && cpAfter <= -900) return 'walked into a forced mate'
   const pawns = lossCp / 100
   if (pawns >= 8.5) return 'gave up a queen'
   if (pawns >= 4.5) return 'gave up a rook'
@@ -65,14 +74,30 @@ function costInWords(lossCp: number): string {
 
 export interface GameReviewProps {
   moves: MoveAssessment[]
-  /** Which colour the human played, for board orientation. */
+  /** Which colour is being reviewed, for board orientation. */
   colour: 'white' | 'black'
   acpl: number
   perf: number
   onClose: () => void
+  /**
+   * Re-run the review for the other colour, if the caller can.
+   *
+   * Both sides matter and analysing both up front would double the wait for a
+   * review most people only want one half of, so the swap is on demand.
+   */
+  onSwapSide?: (() => void) | undefined
+  swapping?: boolean
 }
 
-export function GameReview({ moves, colour, acpl, perf, onClose }: GameReviewProps) {
+export function GameReview({
+  moves,
+  colour,
+  acpl,
+  perf,
+  onClose,
+  onSwapSide,
+  swapping = false,
+}: GameReviewProps) {
   // Worst first. You have limited attention after a game and the biggest
   // mistake is the one worth spending it on; move order would bury a dropped
   // rook under two opening inaccuracies.
@@ -104,10 +129,19 @@ export function GameReview({ moves, colour, acpl, perf, onClose }: GameReviewPro
         <div>
           <h2 className="view-title">Game review</h2>
           <div className="view-sub">
-            {acpl} centipawns lost per move · about {perf} strength
+            {colour === 'white' ? 'White' : 'Black'} · {acpl} centipawns lost per move · about{' '}
+            {perf} strength
           </div>
         </div>
       </div>
+
+      {onSwapSide && (
+        <button className="chip" onClick={onSwapSide} disabled={swapping} style={{ alignSelf: 'flex-start' }}>
+          {swapping
+            ? 'Analysing…'
+            : `Review ${colour === 'white' ? 'Black' : 'White'}'s moves instead`}
+        </button>
+      )}
 
       <div className="rev-tally">
         <Tally n={blunders} label="blunders" tone="danger" />
@@ -252,10 +286,26 @@ function MistakeCard({
         </button>
       </div>
 
+      {/*
+        The odds, before the explanation. "You dropped 320 centipawns" is the
+        engine's unit; "your chances went from 71% to 34%" is the thing that
+        actually lands, and the marker on the bar shows where the better move
+        would have left you.
+      */}
+      <EvalMeter
+        cp={showing === 'better' ? m.cpBest : m.cpPlayed}
+        compareCp={showing === 'better' ? m.cpPlayed : m.cpBest}
+        tone={m.severity === 'blunder' ? 'danger' : m.severity === 'mistake' ? 'warn' : 'good'}
+        label={showing === 'better' ? `Odds after ${m.bestSan ?? 'the better move'}` : `Odds after ${m.san}`}
+      />
+
       <div className="line-brief">
         <div className={`eval-badge ${m.severity === 'blunder' ? 'danger' : m.severity === 'mistake' ? 'warn' : 'good'}`}>
-          {SEVERITY_LABEL[m.severity]} — {costInWords(m.lossCp)}
+          {SEVERITY_LABEL[m.severity]} — {costInWords(m.lossCp, m.cpPlayed)}
         </div>
+        <p className="brief-when">
+          <span className="brief-key">Odds</span> {oddsSwing(m.cpBest, m.cpPlayed)}
+        </p>
         <p className="brief-when">
           <span className="brief-key">Where</span> Move {moveNumber} of the {m.phase}.
         </p>

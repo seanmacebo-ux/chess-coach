@@ -72,6 +72,16 @@ export interface MoveAssessment {
   uci: UciMove
   /** Centipawns lost versus the engine's choice. Clamped, always >= 0. */
   lossCp: number
+  /**
+   * Absolute evaluations, from the MOVER's point of view, after each move.
+   *
+   * The loss on its own cannot answer "how bad was my position": dropping
+   * 300cp from +900 leaves you winning, and dropping it from 0 leaves you
+   * losing. Keeping both scores is what lets the review show the odds before
+   * and after rather than only the size of the mistake.
+   */
+  cpBest: number
+  cpPlayed: number
   severity: Severity
   /** What the engine wanted instead. */
   bestUci: UciMove | null
@@ -282,10 +292,16 @@ export async function analyseGame(
     board.move({ from: h.from, to: h.to, promotion: h.promotion })
 
     let lossCp = 0
+    let playedScore = bestScore
     if (!board.isGameOver()) {
       const after = await engine.analyse(board.fen(), { depth, multipv: 1 })
       const afterLine = after.lines[0]
-      const playedScore = afterLine ? clampEval(-lineScore(afterLine)) : bestScore
+      playedScore = afterLine ? clampEval(-lineScore(afterLine)) : bestScore
+      lossCp = Math.max(0, bestScore - playedScore)
+    } else {
+      // Checkmate delivered by the played move is the best possible outcome;
+      // anything else terminal (stalemate, repetition) is dead level.
+      playedScore = board.isCheckmate() ? EVAL_CAP : 0
       lossCp = Math.max(0, bestScore - playedScore)
     }
 
@@ -297,6 +313,8 @@ export async function analyseGame(
         : diagnose(fenBefore, playedUci, bestUci, bestIsMate, phase)
 
     out.push({
+      cpBest: bestScore,
+      cpPlayed: playedScore,
       ply,
       fen: fenBefore,
       san: h.san,

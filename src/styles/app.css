@@ -3193,3 +3193,73 @@ button.back {
   max-width: 560px;
   margin-inline: auto;
 }
+
+/* ==================================================================
+ * EVAL METER
+ *
+ * Odds rather than centipawns. "+3.2" is the engine's unit and means
+ * nothing without training; "71%" is the question people are actually
+ * asking.
+ * ================================================================== */
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.meter-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.meter-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.meter-pct {
+  font-size: var(--t-lead);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.meter-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 220ms ease;
+}
+
+.meter-track.warn .meter-fill { background: var(--warn); }
+.meter-track.danger .meter-fill { background: var(--danger); }
+
+/* Where the better move would have left you. A marker rather than a
+   second bar — one bar with a line on it reads as "here, versus there",
+   which is the actual relationship. */
+.meter-mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  opacity: 0.75;
+  overflow: visible;
+}

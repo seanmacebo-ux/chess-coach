@@ -82,35 +82,51 @@ function useGameReview() {
     perf: number
   } | null>(null)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  /** Kept so the side swap can re-analyse the same game. */
+  const [current, setCurrent] = useState<GameRow | null>(null)
+  const [swapping, setSwapping] = useState(false)
 
-  const review = useCallback(async (g: GameRow) => {
+  const review = useCallback(async (g: GameRow, as?: 'w' | 'b') => {
     if (g.id === undefined) return
-    setBusy(g.id)
+    const colour = as ?? g.humanColour
+    if (as) setSwapping(true)
+    else setBusy(g.id)
     setError(null)
     setProgress(null)
+    setCurrent(g)
     try {
       const moves = await analyseGame(g.pgn, {
-        colour: g.humanColour,
+        colour,
         onProgress: (done, total) => setProgress({ done, total }),
       })
       const avg = acpl(moves)
       const perf = performanceRating(avg)
-      // Write it back so a second look is instant.
-      await db.games.update(g.id, {
-        acpl: avg,
-        performanceRating: perf,
-        analysedAt: new Date().toISOString(),
-      })
-      setOpen({ moves, colour: g.humanColour === 'w' ? 'white' : 'black', acpl: avg, perf })
+      // Only the player's own side is written back — the stored acpl is a
+      // record of how THEY played, and overwriting it with the opponent's
+      // numbers because they glanced at the other half would be a lie.
+      if (colour === g.humanColour) {
+        await db.games.update(g.id, {
+          acpl: avg,
+          performanceRating: perf,
+          analysedAt: new Date().toISOString(),
+        })
+      }
+      setOpen({ moves, colour: colour === 'w' ? 'white' : 'black', acpl: avg, perf })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(null)
+      setSwapping(false)
       setProgress(null)
     }
   }, [])
 
-  return { busy, error, open, progress, review, close: () => setOpen(null) }
+  const swapSide = useCallback(() => {
+    if (!current || !open) return
+    void review(current, open.colour === 'white' ? 'b' : 'w')
+  }, [current, open, review])
+
+  return { busy, error, open, progress, review, swapSide, swapping, close: () => setOpen(null) }
 }
 
 export function History() {
@@ -191,6 +207,8 @@ export function History() {
         acpl={gr.open.acpl}
         perf={gr.open.perf}
         onClose={gr.close}
+        onSwapSide={gr.swapSide}
+        swapping={gr.swapping}
       />
     )
   }
