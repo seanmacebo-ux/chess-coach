@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { db, getProfile, type GameRow, type PuzzleAttemptRow } from '../../data/db'
 import { analyseGame, acpl, performanceRating, type MoveAssessment } from '../../coach/analysis'
 import { GameReview } from './GameReview'
+import { ReviewProgress } from '../ReviewProgress'
 import {
   balanceVerdict,
   categoryTrends,
@@ -382,24 +383,38 @@ export function History() {
             </div>
           )}
           {games.map((g) => (
-            <div key={g.id} className="row spread hist-row">
-              <span className={'pill ' + g.result}>{g.result}</span>
-              <span className="small" style={{ flex: 1 }}>
-                vs {g.opponentStyle} {g.opponentElo} as {g.humanColour === 'w' ? 'white' : 'black'}
-                <span className="muted"> · {when(g.playedAt)}</span>
-              </span>
-              {gr.busy === g.id ? (
-                <span className="small muted">
-                  reviewing{gr.progress ? ` ${gr.progress.done}/${gr.progress.total}` : '…'}
+            <div key={g.id} className="stack" style={{ gap: 8 }}>
+              <div className="row spread hist-row">
+                <span className={'pill ' + g.result}>{g.result}</span>
+                <span className="small" style={{ flex: 1 }}>
+                  vs {g.opponentStyle} {g.opponentElo} as{' '}
+                  {g.humanColour === 'w' ? 'white' : 'black'}
+                  <span className="muted"> · {when(g.playedAt)}</span>
                 </span>
-              ) : (
-                <button
-                  className="chip"
-                  disabled={gr.busy !== null}
-                  onClick={() => void gr.review(g)}
-                >
-                  {g.acpl === null ? 'Review' : `${g.acpl} acpl`}
-                </button>
+                {gr.busy === g.id ? (
+                  <span className="small muted">reviewing…</span>
+                ) : (
+                  <button
+                    className="chip"
+                    disabled={gr.busy !== null}
+                    onClick={() => void gr.review(g)}
+                  >
+                    {g.acpl === null ? 'Review' : `${g.acpl} acpl`}
+                  </button>
+                )}
+              </div>
+              {/*
+                The progress panel goes UNDER the row it belongs to, full
+                width, not squeezed into the space the button vacated. It used
+                to be the words "reviewing 12/34" in 12px grey on the end of
+                the row, which during a two-minute engine pass on a phone reads
+                as nothing happening at all.
+              */}
+              {gr.busy === g.id && (
+                <ReviewProgress
+                  done={gr.progress?.done ?? 0}
+                  total={gr.progress?.total ?? 0}
+                />
               )}
             </div>
           ))}

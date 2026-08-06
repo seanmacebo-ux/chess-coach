@@ -3834,3 +3834,39 @@ button.back {
 .tone-dot.tone-positional { --dot: #81b64c; }
 .tone-dot.tone-strategy { --dot: #26c2a3; }
 .tone-dot.tone-opening { --dot: #9a7bd0; }
+
+/* ------------------------------------------------- review progress */
+
+/*
+ * A running review, made visible.
+ *
+ * The engine pass is one search per move, in WebAssembly, on the device — a
+ * full game is a minute or two on a phone. The whole feedback used to be the
+ * word "reviewing" and a fraction, in 12px grey, on the row you tapped. Over a
+ * two-minute wait that is indistinguishable from a button that did nothing,
+ * which is exactly the report: "game review is not working".
+ */
+.review-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.rp-title {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* Tabular figures so the count does not jiggle the layout as it counts up —
+   a number that shifts sideways every second reads as noise, not progress. */
+.rp-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-hi);
+  font-variant-numeric: tabular-nums;
+}

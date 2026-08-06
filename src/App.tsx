@@ -48,6 +48,7 @@ import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
 import { acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
+import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
 import { BOTS, suggestedBot, type Bot } from './engine/roster'
 import { recordFinishedGame, outcomeOf } from './coach/record'
@@ -925,12 +926,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
             </button>
           </div>
           {review.phase === 'running' && (
-            <div className="status">
-              <span className="dot thinking" />
-              <span className="small muted">
-                reviewing your moves… {review.done}/{review.total}
-              </span>
-            </div>
+            <ReviewProgress done={review.done} total={review.total} />
           )}
           {review.phase === 'done' && (
             <div className="stack">
