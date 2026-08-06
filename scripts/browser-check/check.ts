@@ -72,6 +72,51 @@ async function main() {
   if (!(after.rating < before.rating)) throw new Error('rating did not fall after a loss')
   if (after.rating !== before.rating + res.delta) throw new Error('delta does not match the stored rating')
 
+  /*
+   * And the path the Play tab actually uses.
+   *
+   * The original check covered `analyse: false` only — which is what the two
+   * trainers pass. The Play tab passes `analyse: true`, and that branch does
+   * three more things: runs the engine, writes the mistakes, and returns the
+   * assessments the review screen is drawn from. None of it was covered, which
+   * is a hole exactly where the post-game review lives.
+   */
+  const g2 = new Chess()
+  for (const san of ['e4', 'e5', 'Qh5', 'Nc6', 'Bc4', 'Nf6', 'Qxf7#']) g2.move(san)
+  const before2 = await getProfile()
+  const mistakesBefore = await db.mistakes.count()
+
+  const res2 = await recordFinishedGame(
+    {
+      pgn: g2.pgn(),
+      humanColour: 'w',
+      result: 'win',
+      reason: 'checkmate',
+      opponentElo: 800,
+      opponentStyle: 'human',
+      source: 'play',
+    },
+    { analyse: true, onProgress: (done, total) => log(`  analysing ${done}/${total}`) },
+  )
+
+  const saved2 = (await db.games.toArray()).at(-1)!
+  log(`analysed row   acpl ${saved2.acpl}, perf ${saved2.performanceRating}, at ${saved2.analysedAt ? 'set' : 'NULL'}`)
+  log(`assessments    ${res2.assessments?.length ?? 'none'} moves returned`)
+  log(`mistakes       +${(await db.mistakes.count()) - mistakesBefore} rows`)
+
+  if (!res2.assessments || res2.assessments.length === 0) {
+    throw new Error('analyse:true returned no assessments — the review screen would have nothing to draw')
+  }
+  if (saved2.analysedAt === null) throw new Error('analyse:true did not mark the game analysed')
+  if (saved2.acpl === null) throw new Error('analyse:true did not store acpl')
+  // Every assessment must be one of YOUR moves. Analysing the wrong side is the
+  // failure that produces a review full of moves you did not play.
+  if (res2.assessments.length !== 4) {
+    throw new Error(`expected 4 white moves assessed, got ${res2.assessments.length}`)
+  }
+  const after2 = await getProfile()
+  if (!(after2.rating > before2.rating)) throw new Error('rating did not rise after a win')
+
   log('\nOK')
 }
 

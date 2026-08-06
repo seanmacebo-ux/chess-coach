@@ -40,7 +40,10 @@ try {
   await page.waitForFunction(
     () => /OK|FAILED/.test(document.getElementById('out')?.textContent ?? ''),
     null,
-    { timeout: 30_000 },
+    // The analyse:true case runs a real engine pass over a whole game, so this
+    // is minutes rather than seconds. It was 30s, which failed the run for
+    // being slow rather than for being wrong.
+    { timeout: 240_000 },
   )
 
   const text = (await page.locator('#out').textContent()) ?? ''
@@ -54,5 +57,9 @@ try {
   server.kill()
 }
 
-console.log(code === 0 ? '\n✓ recordFinishedGame saves, rates, and skips analysis correctly' : '\n✗ check failed')
+console.log(
+  code === 0
+    ? '\n✓ recordFinishedGame: saves, rates, skips analysis when not asked, and runs the\n  full review when it is — the path the Play tab uses'
+    : '\n✗ check failed',
+)
 process.exit(code)
