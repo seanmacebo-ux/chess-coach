@@ -14,14 +14,34 @@ permissions:
   pages: write
   id-token: write
 
-# Never run two deploys at once; cancel a superseded one rather than racing.
+# One deploy at a time — but NEVER cancel one that is already running.
+#
+# This block used to say `group: pages` / `cancel-in-progress: true`, and both
+# halves were wrong.
+#
+# cancel-in-progress is explicitly against GitHub's own guidance for Pages: a
+# deployment that gets killed half way through leaves the site in whatever
+# state it reached. Their starter workflow sets it to false and says so. Queued
+# runs still collapse to the latest one, which is the behaviour actually wanted
+# — it is only the in-flight deploy that must be left alone.
+#
+# The group is renamed because the old one is WEDGED. A re-run of an earlier
+# failed deploy is stuck in a state GitHub's own API refuses to touch
+# ("409 Cannot cancel a workflow re-run that has not yet queued"), and it holds
+# the `pages` group. Everything queued behind it sat 15 minutes without ever
+# being assigned a runner and was then cancelled — runner_id 0, no runner name,
+# build cancelled, deploy skipped. Renaming steps around the jammed group
+# without giving up the one-at-a-time guarantee for everything after it.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-deploy
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A build that has not finished in ten minutes is not building; it is
+    # stuck. Failing fast beats occupying the concurrency group for six hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +64,10 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # deploy-pages polls the Pages API and aborts itself at ten minutes, which
+    # is what happened twice today. This bounds the whole job so a stall shows
+    # up as a failed job in a known time rather than a run of unknown length.
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
