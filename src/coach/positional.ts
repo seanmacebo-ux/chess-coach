@@ -83,6 +83,24 @@ export const POSITIONAL: PositionalPosition[] = [
     plan: 'Occupy d5 and keep it. Every trade that keeps a white piece or pawn on d5 is fine — the square is the advantage.',
     playCap: 10,
   },
+
+  /* -------------------------------------- outpost: the same idea, a new door */
+  {
+    id: 'outpost-najdorf-d5',
+    concepts: ['outpost', 'weak-square'],
+    source: 'Sicilian Najdorf — the d5 outpost again (My System: The Open File §6)',
+    // Najdorf main line: 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 a6 6.Be2
+    // e5 7.Nb3 Be7 8.O-O O-O 9.Be3 Be6. White to move, and the c3-knight jumps.
+    fen: 'rn1q1rk1/1p2bppp/p2pbn2/4p3/4P3/1NN1B3/PPP1BPPP/R2Q1RK1 w - - 0 10',
+    youPlay: 'w',
+    keyMove: 'c3d5',
+    keySan: 'Nd5',
+    name: 'Same hole, different opening',
+    why: 'A completely different opening, the exact same idea — that is the point of playing it twice. Black gave up his c-pawn and fixed the e-pawn on e5, so d5 is a permanent hole no black pawn can ever cover, and the knight belongs there. Be honest about the size of it, though: Black answers …Nbd7 or trades with …Nxd5, and theory rates this roughly level — d5 is a lasting weakness, not a winning advantage. The lesson is the pattern, not the evaluation: when a pawn advance leaves a hole, that square is where your pieces want to sit.',
+    hint: 'You have seen this before in another opening. Which square did …e5 give away, and what goes on it?',
+    plan: 'Land on d5 and make Black deal with it. If he trades with …Nxd5 you recapture and keep the clamp; if he holds off with …Nbd7 the outpost stays yours. You are playing for the square, not a knockout.',
+    playCap: 10,
+  },
 ]
 
 /** Positions matching any of these concept keys. */
