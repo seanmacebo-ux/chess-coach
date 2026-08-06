@@ -354,6 +354,36 @@ body {
   font-weight: 700;
 }
 
+/*
+ * Put the file letters back on their own files.
+ *
+ * chessground ships `coords.files { left: 24px; right: -24px }` — half a square
+ * of offset, for a board drawn with a margin around it to hold the labels.
+ * Ours is flush inside a frame with `overflow: hidden`, so the offset put every
+ * letter on the boundary between two files ("A" between a and b) and pushed "h"
+ * 21px past the right edge, where it was clipped in half. Eight labels, none of
+ * them over the file it names, and one of them missing.
+ */
+.cg-wrap coords.files {
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+
+/*
+ * And into the corner of the square, not the middle of it.
+ *
+ * Centring them fixed the offset and immediately created the next problem: a
+ * letter in the middle of a square is directly behind whatever piece is
+ * standing there, so on the back rank A, D and H vanished under the rooks and
+ * the queen. Bottom-right is where every real board puts them, and it is the
+ * one part of a square a piece never covers.
+ */
+.cg-wrap coords.files coord {
+  text-align: right;
+  padding-right: 3px;
+}
+
 .cg-wrap coords coord {
   color: #fff;
   opacity: 0.92;
@@ -3260,6 +3290,28 @@ button.back {
   padding-bottom: calc(96px + env(safe-area-inset-bottom));
   max-width: 560px;
   margin-inline: auto;
+}
+
+/*
+ * NOTHING IN HERE SHRINKS. This is the fix for the bug Sean photographed: the
+ * "Play Kxf3 ▸" button sitting on top of the provenance paragraph, and the
+ * board squashed out of square.
+ *
+ * The container is `position: fixed; inset: 0`, so it has a FIXED height, and
+ * it is a flex column. Flex items default to `flex-shrink: 1`. So when the
+ * content was taller than the phone — which it is on any breakdown with more
+ * than about four lines of setup text — the browser did not scroll. It
+ * squeezed. The coach card was squeezed to 231px with 243px of content in it,
+ * so its last child rendered 13px below the card's own background and landed
+ * on the text underneath. The board, with `aspect-ratio: 1`, got squeezed out
+ * of square by the same mechanism.
+ *
+ * `overflow-y: auto` above was never wrong; it just never got a chance to
+ * fire, because shrinking happens first and removes the overflow it would
+ * have scrolled.
+ */
+.trainer-screen > * {
+  flex-shrink: 0;
 }
 
 /* ==================================================================

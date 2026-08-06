@@ -62,8 +62,15 @@ export function BreakdownView({ breakdown, onPractise, onBack }: BreakdownViewPr
         <div>
           <h2 className="view-title">{breakdown.pattern}</h2>
           <div className="view-sub">
-            {breakdown.side === 'white' ? 'White' : 'Black'} to move · step {Math.min(step, breakdown.steps.length)} of{' '}
-            {breakdown.steps.length}
+            {/*
+              "step 0 of 3" reads like a broken counter, because it is one —
+              zero of anything is not a step. Before the first move there is no
+              step number to report, so it says what is actually true.
+            */}
+            {breakdown.side === 'white' ? 'White' : 'Black'} to move ·{' '}
+            {step === 0
+              ? `${breakdown.steps.length} moves to walk through`
+              : `step ${Math.min(step, breakdown.steps.length)} of ${breakdown.steps.length}`}
           </div>
         </div>
       </div>
