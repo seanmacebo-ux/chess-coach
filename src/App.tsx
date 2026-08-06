@@ -20,7 +20,9 @@ import { PuzzleRunner } from './ui/screens/PuzzleRunner'
 import { History } from './ui/screens/History'
 import { Learn } from './ui/screens/Learn'
 import { PlayoutRunner } from './ui/screens/PlayoutRunner'
+import { PositionalRunner } from './ui/screens/PositionalRunner'
 import { type EndgamePosition } from './coach/endgames'
+import { type PositionalPosition } from './coach/positional'
 import {
   getSectionRatings,
   overallVerdict,
@@ -63,6 +65,7 @@ type Tab =
   | 'threat'
   | 'candidates'
   | 'endgames'
+  | 'positional'
   | 'history'
   | 'learn'
   | 'settings'
@@ -131,6 +134,7 @@ export default function App() {
   const [session, setSession] = useState<DailySession | null>(null)
   const [result, setResult] = useState<string | null>(null)
   const [endgame, setEndgame] = useState<EndgamePosition | null>(null)
+  const [positional, setPositional] = useState<PositionalPosition | null>(null)
   /**
    * A puzzle set built on demand from Learn, rather than from today's session.
    * Kept separate so training a category never overwrites the daily session —
@@ -163,6 +167,11 @@ export default function App() {
   const playEndgame = useCallback((p: EndgamePosition) => {
     setEndgame(p)
     setTab('endgames')
+  }, [])
+
+  const playPositional = useCallback((p: PositionalPosition) => {
+    setPositional(p)
+    setTab('positional')
   }, [])
 
   /**
@@ -416,6 +425,30 @@ export default function App() {
           </div>
         ))}
 
+      {tab === 'positional' &&
+        (positional ? (
+          <PositionalRunner
+            key={positional.id}
+            position={positional}
+            onDone={({ success }) => {
+              setResult(
+                success
+                  ? `${positional.name} — you found the idea.`
+                  : `${positional.name} — idea shown. Replay it to own it.`,
+              )
+              setPositional(null)
+              setTab('learn')
+            }}
+          />
+        ) : (
+          <div className="card row spread">
+            <span className="muted">No position loaded.</span>
+            <button className="primary" onClick={() => setTab('learn')}>
+              Pick one in Learn
+            </button>
+          </div>
+        ))}
+
       {/* key forces a fresh read of the database each time the tab is opened */}
       {tab === 'history' && <History key={`h-${result ?? ''}-${tab}`} />}
 
@@ -424,6 +457,7 @@ export default function App() {
           key={`l-${tab}`}
           onTrainCategory={trainCategory}
           onPlayEndgame={playEndgame}
+          onPlayPositional={playPositional}
           onStartScan={startScan}
           onStartThreat={startThreat}
           onStartCandidates={startCandidates}

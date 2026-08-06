@@ -50,6 +50,7 @@ import { getSectionRatings, type SectionId, type SectionRating } from '../../coa
 import { LESSONS } from '../../content/lessons'
 import { CATEGORIES } from '../../coach/categories'
 import { ENDGAMES, type EndgamePosition } from '../../coach/endgames'
+import { POSITIONAL, type PositionalPosition } from '../../coach/positional'
 import { OPENINGS } from '../../content/openings'
 import { Bar, RatingChip, RatingExplainer } from '../learn/RatingChip'
 import { Ladder } from '../learn/Ladder'
@@ -98,6 +99,8 @@ export interface LearnProps {
   onTrainCategory: (motifs: string[], label: string) => void
   /** Jump to the endgame play-out for this position. */
   onPlayEndgame: (position: EndgamePosition) => void
+  /** Jump to the coached positional play-out for this position. */
+  onPlayPositional: (position: PositionalPosition) => void
   /** Start a loose-piece scan built from real positions. */
   onStartScan: () => void
   /** Start an engine-backed "what are they threatening" set. */
@@ -109,6 +112,7 @@ export interface LearnProps {
 export function Learn({
   onTrainCategory,
   onPlayEndgame,
+  onPlayPositional,
   onStartScan,
   onStartThreat,
   onStartCandidates,
@@ -193,6 +197,22 @@ export function Learn({
       )}
       {view === 'endgame' && <EndgameSection rating={rating} onPlay={onPlayEndgame} />}
       {view === 'opening' && <OpeningsSection rating={rating} />}
+      {view === 'positional' && POSITIONAL.length > 0 && (
+        <div className="card stack">
+          <span className="small muted">Play the idea — coached, against the engine</span>
+          {POSITIONAL.map((p) => (
+            <div key={p.id} className="row spread" style={{ alignItems: 'flex-start', gap: 12 }}>
+              <span>
+                <div><strong>{p.name}</strong></div>
+                <div className="small muted">{p.concepts.join(' · ')}</div>
+              </span>
+              <button className="primary small" onClick={() => onPlayPositional(p)}>
+                Play
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {(view === 'positional' || view === 'strategy') && (
         <ConceptSection
           pillar={view}
