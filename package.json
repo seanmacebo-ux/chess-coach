@@ -14,6 +14,7 @@
     "puzzles": "node scripts/build-puzzles.mjs",
     "calibrate": "tsx scripts/calibrate.ts",
     "verify:endgames": "tsx scripts/verify-endgames.ts",
+    "verify:positional": "tsx scripts/verify-positional.ts",
     "verify:openings": "tsx scripts/verify-openings.ts",
     "verify:breakdowns": "tsx scripts/verify-breakdowns.ts",
     "verify:middlegame": "tsx scripts/verify-middlegame.ts",
