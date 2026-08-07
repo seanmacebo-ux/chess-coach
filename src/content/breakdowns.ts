@@ -167,24 +167,32 @@ export const BREAKDOWNS: Breakdown[] = [
     fen: 'r4rk1/pp3ppp/2n2n2/3p4/8/2NNPbb1/PPPBK1Pq/R2Q3R w - - 0 18',
     side: 'white',
     setup:
-      'You are in check from the bishop on f3, so the choice is narrow. Before you move, look at the black queen on h2: it went hunting, and your rook on h1 is already looking straight up the file at it. Nothing of Black\'s defends h2, and nothing of Black\'s defends f3 either.',
+      'You are in check from the bishop on f3, and it is undefended. Before you take it, look at your own rook on h1: it covers the whole h-file up to their h7-pawn — and the black queen is sitting on h2, on that file. Also worth seeing before you move: Kf1 loses on the spot to Qxh1 mate.',
     steps: [
       {
         san: 'Kxf3',
-        why: 'Take it. The bishop giving check has no defender — g3 is its own bishop and bishops do not defend sideways, and the queen on h2 does not see f3. You get out of check and win a piece with the same move.',
+        why: 'Take it — and it is not really a choice. You have exactly two legal moves here, this and Kf1, and Kf1 is mate in one to Qxh1. Nothing defends f3 either, so the forced move is also the one that wins a piece.',
       },
       {
         san: 'Qh4',
-        why: 'The queen has to run: your rook on h1 attacks it and h3 is empty, so there is nothing in between. h4 is the only square left on the file — and it is still on the file.',
+        /*
+         * The original text here said the queen "has to run" and that h4 was
+         * "the only square left on the file". Both were invented. Sean called
+         * it, and the engine agreed: she has seven moves, including Qxh1
+         * taking the rook and two CHECKS. The lesson survives — every one of
+         * the seven loses her — but that is a different and much better fact,
+         * so it is the one stated now.
+         */
+        why: 'She has seven moves and every single one loses her. Qxh1 grabs the rook but your queen on d1 guards it along the first rank, so Qxh1 comes straight back. The two checks are just captures: Qxg2+ runs into Kxg2, Qh5+ into Rxh5. h4 at least makes you spend the rook to do it.',
       },
       {
         san: 'Rxh4',
-        why: 'And that is the queen. She was never escaping: every square she could reach was one your rook already covered. A bishop and a queen for nothing.',
+        why: 'And that is the queen — for a rook, because the bishop on g3 covers h4 and recaptures. Queen for rook, on top of the bishop you already won. That is the cost of sending her hunting with an open file behind her.',
       },
     ],
     ends: 'winsMaterial',
     takeaway:
-      'Before you deal with a check, look at what the checking side has left hanging. A queen deep in your position with an open file behind it is usually not attacking — it is trapped.',
+      'A queen sitting on a file your rook owns is not attacking, she is cornered — count her escape squares before you assume she is doing damage. And check what the CHECK is really threatening: here Kf1 loses instantly, so the free piece and the only safe square happened to be the same move.',
   },
   {
     puzzleId: 'YcC3V',
