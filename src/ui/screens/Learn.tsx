@@ -61,6 +61,7 @@ import {
   OpeningsSection,
   TacticsSection,
 } from '../learn/sections'
+import { CoachedGame } from './CoachedGame'
 
 /**
  * Ideas is a peer section, not a pillar — it has no tier ladder and no rating
@@ -122,6 +123,8 @@ export function Learn({
   const [ratings, setRatings] = useState<Record<SectionId, SectionRating> | null>(null)
   /** null is the index. Anything else is that section, full screen. */
   const [view, setView] = useState<SectionKey | null>(null)
+  /** The coached game takes the whole screen, from wherever it is started. */
+  const [coached, setCoached] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -151,6 +154,10 @@ export function Learn({
     (l) => rating >= l.band[0] && rating <= l.band[1],
   ).length
 
+  if (coached) {
+    return <CoachedGame rating={rating} onExit={() => setCoached(false)} />
+  }
+
   if (view === null) {
     return (
       <Index
@@ -160,6 +167,7 @@ export function Learn({
         byId={byId}
         lessonsAtLevel={lessonsAtLevel}
         onOpen={setView}
+        onCoached={() => setCoached(true)}
       />
     )
   }
@@ -239,6 +247,7 @@ function Index({
   byId,
   lessonsAtLevel,
   onOpen,
+  onCoached,
 }: {
   rating: number
   statuses: TierStatus[]
@@ -246,6 +255,7 @@ function Index({
   byId: Map<string, TierStatus>
   lessonsAtLevel: number
   onOpen: (k: SectionKey) => void
+  onCoached: () => void
 }) {
   const cleared = statuses.filter((s) => s.cleared).length
   const openNow = statuses.filter((s) => s.inBand && !s.cleared).length
@@ -274,6 +284,25 @@ function Index({
           </div>
         </div>
       </div>
+
+      {/*
+        THE STYLE, above the shelves. Sean's critique of this screen was
+        structural and correct: "learn doesn't teach me the style that makes
+        sense." Six sections organised by topic are a library, and nobody
+        plays chess by shelf. This card is the through-line — one real game
+        where the opening, the threat check and the safety check happen in
+        order, live, with arrows. The sections below are where you sharpen
+        each step; this is where they become one way of playing.
+      */}
+      <button className="coached-cta" onClick={onCoached}>
+        <span className="coached-kicker">The style, in one game</span>
+        <span className="coached-title">Play a coached game</span>
+        <span className="small muted">
+          Your opening with arrows while the game follows it, then the loop on every move: what do
+          they threaten, what is your move, is anything hanging. Everything below trains a piece of
+          this — this is the whole.
+        </span>
+      </button>
 
       <div className="sec-grid">
         {SECTIONS.map((s) => {

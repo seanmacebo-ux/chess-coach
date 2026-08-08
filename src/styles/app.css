@@ -3870,3 +3870,57 @@ button.back {
   color: var(--accent-hi);
   font-variant-numeric: tabular-nums;
 }
+
+/* --------------------------------------------------- the coached game */
+
+/*
+ * The style banner and the Learn headline. Sean: "learn doesn't teach me the
+ * style that makes sense" — a correct reading of a screen organised like a
+ * library. The coached game is the through-line, so its entry sits above the
+ * section grid and looks like the point of the page rather than a seventh
+ * shelf.
+ */
+.coached-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: var(--s4);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 20%, var(--surface)) 0%,
+    var(--surface) 70%
+  );
+  box-shadow: var(--e2);
+}
+
+.coached-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-hi);
+}
+
+.coached-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.style-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s2) var(--s3);
+  border-left: 3px solid var(--accent);
+}
+
+.style-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent-hi);
+}
