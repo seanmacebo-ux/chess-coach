@@ -299,8 +299,8 @@ function Index({
         <span className="coached-title">Play a coached game</span>
         <span className="small muted">
           Your opening with arrows while the game follows it, then the loop on every move: what do
-          they threaten, what is your move, is anything hanging. Everything below trains a piece of
-          this — this is the whole.
+          they threaten, what hangs for free, is anything of yours loose. At the end the loop is
+          scored — pieces taken, pieces hung, book moves — against your last coached game.
         </span>
       </button>
 

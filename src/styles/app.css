@@ -3935,3 +3935,26 @@ button.back {
   flex-basis: 100%;
   margin-top: 4px;
 }
+
+/* The coached game's end-of-game score: the style's claim, audited. */
+.receipt-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent-hi);
+  margin-bottom: 6px;
+}
+
+.receipt-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  line-height: 1.45;
+}
+
+.receipt-lines .good { color: var(--good); }
+.receipt-lines .bad { color: var(--warn); }

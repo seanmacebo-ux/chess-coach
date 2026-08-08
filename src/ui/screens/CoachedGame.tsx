@@ -32,6 +32,17 @@
  *     and knowing what to do when the book runs out IS the style.
  *   - threats and hanging pieces come from loosePieces() — board logic, not
  *     prose, so the coach cannot claim a threat that does not exist.
+ *
+ * SCORED, NOT JUST NARRATED. Sean, after the first version: "those games
+ * don't feel like they are helping me with what they say." He was right on
+ * two counts. First, the banner said "take what hangs" but the coach only
+ * ever warned about HIS pieces — it never once pointed at a free enemy piece,
+ * so half the named style was silent. Now step 1 reads both sides of the
+ * board. Second, the game claimed to teach the loop but never showed whether
+ * you ran it: it ended with "go look in History". Now every game keeps a
+ * ledger — free pieces taken vs left, pieces hung, book moves followed — and
+ * ends with the loop SCORED, compared against your previous coached game so
+ * the number visibly moves. A lesson you cannot fail is not a lesson.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -53,6 +64,44 @@ import { toDests } from '../../chess/game'
 const SUPPORT_DEPTH = 11
 const SUPPORT_LOSS_CP = 90
 
+const PIECE_NAME: Record<string, string> = {
+  p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
+}
+
+/**
+ * The ledger one coached game accumulates. Move numbers, not just counts,
+ * so the receipt can say WHERE — "you hung a piece on move 14" is a memory,
+ * "you hung 2 pieces" is a statistic.
+ */
+interface LoopLog {
+  /** Full-move numbers where a free enemy piece was taken. */
+  took: number[]
+  /** ...where one was pointed at and left on the table. */
+  missed: number[]
+  /** ...where one of YOUR pieces was newly hanging after your move. */
+  hung: number[]
+}
+
+interface Receipt extends LoopLog {
+  /** Your moves that followed the repertoire before the game left it. */
+  bookMoves: number
+  won: boolean
+}
+
+/** Last coached game's receipt — the number the next game tries to beat. */
+const RECEIPT_KEY = 'cc.coached'
+
+function loadPrevReceipt(): Receipt | null {
+  try {
+    const raw = localStorage.getItem(RECEIPT_KEY)
+    if (!raw) return null
+    const r = JSON.parse(raw) as Receipt
+    return Array.isArray(r.hung) ? r : null
+  } catch {
+    return null
+  }
+}
+
 export interface CoachedGameProps {
   rating: number
   onExit: () => void
@@ -67,6 +116,12 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
   const [threatLine, setThreatLine] = useState<string | null>(null)
   const [gameNote, setGameNote] = useState<string | null>(null)
   const recorded = useRef(false)
+  /** The ledger, written by board logic as the game goes. */
+  const log = useRef<LoopLog>({ took: [], missed: [], hung: [] })
+  /** Free enemy pieces on the board when your turn started — step 1's output. */
+  const freeNow = useRef<Square[]>([])
+  const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const [prevReceipt, setPrevReceipt] = useState<Receipt | null>(null)
 
   const bot = useMemo(() => suggestedBot(rating), [rating])
   const opponent = useMemo(
@@ -122,13 +177,32 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
    * only — the coach cannot invent a threat the board does not show.
    */
   const readThreats = useCallback(() => {
-    const loose = loosePieces(chess.current.fen(), 'w')
+    const f = chess.current.fen()
+    const yours = loosePieces(f, 'w')
+    // "Take what hangs" — the other half of the banner, previously never
+    // spoken. Pawns are left out: hoovering loose pawns is not the habit
+    // being built, and flagging every one would drown the piece that matters.
+    const free = loosePieces(f, 'b').filter((sq) => chess.current.get(sq)?.type !== 'p')
+    freeNow.current = free
+    const pieceOn = (sq: Square) => PIECE_NAME[chess.current.get(sq)?.type ?? 'p']
+
+    const danger =
+      yours.length === 0
+        ? null
+        : yours.length === 1
+          ? `Their move attacks your piece on ${yours[0]} and nothing defends it.`
+          : `Careful — ${yours.length} of your pieces are attacked and undefended: ${yours.join(', ')}.`
+    const gift =
+      free.length === 0
+        ? null
+        : `Their ${pieceOn(free[0]!)} on ${free[0]} is hanging${free.length > 1 ? ` (so is ${free[1]})` : ''} — take what hangs.`
+
     setThreatLine(
-      loose.length === 0
-        ? 'Their move threatens nothing of yours directly. Good — now improve your position.'
-        : loose.length === 1
-          ? `Their move attacks your piece on ${loose[0]} and nothing defends it. Deal with that first.`
-          : `Careful — ${loose.length} of your pieces are attacked and undefended: ${loose.join(', ')}.`,
+      danger && gift
+        ? `${danger} And ${gift.charAt(0).toLowerCase()}${gift.slice(1)} Count both before you touch a piece.`
+        : (danger ? `${danger} Deal with that first.` : null) ??
+            gift ??
+            'Their move threatens nothing of yours directly. Good — now improve your position.',
     )
   }, [])
 
@@ -137,6 +211,12 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
   const supportFor = useCallback(async (fenBefore: string, playedSan: string) => {
     const after = chess.current.fen()
     const loose = loosePieces(after, 'w')
+    // The ledger counts only NEWLY loose squares — a piece you keep ignoring
+    // is one failed safety check, not one per move it sits there.
+    const wasLoose = new Set(loosePieces(fenBefore, 'w'))
+    if (loose.some((sq) => !wasLoose.has(sq))) {
+      log.current.hung.push(Math.ceil(chess.current.history().length / 2))
+    }
     const immediate =
       loose.length === 0
         ? null
@@ -198,6 +278,16 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
       setLastMove([from, to])
       setThreatLine(null)
 
+      // Step 1's follow-through: a free piece was pointed at. Did you take it?
+      // Either way the ledger records it, and "either way" is the teaching —
+      // the receipt at the end is built from exactly these moments.
+      if (freeNow.current.length > 0) {
+        const moveNo = Math.ceil(chess.current.history().length / 2)
+        if (freeNow.current.includes(to as Square)) log.current.took.push(moveNo)
+        else log.current.missed.push(moveNo)
+        freeNow.current = []
+      }
+
       // Book commentary is one line and never a takeback — this is a real
       // game, and the style is bigger than the memorised line.
       if (inBook && san !== book[bookPly]) {
@@ -238,6 +328,25 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
     const outcome = outcomeOf(chess.current, 'w')
     if (!outcome) return
     recorded.current = true
+
+    // The loop, scored. Book plies are re-derived from the final history so
+    // the count is what actually happened, not what a stale memo thought.
+    const history = chess.current.history()
+    let plies = 0
+    while (plies < history.length && plies < book.length && history[plies] === book[plies]) plies++
+    const scored: Receipt = {
+      ...log.current,
+      bookMoves: Math.ceil(plies / 2),
+      won: outcome.result === 'win',
+    }
+    setPrevReceipt(loadPrevReceipt())
+    setReceipt(scored)
+    try {
+      localStorage.setItem(RECEIPT_KEY, JSON.stringify(scored))
+    } catch {
+      /* storage blocked — the receipt still renders, it just will not carry */
+    }
+
     void recordFinishedGame({
       pgn: chess.current.pgn(),
       humanColour: 'w',
@@ -312,19 +421,21 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
           {over
             ? (chess.current.isCheckmate()
                 ? chess.current.turn() === 'w'
-                  ? 'Checkmate — you lost this one. The review in History will show which loop step got skipped.'
+                  ? 'Checkmate — you lost this one. The score below says which loop step slipped.'
                   : 'Checkmate — you won. That is the style working.'
                 : 'Drawn.')
-            : (threatLine && !coachLine
-                ? threatLine
-                : (coachLine ??
-                  (inBook
-                    ? `Follow the arrow while the game follows the book — this is your ${opening.name}. When either side leaves it, the loop takes over.`
-                    : 'Your move. Ask the three questions in order — the loop is the style.')))}
+            : /* Step 1 leads. The threat read is about the move you are about
+                 to make; the safety verdict is about the one you already made,
+                 so when both exist the verdict steps down to the small line. */
+              (threatLine ??
+                coachLine ??
+                (inBook
+                  ? `Follow the arrow while the game follows the book — this is your ${opening.name}. When either side leaves it, the loop takes over.`
+                  : 'Your move. Ask the three questions in order — the loop is the style.'))}
         </div>
         {threatLine && coachLine && !over && (
           <div className="small muted" style={{ marginTop: 6 }}>
-            {threatLine}
+            Last move — {coachLine}
           </div>
         )}
         {gameNote && (
@@ -333,6 +444,43 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
           </div>
         )}
       </div>
+
+      {/*
+        The receipt: the loop as numbers, with move references so it reads as
+        memories of THIS game. This card is the answer to "is this helping me
+        with what it says" — the claim up top, the evidence down here.
+      */}
+      {over && receipt && (
+        <div className="card receipt">
+          <div className="receipt-title">The loop, scored</div>
+          <ul className="receipt-lines small">
+            <li className={receipt.took.length > 0 ? 'good' : ''}>
+              Free pieces taken: <b>{receipt.took.length}</b>
+              {receipt.took.length > 0 && ` (move ${receipt.took.join(', ')})`}
+              {receipt.missed.length > 0 && (
+                <> · left on the table: <b>{receipt.missed.length}</b> (move {receipt.missed.join(', ')})</>
+              )}
+            </li>
+            <li className={receipt.hung.length === 0 ? 'good' : 'bad'}>
+              {receipt.hung.length === 0
+                ? 'Pieces you hung: none. That is the whole style.'
+                : <>Pieces you hung: <b>{receipt.hung.length}</b> (move {receipt.hung.join(', ')})</>}
+            </li>
+            <li>
+              Book: <b>{receipt.bookMoves}</b> {receipt.bookMoves === 1 ? 'move' : 'moves'} of the {opening.name}.
+            </li>
+            {prevReceipt && (
+              <li className="small muted">
+                {receipt.hung.length < prevReceipt.hung.length
+                  ? `Last coached game you hung ${prevReceipt.hung.length} — this time ${receipt.hung.length}. The loop is landing.`
+                  : receipt.hung.length > prevReceipt.hung.length
+                    ? `Last coached game you hung ${prevReceipt.hung.length} — this time ${receipt.hung.length}. The safety check got skipped; slow that step down.`
+                    : `Hung ${receipt.hung.length}, same as last coached game. The number to beat next time.`}
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
