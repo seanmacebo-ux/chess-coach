@@ -15,8 +15,8 @@
  *
  * Everything means everything: all six Dexie tables (games with full PGNs,
  * every mistake with its tag, every puzzle attempt, tier progress, the
- * profile, the six section ratings) plus the localStorage trio (theme,
- * colour mode, training prefs). A backup that silently skipped one store
+ * profile, the six section ratings) plus the localStorage keys (theme,
+ * colour mode, training prefs, climb record). A backup that silently skipped one store
  * would be worse than none — you would trust it and it would lie.
  *
  * Restore is deliberately MERGE-shaped, not wipe-shaped: rows are bulkPut by
@@ -27,7 +27,7 @@
 
 import { db } from './db'
 
-const LOCAL_KEYS = ['cc.theme', 'cc.colour', 'cc.prefs'] as const
+const LOCAL_KEYS = ['cc.theme', 'cc.colour', 'cc.prefs', 'cc.climb'] as const
 
 /** Bumped if the shape ever changes, so restore can refuse what it cannot read. */
 const FORMAT = 1

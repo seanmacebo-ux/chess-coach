@@ -29,6 +29,16 @@
  * Deliberately NOT a streak that ends on one miss. Below 1000 a single miss is
  * usually a slip rather than a wall, and a mode that ejects you for it teaches
  * caution rather than calculation. Three misses ends the run.
+ *
+ * THE RUN SURVIVES THE APP. This all lived in React state at first, which on a
+ * phone meant: lock the screen, switch apps for a minute, come back — the PWA
+ * has reloaded and your run is gone, back to square one at your rating. Sean:
+ * "persistence in puzzles please". So the run is written to localStorage on
+ * every change and picked up exactly where it was on the next open — same
+ * difficulty, same solved count, same lives. When a run ends, its personal
+ * best and its ending difficulty are kept: the next climb STARTS where the
+ * last one ended rather than resetting to your rating, and the best-ever
+ * number is the one you are actually trying to beat.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -54,6 +64,41 @@ interface RunState {
   streak: number
 }
 
+/** What outlives the component: the live run, the all-time best, and where
+ *  the last run ended (so the next one starts there, not back at the rating). */
+interface ClimbStore {
+  run: RunState | null
+  bestEver: number
+  last: number | null
+}
+
+const STORE_KEY = 'cc.climb'
+
+function loadStore(): ClimbStore {
+  try {
+    const raw = localStorage.getItem(STORE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ClimbStore>
+      return {
+        run: parsed.run && typeof parsed.run.difficulty === 'number' ? parsed.run : null,
+        bestEver: typeof parsed.bestEver === 'number' ? parsed.bestEver : 0,
+        last: typeof parsed.last === 'number' ? parsed.last : null,
+      }
+    }
+  } catch {
+    // Unreadable state is the same as no state.
+  }
+  return { run: null, bestEver: 0, last: null }
+}
+
+function saveStore(store: ClimbStore) {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(store))
+  } catch {
+    // Storage full or blocked — the run still works, it just will not survive.
+  }
+}
+
 export interface ClimbProps {
   onExit: () => void
 }
@@ -63,6 +108,9 @@ export function Climb({ onExit }: ClimbProps) {
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null)
   const [loading, setLoading] = useState(true)
   const [over, setOver] = useState(false)
+  const [bestEver, setBestEver] = useState(0)
+  /** True while the game-over card is for a run that just set a new best. */
+  const [newBest, setNewBest] = useState(false)
   const seen = useRef<Set<string>>(new Set())
 
   /** Start from the tactics rating rather than the overall one — this is a
@@ -97,8 +145,19 @@ export function Climb({ onExit }: ClimbProps) {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const start = await startingPoint()
+      // startingPoint always runs — it also loads the seen-set — but the
+      // rating it returns only matters for a genuinely first-ever climb.
+      const ratingBase = await startingPoint()
       if (cancelled) return
+      const store = loadStore()
+      setBestEver(store.bestEver)
+      if (store.run && store.run.missed < MAX_MISSES) {
+        // A run was in flight when the app closed. Pick it up exactly.
+        setRun(store.run)
+        await serve(store.run.difficulty)
+        return
+      }
+      const start = store.last ?? ratingBase
       setRun({ difficulty: start, best: start, solved: 0, missed: 0, streak: 0 })
       await serve(start)
     })()
@@ -106,6 +165,25 @@ export function Climb({ onExit }: ClimbProps) {
       cancelled = true
     }
   }, [startingPoint, serve])
+
+  /** Every change to the live run goes straight to storage. */
+  useEffect(() => {
+    if (!run || over) return
+    const store = loadStore()
+    saveStore({ ...store, run })
+  }, [run, over])
+
+  const endRun = useCallback(
+    (finished: RunState) => {
+      const store = loadStore()
+      const best = Math.max(store.bestEver, finished.best)
+      setNewBest(finished.best > store.bestEver && store.bestEver > 0)
+      setBestEver(best)
+      saveStore({ run: null, bestEver: best, last: finished.difficulty })
+      setOver(true)
+    },
+    [],
+  )
 
   const onSolved = useCallback(
     async (correct: boolean) => {
@@ -123,17 +201,21 @@ export function Climb({ onExit }: ClimbProps) {
       }
       setRun(next)
       if (next.missed >= MAX_MISSES) {
-        setOver(true)
+        endRun(next)
         return
       }
       await serve(difficulty)
     },
-    [run, serve],
+    [run, serve, endRun],
   )
 
   const restart = useCallback(async () => {
     setOver(false)
-    const start = await startingPoint()
+    setNewBest(false)
+    // Not startingPoint(): the whole point of persistence is that the next
+    // climb begins where the last one ended, not back at the rating.
+    const store = loadStore()
+    const start = store.last ?? (await startingPoint())
     setRun({ difficulty: start, best: start, solved: 0, missed: 0, streak: 0 })
     await serve(start)
   }, [startingPoint, serve])
@@ -143,14 +225,18 @@ export function Climb({ onExit }: ClimbProps) {
   if (over) {
     return (
       <div className="stack">
-        <ClimbBar run={run} />
+        <ClimbBar run={run} bestEver={bestEver} />
         <div className="feature">
-          <div className="feature-title">You got to {run.best}</div>
+          <div className="feature-title">
+            {newBest ? `New personal best — ${run.best}` : `You got to ${run.best}`}
+          </div>
           <p className="feature-body">
-            {run.solved} solved before three misses. {' '}
-            {run.best > run.difficulty + 60
-              ? 'That is above where you started — the ceiling is higher than the rating says.'
-              : 'Run it again tomorrow and try to beat the number.'}
+            {run.solved} solved before three misses.{' '}
+            {newBest
+              ? 'That is the highest you have ever climbed. It is saved — next time the number to beat is yours.'
+              : bestEver > run.best
+                ? `Your best is still ${bestEver}. The next climb starts from ${run.difficulty}, right where this one ended.`
+                : 'Run it again tomorrow and try to beat the number.'}
           </p>
           <div className="row" style={{ gap: 8, marginTop: 12 }}>
             <button className="chip solid" onClick={() => void restart()}>
@@ -167,7 +253,7 @@ export function Climb({ onExit }: ClimbProps) {
 
   return (
     <div className="stack">
-      <ClimbBar run={run} />
+      <ClimbBar run={run} bestEver={bestEver} />
       {loading || !puzzle ? (
         <div className="card">
           {loading ? 'Finding one at ' + run.difficulty + '…' : 'No puzzles left at this level.'}
@@ -185,7 +271,7 @@ export function Climb({ onExit }: ClimbProps) {
   )
 }
 
-function ClimbBar({ run }: { run: RunState }) {
+function ClimbBar({ run, bestEver }: { run: RunState; bestEver: number }) {
   return (
     <div className="climb">
       <div className="climb-main">
@@ -208,6 +294,13 @@ function ClimbBar({ run }: { run: RunState }) {
         <span>
           <b>{run.best}</b> best
         </span>
+        {/* All-time, across every run — the number persistence exists for.
+            Hidden until there has been at least one finished run. */}
+        {bestEver > 0 && (
+          <span>
+            <b>{bestEver}</b> record
+          </span>
+        )}
         <span>
           <b>{run.solved}</b> solved
         </span>
