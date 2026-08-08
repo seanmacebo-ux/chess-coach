@@ -3924,3 +3924,14 @@ button.back {
   text-transform: uppercase;
   color: var(--accent-hi);
 }
+
+/* The ladder's rules of the game, said once above the rows. */
+.wall-how {
+  margin: 2px 0 6px;
+  line-height: 1.5;
+}
+
+.climb-floor {
+  flex-basis: 100%;
+  margin-top: 4px;
+}

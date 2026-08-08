@@ -192,6 +192,18 @@ function ClimbBar({ run }: { run: RunState }) {
         <span className="climb-num">{run.difficulty}</span>
         <span className="climb-cap">difficulty</span>
       </div>
+      {/*
+        Sean's screenshot: difficulty 409, puzzle "rated 655" — an unexplained
+        mismatch that reads as a bug. It is the corpus floor: the easiest
+        puzzles that exist are ~600, so below that the number you are climbing
+        and the number on the puzzle differ. Say so, exactly when it happens.
+      */}
+      {run.difficulty < CORPUS_FLOOR && (
+        <span className="small muted climb-floor">
+          The easiest puzzles are rated ~{CORPUS_FLOOR}, so they sit above your difficulty for
+          now — solving pulls your number up to meet them.
+        </span>
+      )}
       <div className="climb-stats">
         <span>
           <b>{run.best}</b> best

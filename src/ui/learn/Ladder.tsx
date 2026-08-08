@@ -35,6 +35,18 @@ export function Ladder({ tiers, byId, rating }: LadderProps) {
         </span>
       </div>
 
+      {/*
+        The rules, stated where the levels live. Sean asked "how do I move on"
+        — which means every number below was showing without saying what makes
+        it move. Three sentences, because there are exactly three mechanics:
+        clearing (solving), unlocking (rating), and rating (games).
+      */}
+      <p className="wall-how small muted">
+        Solve a level's puzzles to clear it — each shows its target, like "15 at 90%". Levels above
+        you unlock when your <b>rating</b> reaches their number, and your rating moves by playing
+        games — the bots here, or your imported chess.com games. Train to clear, play to unlock.
+      </p>
+
       <div className="wall-rows">
         {tiers.map((t) => {
           const s = byId.get(t.id)
@@ -55,7 +67,7 @@ export function Ladder({ tiers, byId, rating }: LadderProps) {
                   {state === 'done'
                     ? 'cleared'
                     : state === 'now'
-                      ? `${solved}/${t.clear.solved}`
+                      ? `${solved}/${t.clear.solved} at ${Math.round(t.clear.accuracy * 100)}%`
                       : state === 'later'
                         ? `unlocks at ${t.band[0]}`
                         : 'revisit any time'}
