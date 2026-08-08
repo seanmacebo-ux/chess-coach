@@ -100,7 +100,7 @@ export const PLANS: MiddlegamePlan[] = [
       {
         label: 'Knight to f1, then g3',
         detail:
-          'The b1-knight has nowhere good on c3 — it would block the c-pawn that supports d4. Nbd2–f1–g3 takes four moves and ends up on the square that actually matters.',
+          'The b1-knight\'s natural square is occupied by your own pawn — c3 was played precisely to support the d4 break. So it goes the long way round: Nbd2–f1–g3, four moves to reach the square that actually matters.',
       },
       {
         label: 'Keep the light bishop, then push',
@@ -111,7 +111,17 @@ export const PLANS: MiddlegamePlan[] = [
     moves: [
       { san: 'Re1', why: 'Behind the e-pawn, before the file exists. This is the move people play last and should play first.' },
       { san: 'Re8' },
-      { san: 'Nbd2', why: 'Not Nc3 — that knight would sit in front of the c-pawn you need for d4. Route it the long way instead.' },
+      {
+        san: 'Nbd2',
+        /*
+         * The previous text here said "Not Nc3 — that knight would sit in
+         * front of the c-pawn". Nc3 is not a move in this position: c3 is
+         * occupied by your OWN pawn, played on move four. That was generic
+         * Italian wisdom imported from a position where it applies, attached
+         * to one where it does not — found by the prose lint, not by a human.
+         */
+        why: 'The knight\'s natural square is gone — your own pawn took c3 on move four, and that was the point of it. So the knight takes the long road: d2 now, f1 and g3 later.',
+      },
       { san: 'h6' },
       { san: 'Nf1', why: 'Step two of the journey. Slow, and the position is closed enough to afford it.' },
       { san: 'Be6' },

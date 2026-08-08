@@ -32,6 +32,8 @@
 import { Chess } from 'chess.js'
 import { NodeEngine } from './lib/engine-node'
 import { allLines, type OpeningLine, type Side } from '../src/content/openings'
+import { coachFor } from '../src/content/coaching'
+import { expandTolerance, moveLegalSomewhere, namedMoves } from './lib/prose-moves'
 import { lineScore } from '../src/engine/types'
 
 const args = process.argv.slice(2)
@@ -91,6 +93,40 @@ async function main() {
       problems.push({ where, detail: illegal })
       rows.push(`  ✗ ${where.padEnd(34)} ILLEGAL — ${illegal}`)
       continue
+    }
+
+    /* --- the prose, held to the board --------------------------------- */
+    /*
+     * `when`, `answer`, and every hand-written coaching note for this line:
+     * any SAN they mention must be a legal move somewhere along the line (for
+     * either side, or one reply deep). This is the layer both trapped-queen
+     * errors lived in — confident sentences about moves that do not exist —
+     * and the coaching file is where the app's oldest such error ("...Nf6
+     * gives f7 a second defender") was written. Named moves are checkable;
+     * these now are.
+     */
+    const replayForProse = new Chess()
+    const linePositions: string[] = [replayForProse.fen()]
+    for (const san of line.moves) {
+      replayForProse.move(san)
+      linePositions.push(replayForProse.fen())
+    }
+    const proseScope = expandTolerance(linePositions)
+    const lintProse = (text: string | undefined, label: string) => {
+      if (!text) return
+      for (const san of namedMoves(text)) {
+        if (!moveLegalSomewhere(san, proseScope)) {
+          problems.push({
+            where,
+            detail: `${label} names "${san}", which is never a legal move anywhere in this line`,
+          })
+        }
+      }
+    }
+    lintProse(line.when, 'when')
+    lintProse(line.answer, 'answer')
+    for (let ply = 0; ply < line.moves.length; ply++) {
+      lintProse(coachFor(opening.id, line.id, ply)?.why, `coaching at ply ${ply}`)
     }
 
     /* --- blunder field ------------------------------------------------ */

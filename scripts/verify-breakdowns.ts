@@ -30,6 +30,14 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Chess } from 'chess.js'
 import { BREAKDOWNS } from '../src/content/breakdowns'
+import {
+  countHoldsSomewhere,
+  countingScope,
+  expandTolerance,
+  moveLegalSomewhere,
+  movesClaimNumbers,
+  namedMoves,
+} from './lib/prose-moves'
 import { hydrate, type RawPuzzle } from '../src/data/puzzles'
 
 const PUZZLE_DIR = resolve(import.meta.dirname, '../public/puzzles')
@@ -92,107 +100,55 @@ for (const b of BREAKDOWNS) {
   const before = material(board, board.turn())
   const solverColour = board.turn()
 
-  /* --- line, and the moves the PROSE names ---------------------------- */
+  /* --- line, and every claim the PROSE makes -------------------------- */
   /*
-   * The prose check exists because of a real failure. The trapped-queen
-   * breakdown told you the queen "has to run" and that h4 was "the only square
-   * left on the file". She had seven moves, two of them checks and one of them
-   * taking the rook. Sean spotted it playing the drill; the verifier had passed
-   * it, because every mechanical claim WAS true — the line replayed, the
-   * material swing was real — and the reasoning was fiction.
+   * The prose checks exist because of two real failures in one sitting. The
+   * trapped-queen breakdown told you the queen "has to run" when she had seven
+   * moves, and the FIX then reasoned about "Ke1 or Ke2" in a position with two
+   * legal moves. Sean caught both; the verifier passed both, because every
+   * mechanical claim was true and only the reasoning was fiction.
    *
-   * Then, fixing it, I wrote that "Ke1 or Ke2 walk into the same ideas". White
-   * has exactly two legal moves in that position and neither is Ke1 or Ke2.
-   * Twice in one sitting, in prose no mechanical check could see.
+   * So the prose is now held to the board on two axes (scripts/lib/prose-moves):
    *
-   * So: any move-shaped token in `setup` or a step's `why` must be a LEGAL move
-   * in the position that text is attached to. It cannot check that a reason is
-   * good. It can check that the moves being reasoned about exist, which is the
-   * half that was inventing itself.
+   *   NAMED MOVES  — any SAN in the text must be legal in the position the
+   *                  text is about, for either side, or after one reply.
+   *                  Explanations legitimately reason one ply deep ("Kf1
+   *                  allows Qxh1 mate"), so the scope is exactly that wide.
+   *
+   *   COUNTS       — "seven moves", "exactly two legal moves", "the only
+   *                  move" must equal a real total or a real single piece's
+   *                  move count in the attached position. Kept TIGHT (no
+   *                  one-ply widening) or some piece somewhere always
+   *                  matches and the check goes vacuous.
+   *
+   * The takeaway is checked against every position in the line, because it is
+   * retrospective — "here Kf1 loses instantly" refers to the start, and it is
+   * read at the end.
    */
-  const namedMoves = (text: string): string[] => {
-    // SAN, loose enough to catch castling and promotions, anchored on word
-    // boundaries so "h4" as a square and "Rxh4" as a move are told apart —
-    // only the piece-led and pawn-capture forms are treated as moves.
-    const re = /\b(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|[a-h]x[a-h][1-8](?:=[QRBN])?[+#]?)\b/g
-    return [...new Set(text.match(re) ?? [])]
-  }
+  const linePositions: string[] = [board.fen()]
 
-  /*
-   * A named move counts as real if it is legal in the position the text is
-   * about, OR for the other side in that same position, OR after any single
-   * legal reply.
-   *
-   * That breadth is not slack, it is what the prose actually does: an
-   * explanation says "Kf1 allows Qxh1 mate" — Kf1 is White's, Qxh1 is Black's
-   * answer to it, and neither is playable by the side to move right now. A
-   * checker that only looked at the immediate position would reject every
-   * variation ever written, which is most of what a breakdown IS.
-   *
-   * It still catches the thing it was built for: "Ke1 or Ke2" is not legal now,
-   * not legal for the other side, and not legal after any reply.
-   *
-   * What it CANNOT catch is a semantic claim about real moves — "h4 is the only
-   * square left" names a legal move and is still false. That one needs a human,
-   * or an engine, or Sean.
-   */
-  const reachable = (fen: string): string[] => {
-    const out = [fen]
-    const parts = fen.split(' ')
-    const flipped = [...parts]
-    flipped[1] = parts[1] === 'w' ? 'b' : 'w'
-    // Flipping can produce a position chess.js rejects (side not to move in
-    // check); that is fine, it just does not join the set.
-    try {
-      out.push(new Chess(flipped.join(' ')).fen())
-    } catch {
-      /* not a legal position to flip into */
-    }
-    for (const base of [...out]) {
-      let moves: string[] = []
-      try {
-        moves = new Chess(base).moves()
-      } catch {
-        continue
-      }
-      for (const m of moves) {
-        try {
-          const b2 = new Chess(base)
-          b2.move(m)
-          out.push(b2.fen())
-        } catch {
-          /* skip */
-        }
-      }
-    }
-    return out
-  }
-
-  const checkProse = (text: string, fen: string, label: string) => {
-    const named = namedMoves(text)
-    if (named.length === 0) return
-    const positions = reachable(fen)
-    for (const san of named) {
-      const legal = positions.some((f) => {
-        try {
-          return Boolean(new Chess(f).move(san))
-        } catch {
-          return false
-        }
-      })
-      if (!legal) {
+  const checkProse = (text: string, fens: string[], label: string) => {
+    const wide = expandTolerance(fens)
+    for (const san of namedMoves(text)) {
+      if (!moveLegalSomewhere(san, wide)) {
         fail(where, `${label} names "${san}", which is not a legal move there or after any reply`)
       }
     }
+    const tight = fens.flatMap((f) => countingScope(f))
+    for (const n of movesClaimNumbers(text)) {
+      if (!countHoldsSomewhere(n, tight)) {
+        fail(where, `${label} claims "${n} moves", and nothing in that position has ${n} moves`)
+      }
+    }
   }
 
-  checkProse(b.setup, board.fen(), 'setup')
+  checkProse(b.setup, [board.fen()], 'setup')
 
   let broke = false
   for (const [i, step] of b.steps.entries()) {
     // The reason is written ABOUT the position the move is played from, so it
     // is checked before the move is applied.
-    checkProse(step.why, board.fen(), `step ${i + 1} ("${step.san}")`)
+    checkProse(step.why, [board.fen()], `step ${i + 1} ("${step.san}")`)
     try {
       if (!board.move(step.san)) {
         fail(where, `step ${i + 1} "${step.san}" was rejected`)
@@ -204,7 +160,10 @@ for (const b of BREAKDOWNS) {
       broke = true
       break
     }
+    linePositions.push(board.fen())
   }
+  if (!broke) checkProse(b.takeaway, linePositions, 'takeaway')
+
   if (broke) continue
 
   /* --- outcome ------------------------------------------------------ */

@@ -36,6 +36,7 @@ import type { Square } from 'chess.js'
 import { NodeEngine } from './lib/engine-node'
 import { PLANS, planBase, type MiddlegamePlan } from '../src/content/middlegame'
 import { lineScore } from '../src/engine/types'
+import { expandTolerance, moveLegalSomewhere, namedMoves } from './lib/prose-moves'
 
 const args = process.argv.slice(2)
 const depthArg = args.indexOf('--depth')
@@ -135,6 +136,7 @@ async function checkPlan(engine: NodeEngine, plan: MiddlegamePlan) {
   /* --- legal, and sound ----------------------------------------------- */
   let worst: { san: string; loss: number; best: string } | null = null
   let checked = 0
+  const linePositions: string[] = [board.fen()]
 
   for (const [i, move] of plan.moves.entries()) {
     const yours = youMoveFirst ? i % 2 === 0 : i % 2 === 1
@@ -169,7 +171,46 @@ async function checkPlan(engine: NodeEngine, plan: MiddlegamePlan) {
       rows.push(`  ✗ ${where.padEnd(22)} ILLEGAL — ${detail}`)
       return
     }
+    linePositions.push(board.fen())
   }
+
+  /*
+   * Every claim the PROSE makes must survive the board.
+   *
+   * These plans are the most explanation-dense content in the app — a brief,
+   * three steps, and a reason per move, all hand-written — and until now none
+   * of that text was checked against anything. The trapped-queen episode
+   * showed exactly how that goes wrong: confident sentences about moves that
+   * do not exist, caught by Sean rather than by tooling.
+   *
+   * Scope is the WHOLE line plus flips and one-ply replies, because a brief
+   * legitimately talks about moves that only become legal later ("the pawn
+   * wants f4" is written before the bishop has stepped out of its way), and
+   * about the opponent's ideas ("...cxd4 and counterplay down the c-file").
+   *
+   * No counting-claim check here on purpose: plan prose uses "moves" for
+   * tempo ("Nbd2–f1–g3 takes four moves"), which is a journey, not a legal-
+   * move count, and holding it to the wrong ruler would flag true sentences.
+   */
+  const proseScope = expandTolerance(linePositions)
+  const lintProse = (text: string, label: string) => {
+    for (const san of namedMoves(text)) {
+      if (!moveLegalSomewhere(san, proseScope)) {
+        problems.push({
+          where,
+          detail: `${label} names "${san}", which is never a legal move anywhere in this plan`,
+        })
+      }
+    }
+  }
+
+  lintProse(plan.structure, 'structure')
+  lintProse(plan.theirPlan, 'theirPlan')
+  for (const [i, st] of plan.steps.entries()) lintProse(`${st.label}. ${st.detail}`, `step ${i + 1}`)
+  for (const [i, m] of plan.moves.entries()) {
+    if (m.why) lintProse(m.why, `move ${i + 1} ("${m.san}")`)
+  }
+  lintProse(plan.takeaway, 'takeaway')
 
   const mark = problems.some((p) => p.where === where) ? '✗' : '✓'
   const w = worst
