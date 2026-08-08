@@ -12,6 +12,8 @@
 
 import { Chess } from 'chess.js'
 import { recordFinishedGame, outcomeOf } from '../../src/coach/record'
+import { fetchRecentGames, importGames } from '../../src/data/chesscom'
+import { computeWeaknesses } from '../../src/coach/profile'
 import { db, getProfile, saveProfile } from '../../src/data/db'
 
 const out = document.getElementById('out')!
@@ -116,6 +118,78 @@ async function main() {
   }
   const after2 = await getProfile()
   if (!(after2.rating > before2.rating)) throw new Error('rating did not rise after a win')
+
+  /*
+   * The chess.com import, end to end, against a stubbed API.
+   *
+   * This path has NEVER been exercised. It was written and reconstructed from
+   * call sites, and api.chess.com is unreachable from the build sandbox, so
+   * the first time it would have run for real is on Sean's phone — which is
+   * the worst place to discover a parsing bug.
+   *
+   * fetch is stubbed with the actual shape chess.com returns: an archives
+   * index, then a month of games with the per-side result strings and the
+   * [Link] header that dedup depends on.
+   */
+  const realFetch = globalThis.fetch
+  const mkGame = (n: number, youWhite: boolean, yourResult: string, theirResult: string) => ({
+    url: `https://www.chess.com/game/live/${n}`,
+    rules: 'chess',
+    rated: true,
+    time_class: 'rapid',
+    end_time: 1_780_000_000 + n,
+    white: { username: youWhite ? 'dugnificent' : 'someone', result: youWhite ? yourResult : theirResult, rating: 316 },
+    black: { username: youWhite ? 'someone' : 'dugnificent', result: youWhite ? theirResult : yourResult, rating: 402 },
+    pgn: `[Event "Live Chess"]\n[Link "https://www.chess.com/game/live/${n}"]\n\n1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0`,
+  })
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.endsWith('/games/archives')) {
+      return new Response(JSON.stringify({ archives: ['https://api.chess.com/pub/player/dugnificent/games/2026/08'] }), { status: 200 })
+    }
+    if (url.includes('/games/2026/08')) {
+      return new Response(JSON.stringify({
+        games: [
+          mkGame(1, true, 'win', 'checkmated'),
+          mkGame(2, false, 'resigned', 'win'),
+          mkGame(3, true, 'stalemate', 'stalemate'),
+          // must be dropped: a variant
+          { ...mkGame(4, true, 'win', 'resigned'), rules: 'bughouse' },
+          // must be dropped: not their game
+          { ...mkGame(5, true, 'win', 'resigned'), white: { username: 'other', result: 'win' }, black: { username: 'nobody', result: 'resigned' } },
+        ],
+      }), { status: 200 })
+    }
+    return new Response('not found', { status: 404 })
+  }) as typeof fetch
+
+  try {
+    const games = await fetchRecentGames('dugnificent', { max: 20 })
+    log(`\nchess.com     fetched ${games.length} games (expect 3 — variant and not-mine dropped)`)
+    if (games.length !== 3) throw new Error(`fetchRecentGames returned ${games.length}, expected 3`)
+
+    const results = games.map((g) => g.result).sort().join(',')
+    log(`results       ${results} (expect draw,loss,win)`)
+    if (results !== 'draw,loss,win') throw new Error(`results wrong: ${results}`)
+
+    const gamesBefore = await db.games.count()
+    const first = await importGames(games)
+    log(`import        added ${first.added}, skipped ${first.skipped}`)
+    if (first.added !== 3) throw new Error(`expected 3 added, got ${first.added}`)
+    if ((await db.games.count()) !== gamesBefore + 3) throw new Error('rows not written')
+
+    // Importing the same games again must add nothing — dedup on the [Link]
+    // header. Without this, every import doubles your history.
+    const second = await importGames(games)
+    log(`re-import     added ${second.added}, skipped ${second.skipped} (expect 0 added)`)
+    if (second.added !== 0) throw new Error(`re-import added ${second.added}, dedup is broken`)
+
+    const w = await computeWeaknesses(5)
+    log(`weaknesses    ${w.length} tags from the mistake log`)
+  } finally {
+    globalThis.fetch = realFetch
+  }
 
   log('\nOK')
 }
