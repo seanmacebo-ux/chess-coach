@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react'
 import { Chess } from 'chess.js'
 import type { Key } from 'chessground/types'
 import { Board } from './Board'
+import { sanArrow } from './arrows'
 import type { Breakdown } from '../content/breakdowns'
 
 export interface BreakdownViewProps {
@@ -46,6 +47,14 @@ export function BreakdownView({ breakdown, onPractise, onBack }: BreakdownViewPr
   const done = step >= breakdown.steps.length
   const current = step > 0 ? breakdown.steps[step - 1] : null
   const next = breakdown.steps[step]
+
+  /*
+   * The next move is drawn on the board BEFORE you tap it. The button already
+   * said "Play Rh8+"; now the arrow says it in board language, so the step
+   * through the sequence is watched on the squares rather than decoded from
+   * notation. This is the difference Sean asked for.
+   */
+  const shapes = useMemo(() => (next ? sanArrow(fen, next.san) : []), [fen, next])
 
   /*
    * Takes the screen, same as the opening trainer and for the same reason:
@@ -82,6 +91,7 @@ export function BreakdownView({ breakdown, onPractise, onBack }: BreakdownViewPr
         turn={null}
         playable={null}
         lastMove={lastMove}
+        shapes={shapes}
         onMove={() => {}}
       />
 

@@ -35,6 +35,7 @@ import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import type { Key } from 'chessground/types'
 import { Board } from './Board'
+import { sanArrow } from './arrows'
 import { coachFor } from '../content/coaching'
 import { EngineOpponent } from '../engine/opponent'
 import { getEngine } from '../engine/uci'
@@ -436,6 +437,16 @@ export function OpeningTrainer({
   const yourTurn = phase === 'yours' && !finished && isYours(ply)
 
   /*
+   * When the drill is telling you the move — a hint, or the retry after a
+   * wrong one — it now also draws it. "It is Nf3" made you translate
+   * notation; the arrow is the move itself.
+   */
+  const shapes = useMemo(() => {
+    if (mode !== 'book' || !yourTurn || !expected) return []
+    return hint || misses > 0 ? sanArrow(fen, expected) : []
+  }, [mode, yourTurn, expected, hint, misses, fen])
+
+  /*
    * Fixed overlay rather than an inline swap.
    *
    * The trainer lives inside the openings SECTION, which lives inside Learn's
@@ -466,6 +477,7 @@ export function OpeningTrainer({
         playable={mode === 'playon' ? (playOnYourTurn ? side : null) : yourTurn ? side : null}
         lastMove={lastMove}
         check={chess.current.isCheck()}
+        shapes={shapes}
         onMove={onMove}
       />
 

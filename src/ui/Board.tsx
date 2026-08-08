@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react'
 import { Chessground } from 'chessground'
 import type { Api } from 'chessground/api'
 import type { Config } from 'chessground/config'
+import type { DrawShape } from 'chessground/draw'
 import type { Key } from 'chessground/types'
 import { loadPrefs } from '../data/settings'
 
@@ -26,6 +27,15 @@ export interface BoardProps {
   playable: 'white' | 'black' | 'both' | null
   lastMove?: [Key, Key] | undefined
   check?: boolean
+  /**
+   * Arrows and square highlights drawn ON the board — chessground's autoShapes.
+   *
+   * This is how the app teaches visually instead of verbally. Sean asked for
+   * it in as many words: "rather than words teach me the moves and show me the
+   * arrows". A hint that says "It is Nf3" makes you translate notation; an
+   * arrow from g1 to f3 is the move itself. Same drawable layer lichess uses.
+   */
+  shapes?: DrawShape[]
   onMove: (from: Key, to: Key) => void
 }
 
@@ -58,6 +68,9 @@ export function Board(props: BoardProps) {
       draggable: { enabled: true, showGhost: true },
       // Touch: tapping a piece then a square must work as well as dragging.
       selectable: { enabled: true },
+      // The user never draws; the coach does. eraseOnClick would wipe the
+      // coach's arrows the moment you tap a piece to move it.
+      drawable: { enabled: false, visible: true, eraseOnClick: false },
     }
     api.current = Chessground(el.current, config)
     return () => {
@@ -83,6 +96,7 @@ export function Board(props: BoardProps) {
         showDests: true,
       },
     })
+    cg.setAutoShapes(props.shapes ?? [])
   }, [
     props.fen,
     props.orientation,
@@ -91,6 +105,7 @@ export function Board(props: BoardProps) {
     props.dests,
     props.lastMove,
     props.check,
+    props.shapes,
   ])
 
   return (

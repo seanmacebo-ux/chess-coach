@@ -24,6 +24,7 @@ import { Chess } from 'chess.js'
 import type { Key } from 'chessground/types'
 
 import { Board } from '../Board'
+import { uciArrow } from '../arrows'
 import { applyUci, toDests } from '../../chess/game'
 import { getEngine } from '../../engine/uci'
 import { recordTierAttempt } from '../../coach/profile'
@@ -143,7 +144,13 @@ export function PositionalRunner({ position, tierId = null, onDone }: Positional
         setFen(chess.current.fen())
         setLastMove([keyFrom as Key, keyTo as Key])
         setFoundIt(true)
-        setNote(position.why)
+        /*
+         * One line, not the essay. This used to be `position.why`, the same
+         * paragraph the "Why this position matters" card renders directly
+         * below — Sean screenshotted the page saying the identical text twice.
+         * The coach cell confirms and points down; the why card explains.
+         */
+        setNote('You found it. The full story is below — now play the plan out.')
         void engineReply()
         return
       }
@@ -176,7 +183,7 @@ export function PositionalRunner({ position, tierId = null, onDone }: Positional
     setFen(chess.current.fen())
     setLastMove([keyFrom as Key, keyTo as Key])
     setFoundIt(false) // shown, not found — recorded as needing the hint
-    setNote(position.why)
+    setNote('There it is. The full story is below — now play the plan out.')
     void engineReply()
   }, [phase, position, keyFrom, keyTo, engineReply])
 
@@ -193,6 +200,16 @@ export function PositionalRunner({ position, tierId = null, onDone }: Positional
     startedAt.current = Date.now()
     recorded.current = false
   }, [position])
+
+  /*
+   * "Show me the idea" now SHOWS it: the key move as an arrow on the board,
+   * not a sentence to decode. The verifier upstream guarantees the move is
+   * legal and sound, so the arrow can be trusted blind.
+   */
+  const shapes = useMemo(
+    () => (phase === 'find' && hintOpen ? uciArrow(position.keyMove) : []),
+    [phase, hintOpen, position.keyMove],
+  )
 
   const dests = useMemo(
     () => (phase === 'find' || phase === 'playing' ? toDests(chess.current) : new Map<Key, Key[]>()),
@@ -223,11 +240,17 @@ export function PositionalRunner({ position, tierId = null, onDone }: Positional
         playable={phase === 'find' || phase === 'playing' ? yourColour : null}
         lastMove={lastMove}
         check={chess.current.isCheck()}
+        shapes={shapes}
         onMove={onMove}
       />
 
       {/* -------------------------------------------------- the coach */}
-      <div className={'card verdict ' + (done ? (foundIt ? 'solved' : 'shown') : foundIt ? 'solved' : '')}>
+      {/* stack, because .verdict is a flex ROW — its two children rendered
+          side by side, wedging the plan into a ten-character column. */}
+      <div
+        className={'card verdict stack ' + (done ? (foundIt ? 'solved' : 'shown') : foundIt ? 'solved' : '')}
+        style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}
+      >
         {phase === 'find' && (
           <div>
             <strong>{position.name}.</strong>{' '}

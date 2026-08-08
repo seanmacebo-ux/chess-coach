@@ -28,6 +28,7 @@ import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import type { Key } from 'chessground/types'
 import { Board } from './Board'
+import { sanArrow } from './arrows'
 import { EngineOpponent } from '../engine/opponent'
 import { getEngine } from '../engine/uci'
 import { lineScore } from '../engine/types'
@@ -215,6 +216,12 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
     !chess.current.isGameOver()
 
   const yourTurn = stage === 'playing' && !finished && isYours(ply)
+
+  /** The hint, drawn instead of merely named — same rule as the opening trainer. */
+  const shapes = useMemo(() => {
+    if (stage !== 'playing' || !yourTurn || !expected) return []
+    return hint || misses > 0 ? sanArrow(fen, expected.san) : []
+  }, [stage, yourTurn, expected, hint, misses, fen])
 
   const dests = useMemo(() => {
     const map = new Map<Key, Key[]>()
@@ -468,6 +475,7 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
             playable={stage === 'playon' ? (playOnYourTurn ? plan.side : null) : yourTurn ? plan.side : null}
             lastMove={lastMove}
             check={chess.current.isCheck()}
+            shapes={shapes}
             onMove={onMove}
           />
 
