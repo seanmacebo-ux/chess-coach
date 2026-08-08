@@ -41,9 +41,11 @@ import { useMemo, useState } from 'react'
 import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import type { Key } from 'chessground/types'
+import type { DrawShape } from 'chessground/draw'
 import { Board } from '../Board'
 import { TAG_LABEL, type MoveAssessment, type Severity } from '../../coach/analysis'
-import { EvalMeter, oddsSwing } from '../EvalMeter'
+import { loosePieces } from '../../coach/exercises'
+import { EvalMeter, oddsSwing, winChance } from '../EvalMeter'
 
 const SEVERITY_LABEL: Record<Severity, string> = {
   best: 'Best',
@@ -53,23 +55,51 @@ const SEVERITY_LABEL: Record<Severity, string> = {
   blunder: 'Blunder',
 }
 
+const PIECE: Record<string, string> = {
+  p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
+}
+
 /**
- * Cost in the units people actually think in.
+ * The badge line, and every material claim in it is board-checked.
  *
- * `cpAfter` is checked first because material language is wrong for a mate:
- * Nf6 in the Scholar's Mate loses no material at all and the loss shows as
- * 1000cp, so "gave up a queen" was both inaccurate and less alarming than the
- * truth.
+ * The old version mapped centipawns to material words — 250cp became "gave up
+ * a piece" whether or not a piece changed hands. Sean caught it on a screen
+ * where Nxe6 TRADED knight for bishop, at 90% winning, labelled "Blunder —
+ * gave up a piece": two claims, both false in kind. Same rule as the prose
+ * verifiers now: say material only when the board shows material, otherwise
+ * say odds, which is what the engine actually measured.
  */
-function costInWords(lossCp: number, cpAfter?: number): string {
-  if (cpAfter !== undefined && cpAfter <= -900) return 'walked into a forced mate'
-  const pawns = lossCp / 100
-  if (pawns >= 8.5) return 'gave up a queen'
-  if (pawns >= 4.5) return 'gave up a rook'
-  if (pawns >= 2.5) return 'gave up a piece'
-  if (pawns >= 1.5) return `cost about ${Math.round(pawns)} pawns`
-  if (pawns >= 0.8) return 'cost about a pawn'
-  return 'cost a little'
+function verdictInWords(m: MoveAssessment): string {
+  if (m.cpPlayed <= -900) return 'walked into a forced mate'
+  if (m.tag === 'missed-mate') return 'missed a forced mate'
+
+  // Did the move actually leave something to be taken? Board logic, not cp.
+  try {
+    const after = new Chess(m.fen)
+    const mover = after.turn()
+    after.move({ from: m.uci.slice(0, 2), to: m.uci.slice(2, 4), promotion: m.uci[4] })
+    const was = new Set(loosePieces(m.fen, mover))
+    const newly = loosePieces(after.fen(), mover)
+      .filter((sq) => !was.has(sq))
+      .map((sq) => ({ sq, piece: after.get(sq) }))
+      .filter((x) => x.piece && x.piece.type !== 'p')
+    if (newly.length > 0) {
+      const val: Record<string, number> = { n: 3, b: 3, r: 5, q: 9 }
+      const worst = newly.sort((a, b) => (val[b.piece!.type] ?? 0) - (val[a.piece!.type] ?? 0))[0]!
+      return `left your ${PIECE[worst.piece!.type]} on ${worst.sq} hanging`
+    }
+  } catch {
+    /* unreplayable move — fall through to odds language */
+  }
+
+  if (m.tag === 'missed-free-material' && m.bestUci) {
+    const victim = new Chess(m.fen).get(m.bestUci.slice(2, 4) as Square)
+    if (victim) return `missed a free ${PIECE[victim.type]} on ${m.bestUci.slice(2, 4)}`
+  }
+
+  const drop = Math.round(winChance(m.cpBest) - winChance(m.cpPlayed))
+  if (m.cpPlayed >= 300) return 'you are still winning — the better move keeps more of it'
+  return `cost ${drop} points of winning chances`
 }
 
 export interface GameReviewProps {
@@ -231,24 +261,92 @@ function MistakeCard({
 }) {
   const uci = showing === 'better' && m.bestUci ? m.bestUci : m.uci
 
-  const { fen, lastMove } = useMemo(() => {
+  const { fen, lastMove, shapes, lineSan } = useMemo(() => {
     const board = new Chess(m.fen)
+    let mv
     try {
-      const mv = board.move({
+      mv = board.move({
         from: uci.slice(0, 2) as Square,
         to: uci.slice(2, 4) as Square,
         promotion: uci[4] ?? 'q',
       })
-      return {
-        fen: board.fen(),
-        lastMove: mv ? ([mv.from, mv.to] as [Key, Key]) : undefined,
-      }
     } catch {
       // Fall back to the position before the move rather than rendering
       // nothing — a board is still useful even if the move will not replay.
-      return { fen: m.fen, lastMove: undefined }
+      return { fen: m.fen, lastMove: undefined, shapes: [], lineSan: null }
     }
-  }, [m.fen, uci])
+    if (!mv) return { fen: m.fen, lastMove: undefined, shapes: [], lineSan: null }
+
+    /*
+     * "Show me the lines that you are seeing or I am missing" — Sean, looking
+     * at a bare verdict. So the engine's line is DRAWN, not asserted:
+     *
+     *   yours view  — the punishment: what best play does to the move you
+     *                 played (their moves red, your forced replies blue)
+     *   better view — the point: how the better move's line continues
+     *                 (their replies red, your follow-ups green)
+     *
+     * Arrows come from the stored PV, replayed move by move on a probe board;
+     * a pv move that fails to replay stops the drawing rather than drawing
+     * fiction. Older reviews analysed before PVs were stored draw nothing.
+     */
+    const pv = showing === 'better' ? (m.pvBest ?? []).slice(1) : (m.pvPunish ?? [])
+    const drawn: DrawShape[] = []
+    const sans: string[] = []
+    const probe = new Chess(board.fen())
+    for (let i = 0; i < pv.length; i++) {
+      const step = pv[i]!
+      let played
+      try {
+        played = probe.move({
+          from: step.slice(0, 2) as Square,
+          to: step.slice(2, 4) as Square,
+          promotion: step[4] ?? 'q',
+        })
+      } catch {
+        break
+      }
+      if (!played) break
+      sans.push(played.san)
+      // Their moves red; yours green on the line you missed, blue on the
+      // forced defence. Only the first two full moves become arrows — four
+      // arrows is a line, eight is spaghetti — but the words get the rest.
+      if (i < 4) {
+        drawn.push({
+          orig: played.from as Key,
+          dest: played.to as Key,
+          brush: i % 2 === 0 ? 'red' : showing === 'better' ? 'green' : 'blue',
+        })
+      }
+    }
+
+    /*
+     * Coverage: what the shown move's piece now reaches. Circles mark the
+     * enemy pieces it attacks from its new square — the "area" the move buys.
+     * chess.js only generates moves for the side to move, so the probe flips
+     * the turn back; a position that will not load that way just draws none.
+     */
+    try {
+      const parts = board.fen().split(' ')
+      parts[1] = mv.color
+      parts[3] = '-'
+      const flipped = new Chess(parts.join(' '))
+      for (const t of flipped.moves({ square: mv.to as Square, verbose: true })) {
+        if (t.captured) {
+          drawn.push({ orig: t.to as Key, brush: showing === 'better' ? 'paleGreen' : 'paleBlue' })
+        }
+      }
+    } catch {
+      /* no coverage circles for this one */
+    }
+
+    return {
+      fen: board.fen(),
+      lastMove: [mv.from, mv.to] as [Key, Key],
+      shapes: drawn,
+      lineSan: sans.length > 0 ? sans.join('  ') : null,
+    }
+  }, [m, uci, showing])
 
   const moveNumber = Math.floor(m.ply / 2) + 1
   const dots = m.ply % 2 === 0 ? '.' : '…'
@@ -262,6 +360,7 @@ function MistakeCard({
         turn={null}
         playable={null}
         lastMove={lastMove}
+        shapes={shapes}
         onMove={() => {}}
       />
 
@@ -301,8 +400,16 @@ function MistakeCard({
 
       <div className="line-brief">
         <div className={`eval-badge ${m.severity === 'blunder' ? 'danger' : m.severity === 'mistake' ? 'warn' : 'good'}`}>
-          {SEVERITY_LABEL[m.severity]} — {costInWords(m.lossCp, m.cpPlayed)}
+          {SEVERITY_LABEL[m.severity]} — {verdictInWords(m)}
         </div>
+        {lineSan && (
+          <p className="brief-when">
+            <span className="brief-key">{showing === 'better' ? 'The line' : 'What follows'}</span>{' '}
+            {showing === 'better'
+              ? `After ${m.bestSan}: ${lineSan} — the arrows on the board walk it.`
+              : `Best play punishes ${m.san} with ${lineSan} — drawn on the board.`}
+          </p>
+        )}
         <p className="brief-when">
           <span className="brief-key">Odds</span> {oddsSwing(m.cpBest, m.cpPlayed)}
         </p>

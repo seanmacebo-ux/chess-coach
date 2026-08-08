@@ -22,8 +22,11 @@ import { Chess } from 'chess.js'
 import type { DrawShape } from 'chessground/draw'
 import type { Key } from 'chessground/types'
 
+/** Chessground's default brush names — red joins the palette for "what punishes you". */
+export type Brush = 'green' | 'blue' | 'red' | 'yellow' | 'paleGreen' | 'paleBlue' | 'paleRed'
+
 /** The arrow for one SAN move in a position, or nothing if it is not legal. */
-export function sanArrow(fen: string, san: string, brush: 'green' | 'blue' = 'green'): DrawShape[] {
+export function sanArrow(fen: string, san: string, brush: Brush = 'green'): DrawShape[] {
   try {
     const board = new Chess(fen)
     const m = board.move(san)
@@ -35,7 +38,7 @@ export function sanArrow(fen: string, san: string, brush: 'green' | 'blue' = 'gr
 }
 
 /** An arrow straight from UCI squares — for engine moves already validated. */
-export function uciArrow(uci: string, brush: 'green' | 'blue' = 'green'): DrawShape[] {
+export function uciArrow(uci: string, brush: Brush = 'green'): DrawShape[] {
   if (uci.length < 4) return []
   return [{ orig: uci.slice(0, 2) as Key, dest: uci.slice(2, 4) as Key, brush }]
 }

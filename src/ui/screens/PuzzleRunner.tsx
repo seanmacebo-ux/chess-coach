@@ -430,7 +430,10 @@ export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }
       {!compact && (
         <div className="row spread">
           <span className="small muted">
-            Puzzle {index + 1} of {puzzles.length} · rated {puzzle.rating}
+            {/* rating 0 = a position from your own game, which has no puzzle
+                rating to state — see FixMistakes. */}
+            Puzzle {index + 1} of {puzzles.length}
+            {puzzle.rating > 0 ? ` · rated ${puzzle.rating}` : ''}
           </span>
           <span className="small muted">
             {solvedCount} solved · {points} pts

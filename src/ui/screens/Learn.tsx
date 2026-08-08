@@ -62,6 +62,7 @@ import {
   TacticsSection,
 } from '../learn/sections'
 import { CoachedGame } from './CoachedGame'
+import { FixMistakes } from './FixMistakes'
 
 /**
  * Ideas is a peer section, not a pillar — it has no tier ladder and no rating
@@ -125,6 +126,8 @@ export function Learn({
   const [view, setView] = useState<SectionKey | null>(null)
   /** The coached game takes the whole screen, from wherever it is started. */
   const [coached, setCoached] = useState(false)
+  /** So does the fix-your-own-games drill. */
+  const [fixing, setFixing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -158,6 +161,10 @@ export function Learn({
     return <CoachedGame rating={rating} onExit={() => setCoached(false)} />
   }
 
+  if (fixing) {
+    return <FixMistakes onExit={() => setFixing(false)} />
+  }
+
   if (view === null) {
     return (
       <Index
@@ -168,6 +175,7 @@ export function Learn({
         lessonsAtLevel={lessonsAtLevel}
         onOpen={setView}
         onCoached={() => setCoached(true)}
+        onFix={() => setFixing(true)}
       />
     )
   }
@@ -248,6 +256,7 @@ function Index({
   lessonsAtLevel,
   onOpen,
   onCoached,
+  onFix,
 }: {
   rating: number
   statuses: TierStatus[]
@@ -256,6 +265,7 @@ function Index({
   lessonsAtLevel: number
   onOpen: (k: SectionKey) => void
   onCoached: () => void
+  onFix: () => void
 }) {
   const cleared = statuses.filter((s) => s.cleared).length
   const openNow = statuses.filter((s) => s.inBand && !s.cleared).length
@@ -301,6 +311,20 @@ function Index({
           Your opening with arrows while the game follows it, then the loop on every move: what do
           they threaten, what hangs for free, is anything of yours loose. At the end the loop is
           scored — pieces taken, pieces hung, book moves — against your last coached game.
+        </span>
+      </button>
+
+      {/*
+        The other half of "make it about MY chess": the diagnosis says what you
+        miss, this is where you replay the exact positions you missed it in.
+        Generic puzzles train the pattern; these train the memory.
+      */}
+      <button className="coached-cta" onClick={onFix}>
+        <span className="coached-kicker">Your games, corrected</span>
+        <span className="coached-title">Fix your own mistakes</span>
+        <span className="small muted">
+          The exact positions from your games where a better move existed. Not somebody else's
+          puzzles — yours, until they stop beating you.
         </span>
       </button>
 

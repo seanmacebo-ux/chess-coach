@@ -13,6 +13,7 @@ import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import { getEngine } from '../engine/uci'
 import { lineScore, type UciMove } from '../engine/types'
+import { winChance } from '../ui/EvalMeter'
 
 export type Severity = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder'
 
@@ -88,6 +89,15 @@ export interface MoveAssessment {
   bestSan: string | null
   tag: MistakeTag | null
   phase: Phase
+  /**
+   * The lines behind the two numbers, so the review can DRAW them instead of
+   * asserting them. `pvBest` starts with the engine's move in the position you
+   * faced; `pvPunish` is the opponent's best play after the move you played.
+   * Both were always computed by the searches above — they were just thrown
+   * away, which is why the review could only say "trust me".
+   */
+  pvBest?: UciMove[]
+  pvPunish?: UciMove[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -145,12 +155,28 @@ function isFork(chess: Chess, to: Square): boolean {
   return targets.length >= 2 || (targets.length >= 1 && chess.isCheck())
 }
 
-function severityOf(loss: number): Severity {
-  if (loss < 10) return 'best'
-  if (loss < 50) return 'good'
-  if (loss < 100) return 'inaccuracy'
-  if (loss < 250) return 'mistake'
-  return 'blunder'
+/**
+ * Severity by ODDS, not centipawns. This used to be raw cp thresholds
+ * (100 = inaccuracy, 250 = blunder), which is wrong in exactly the games
+ * this app reviews: in a decided position the evaluation swings by hundreds
+ * of centipawns between moves that all win, so a player who was completely
+ * winning got branded "Blunder" for a move that left them at 90%. Sean
+ * caught it from the other end — a Today card reading "missed a tactic,
+ * 729 times in 30 days", a count no human earns; most of those rows were
+ * noise from won positions.
+ *
+ * Win-chance points fix both, because the logistic curve already knows that
+ * +500 → +300 is nothing and +100 → -100 is everything. The bands are
+ * Lichess's: a blunder costs 30+ points of winning chances, a mistake 20+,
+ * an inaccuracy 10+.
+ */
+function severityOf(lossCp: number, cpBest: number, cpPlayed: number): Severity {
+  if (lossCp < 10) return 'best'
+  const drop = winChance(cpBest) - winChance(cpPlayed)
+  if (drop >= 30) return 'blunder'
+  if (drop >= 20) return 'mistake'
+  if (drop >= 10) return 'inaccuracy'
+  return 'good'
 }
 
 /* ------------------------------------------------------------------ */
@@ -293,10 +319,12 @@ export async function analyseGame(
 
     let lossCp = 0
     let playedScore = bestScore
+    let pvPunish: UciMove[] = []
     if (!board.isGameOver()) {
       const after = await engine.analyse(board.fen(), { depth, multipv: 1 })
       const afterLine = after.lines[0]
       playedScore = afterLine ? clampEval(-lineScore(afterLine)) : bestScore
+      pvPunish = afterLine?.pv?.slice(0, 6) ?? []
       lossCp = Math.max(0, bestScore - playedScore)
     } else {
       // Checkmate delivered by the played move is the best possible outcome;
@@ -305,7 +333,7 @@ export async function analyseGame(
       lossCp = Math.max(0, bestScore - playedScore)
     }
 
-    const severity = severityOf(lossCp)
+    const severity = severityOf(lossCp, bestScore, playedScore)
     const phase = phaseOf(new Chess(fenBefore))
     const tag =
       severity === 'best' || severity === 'good'
@@ -325,6 +353,8 @@ export async function analyseGame(
       bestSan,
       tag,
       phase,
+      pvBest: bestLine?.pv?.slice(0, 6) ?? [],
+      pvPunish,
     })
 
     opts.onProgress?.(++done, mine)
