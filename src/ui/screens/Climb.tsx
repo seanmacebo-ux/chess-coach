@@ -177,6 +177,7 @@ export function Climb({ onExit }: ClimbProps) {
           key={puzzle.id}
           puzzles={[puzzle]}
           tierId={null}
+          compact
           onDone={({ solved }) => void onSolved(solved > 0)}
         />
       )}

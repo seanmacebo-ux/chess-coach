@@ -163,7 +163,12 @@ export function briefing(puzzle: Puzzle): Briefing {
 
   let objective: string
   if (board.isCheckmate()) {
-    objective = yourMoves === 1 ? 'Checkmate in one move' : `Checkmate in ${yourMoves} moves`
+    // "Mate in two", not "Checkmate in 2 moves" — the standard term, and the
+    // move count lives inside it, so the prompt line never says "one move"
+    // twice. Part of making the puzzle screen read like a chess app rather
+    // than a tutorial that never ends.
+    const W = ['zero', 'one', 'two', 'three', 'four', 'five'] as const
+    objective = `Mate in ${W[yourMoves] ?? yourMoves}`
   } else if (swing >= 8) {
     objective = 'Win the queen'
   } else if (swing >= 5) {

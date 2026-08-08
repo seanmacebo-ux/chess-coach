@@ -80,10 +80,12 @@ export interface PuzzleRunnerProps {
   puzzles: Puzzle[]
   /** Tier these count toward, if any. */
   tierId?: string | null
+  /** Hide the runner's own progress header — for hosts that already have one. */
+  compact?: boolean
   onDone: (result: { solved: number; total: number; points: number }) => void
 }
 
-export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerProps) {
+export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }: PuzzleRunnerProps) {
   const [index, setIndex] = useState(0)
   const puzzle = puzzles[index]
 
@@ -422,15 +424,19 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
 
   return (
     <div className="stack">
-      {/* ------------------------------------------------------ progress */}
-      <div className="row spread">
-        <span className="small muted">
-          Puzzle {index + 1} of {puzzles.length} · rated {puzzle.rating}
-        </span>
-        <span className="small muted">
-          {solvedCount} solved · {points} pts
-        </span>
-      </div>
+      {/* Progress chrome. Hidden in compact mode: the Climb wraps this runner
+          one puzzle at a time and has its own header, so "Puzzle 1 of 1" was
+          a second header saying less than the first. */}
+      {!compact && (
+        <div className="row spread">
+          <span className="small muted">
+            Puzzle {index + 1} of {puzzles.length} · rated {puzzle.rating}
+          </span>
+          <span className="small muted">
+            {solvedCount} solved · {points} pts
+          </span>
+        </div>
+      )}
 
       {/* ------------------------------------------------- what this is */}
       <div className="card cat">
@@ -461,8 +467,15 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
           <div>
             <strong>{brief.objective}.</strong>{' '}
             <span className="muted">
-              {puzzle.colour === 'white' ? 'White' : 'Black'} to play,{' '}
-              {brief.yourMoves === 1 ? 'one move' : `${brief.yourMoves} moves`}.
+              {puzzle.colour === 'white' ? 'White' : 'Black'} to play
+              {/* Mate objectives already carry their move count; repeating it
+                  produced "Checkmate in one move ... one move". Only the
+                  non-mate lines need the length stated. */}
+              {brief.objective.startsWith('Mate')
+                ? '.'
+                : brief.yourMoves === 1
+                  ? ', one move.'
+                  : ` — the line runs ${brief.yourMoves} of your moves.`}
             </span>
             {hintSquare && (
               <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
@@ -530,27 +543,13 @@ export function PuzzleRunner({ puzzles, tierId = null, onDone }: PuzzleRunnerPro
       </div>
 
       {/*
-        The haystack size — two separate numbers, and conflating them read as
-        nonsense: with 3 legal moves and a 4-move solution the old copy said
-        "4 of them in sequence", i.e. four of the three. Legal moves are how
-        many you can play RIGHT NOW; solution length is how far the line runs.
+        The legal-moves card used to sit here on every puzzle, permanently:
+        "32 legal moves right now — that is everything you are allowed to play
+        this turn". Read once it is a teaching aid; read on every puzzle it is
+        the app explaining chess to you mid-solve, and it was most of why the
+        screen felt unsophisticated. Deleted rather than tucked away — the
+        category card above already says what is being trained.
       */}
-      {!done && (
-        <div className="card small muted">
-          <strong style={{ color: 'var(--text)' }}>{brief.legalMoves} legal moves</strong> right
-          now — that is everything you are allowed to play this turn, and exactly one of them
-          starts the solution.{' '}
-          {brief.yourMoves > 1 && (
-            <>
-              The line then runs{' '}
-              <strong style={{ color: 'var(--text)' }}>{brief.yourMoves}</strong> of your moves in
-              total.{' '}
-            </>
-          )}
-          A big number means narrow it down with checks, captures and threats rather than scanning
-          all of them.
-        </div>
-      )}
 
       {/* ---------------------------------------------- what it taught */}
       {done && (

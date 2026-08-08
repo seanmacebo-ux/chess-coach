@@ -23,6 +23,7 @@ import {
   importGames,
 } from '../../data/chesscom'
 import { saveProfile } from '../../data/db'
+import { describeCounts, downloadBackup, restoreBackup } from '../../data/backup'
 import {
   SECTION_IDS,
   SECTION_NAME,
@@ -73,6 +74,7 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
   const [sectionRatings, setSectionRatings] = useState<Record<SectionId, SectionRating> | null>(
     null,
   )
+  const [backupNote, setBackupNote] = useState<string | null>(null)
 
   useEffect(() => {
     void currentAuth().then(setAuth)
@@ -267,6 +269,58 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
             {msg}
           </div>
         )}
+      </div>
+
+      {/* ----------------------------------------------- backup / restore */}
+      {/*
+        The persistence that does not depend on anything. Sync needs a hosted
+        project that has already been caught paused once; this needs a file.
+        One button writes everything to JSON, one reads it back (merge, never
+        delete). The honest storage story is stated right on the card, because
+        "where does my progress actually live" should not require asking.
+      */}
+      <div className="card stack">
+        <span className="small muted">Backup</span>
+        <div className="small muted">
+          Your progress lives in this browser. Clearing site data or losing the phone loses it —
+          unless you have a backup file. It holds everything: games, mistakes, attempts, ratings,
+          theme. Keep it anywhere; restore it on any device.
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            className="primary"
+            style={{ flex: 1 }}
+            onClick={() => {
+              void downloadBackup().then((c) => setBackupNote(`Saved: ${describeCounts(c)}.`))
+            }}
+          >
+            Download backup
+          </button>
+          <label className="ghost" style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>
+            Restore file
+            <input
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (!f) return
+                void restoreBackup(f)
+                  .then((c) => {
+                    setBackupNote(`Restored: ${describeCounts(c)}. Reloading…`)
+                    // The app reads most of this at mount, so a reload is the
+                    // honest way to show the restored state everywhere.
+                    window.setTimeout(() => window.location.reload(), 900)
+                  })
+                  .catch((err) =>
+                    setBackupNote(err instanceof Error ? err.message : String(err)),
+                  )
+                e.target.value = ''
+              }}
+            />
+          </label>
+        </div>
+        {backupNote && <div className="small">{backupNote}</div>}
       </div>
 
       {/* --------------------------------------------------- calibration */}
