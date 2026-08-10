@@ -27,7 +27,15 @@
 
 import { db } from './db'
 
-const LOCAL_KEYS = ['cc.theme', 'cc.colour', 'cc.prefs', 'cc.climb', 'cc.coached', 'cc.clock'] as const
+const LOCAL_KEYS = [
+  'cc.theme',
+  'cc.colour',
+  'cc.prefs',
+  'cc.climb',
+  'cc.coached',
+  'cc.clock',
+  'cc.coachedBot',
+] as const
 
 /** Bumped if the shape ever changes, so restore can refuse what it cannot read. */
 const FORMAT = 1

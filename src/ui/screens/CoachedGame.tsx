@@ -56,7 +56,7 @@ import { getEngine } from '../../engine/uci'
 import { lineScore } from '../../engine/types'
 import { loosePieces } from '../../coach/exercises'
 import { recordFinishedGame, outcomeOf } from '../../coach/record'
-import { suggestedBot } from '../../engine/roster'
+import { BOTS, suggestedBot, type Bot } from '../../engine/roster'
 import { openingsFor, mainLine } from '../../content/openings'
 import { toDests } from '../../chess/game'
 
@@ -90,6 +90,9 @@ interface Receipt extends LoopLog {
 
 /** Last coached game's receipt — the number the next game tries to beat. */
 const RECEIPT_KEY = 'cc.coached'
+
+/** The opponent you picked last time — difficulty is your call, remembered. */
+const BOT_KEY = 'cc.coachedBot'
 
 function loadPrevReceipt(): Receipt | null {
   try {
@@ -132,9 +135,19 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [prevReceipt, setPrevReceipt] = useState<Receipt | null>(null)
 
-  const bot = useMemo(() => suggestedBot(rating), [rating])
+  /*
+   * Difficulty is chosen, not assigned. Sean: "coach needs to allow me to
+   * choose difficulty." The suggestion (cheapest bot at or above your rating)
+   * is preselected, the last pick is remembered, and until a bot is chosen
+   * the screen is the picker rather than the game.
+   */
+  const [bot, setBot] = useState<Bot | null>(null)
+  const [pickElo, setPickElo] = useState<number>(() => {
+    const saved = Number(localStorage.getItem(BOT_KEY))
+    return BOTS.some((b) => b.elo === saved) ? saved : suggestedBot(rating).elo
+  })
   const opponent = useMemo(
-    () => new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name }),
+    () => (bot ? new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name }) : null),
     [bot],
   )
 
@@ -276,7 +289,7 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
   /* ------------------------------------------------------- moves */
   /** The bot's turn — shared by your-move handling and the Black-side kickoff. */
   const botReply = useCallback(() => {
-    if (chess.current.isGameOver()) return
+    if (!opponent || chess.current.isGameOver()) return
     setThinking(true)
     void opponent
       .move(chess.current.fen())
@@ -300,12 +313,12 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
       .finally(() => setThinking(false))
   }, [opponent, readThreats])
 
-  /* As Black the game starts on their move, so the bot opens. */
+  /* As Black the game starts on their move, so the bot opens — once one is
+     chosen. The history guard keeps a re-render from double-opening. */
   useEffect(() => {
-    if (colour === 'b' && chess.current.history().length === 0) botReply()
-    // Mount only — the effect exists to serve move one, not to re-fire.
+    if (bot && colour === 'b' && chess.current.history().length === 0) botReply()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [bot])
 
   const onMove = useCallback(
     (from: Key, to: Key) => {
@@ -347,7 +360,7 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
 
   /* ------------------------------------------------ record the game */
   useEffect(() => {
-    if (recorded.current) return
+    if (!bot || recorded.current) return
     const outcome = outcomeOf(chess.current, colour)
     if (!outcome) return
     recorded.current = true
@@ -387,6 +400,68 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
   }, [fen, bot, colour, book])
 
   const over = chess.current.isGameOver()
+
+  /* -------------------------------------------- pick the opponent */
+  if (!bot) {
+    const suggested = suggestedBot(rating)
+    return (
+      <div className="trainer-screen">
+        <div className="trainer-head">
+          <button className="chip" onClick={onExit}>
+            ‹ Learn
+          </button>
+          <span className="trainer-prog">you are {side}</span>
+        </div>
+
+        <div className="style-banner">
+          <span className="style-name">Safety-first chess</span>
+          <span className="small muted">
+            The style that wins at your rating: take what hangs, hang nothing, king safe. One
+            loop, every move.
+          </span>
+        </div>
+
+        <div className="card stack">
+          <div>
+            <strong>Pick your opponent.</strong>{' '}
+            <span className="small muted">
+              Suggested: {suggested.face} {suggested.name} {suggested.elo} — the nearest bot at or
+              above your rating. Go stronger if you want the loop stress-tested; the coaching is
+              the same either way.
+            </span>
+          </div>
+          <div className="chips">
+            {BOTS.map((b) => (
+              <button
+                key={b.elo}
+                className="chip"
+                aria-pressed={pickElo === b.elo}
+                title={`${b.name}, ${b.elo}`}
+                onClick={() => setPickElo(b.elo)}
+              >
+                {b.face} {b.name} {b.elo}
+                {b.elo === suggested.elo ? ' ·suggested' : ''}
+              </button>
+            ))}
+          </div>
+          <button
+            className="primary"
+            onClick={() => {
+              const b = BOTS.find((x) => x.elo === pickElo) ?? suggested
+              try {
+                localStorage.setItem(BOT_KEY, String(b.elo))
+              } catch {
+                /* choice just won't be remembered */
+              }
+              setBot(b)
+            }}
+          >
+            Start the game
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="trainer-screen">
