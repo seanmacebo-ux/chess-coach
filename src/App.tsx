@@ -584,6 +584,32 @@ function YourRatings({
 
 /* ------------------------------------------------------------------ */
 
+/*
+ * The clock. Sean: "we should also have a timer now bro." Right on the
+ * merits, not just the vibes: his real games are 10-minute rapid and the bot
+ * games here had no clock at all, so the one pressure that decides half his
+ * online games — time — was never trained. Off / 5 / 10 / 15, default 10 to
+ * match chess.com rapid, flag = loss, recorded like any other result. The
+ * choice applies from the next game so switching it can never change the
+ * rules of the one in progress.
+ */
+const CLOCK_KEY = 'cc.clock'
+const CLOCK_CHOICES = [0, 5, 10, 15] as const
+
+function loadClockMin(): number {
+  const raw = localStorage.getItem(CLOCK_KEY)
+  // No stored choice means the default 10 — Number(null) is 0, which would
+  // silently read as "No clock" for everyone who never touched the setting.
+  if (raw === null) return 10
+  const v = Number(raw)
+  return (CLOCK_CHOICES as readonly number[]).includes(v) ? v : 10
+}
+
+function fmtClock(ms: number): string {
+  const s = Math.max(0, Math.ceil(ms / 1000))
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
+
 function Play(props: { initialElo: number; initialStyle: Style; initialColour: 'white' | 'black' }) {
   const chess = useRef(new Chess())
   const [fen, setFen] = useState(chess.current.fen())
@@ -591,6 +617,15 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const [engineState, setEngineState] = useState<EngineState>('boot')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [review, setReview] = useState<ReviewState>({ phase: 'idle' })
+
+  /** The preference (live) and the value the CURRENT game was dealt. */
+  const [clockMin, setClockMin] = useState(loadClockMin)
+  const activeClockMin = useRef(clockMin)
+  const remainRef = useRef({ w: clockMin * 60_000, b: clockMin * 60_000 })
+  const [remain, setRemain] = useState(remainRef.current)
+  const [flagged, setFlagged] = useState<'w' | 'b' | null>(null)
+  const flaggedRef = useRef<'w' | 'b' | null>(null)
+  const lastTickAt = useRef<number | null>(null)
 
   const [elo, setElo] = useState(props.initialElo)
   const [style, setStyle] = useState<Style>(props.initialStyle)
@@ -662,11 +697,47 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
   const booted = engineState !== 'boot' && engineState !== 'error'
 
+  /*
+   * The ticker. One interval, 200ms, decrementing whichever side the board
+   * says is to move — including the bot while it "thinks". Everything it
+   * needs lives in refs so the interval never restarts mid-game; a restart
+   * would drop the milliseconds between the old tick and the new one.
+   */
+  useEffect(() => {
+    flaggedRef.current = flagged
+  }, [flagged])
+
+  useEffect(() => {
+    if (!booted) return
+    const id = window.setInterval(() => {
+      // Checked per tick, not when the interval starts: newGame can hand the
+      // NEXT game a clock after this one ran without, and vice versa.
+      if (activeClockMin.current === 0) return
+      if (flaggedRef.current || statusOf(chess.current).over) return
+      const now = Date.now()
+      const dt = lastTickAt.current === null ? 0 : now - lastTickAt.current
+      lastTickAt.current = now
+      const side = chess.current.turn()
+      remainRef.current = {
+        ...remainRef.current,
+        [side]: Math.max(0, remainRef.current[side] - dt),
+      }
+      setRemain(remainRef.current)
+      if (remainRef.current[side] === 0) setFlagged(side)
+    }, 200)
+    return () => {
+      window.clearInterval(id)
+      lastTickAt.current = null
+    }
+  }, [booted])
+
   useEffect(() => {
     if (!booted) return
     // A move awaiting confirmation is not a move yet — the engine must not
     // reply to a position you might still take back.
     if (pending) return
+    // A flag ends the game exactly like mate — no reply to a finished game.
+    if (flagged) return
     if (statusOf(chess.current).over) return
     if (colourOf(chess.current) === humanColour) return
 
@@ -698,7 +769,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
     return () => {
       cancelled = true
     }
-  }, [fen, humanColour, opponent, booted, sync, pending])
+  }, [fen, humanColour, opponent, booted, sync, pending, flagged])
 
   /* ---------------------------------------------- save + analyse */
 
@@ -709,10 +780,14 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
    */
   useEffect(() => {
     const s = statusOf(chess.current)
-    if (!s.over || savedRef.current || !booted) return
+    if ((!s.over && !flagged) || savedRef.current || !booted) return
 
     const humanIs = humanColour === 'white' ? 'w' : 'b'
-    const outcome = outcomeOf(chess.current, humanIs)
+    // A flag is an outcome the board cannot see, so it is decided here: the
+    // side whose clock hit zero lost, full stop, whatever the position was.
+    const outcome = flagged
+      ? { result: flagged === humanIs ? ('loss' as const) : ('win' as const) }
+      : outcomeOf(chess.current, humanIs)
     // statusOf and outcomeOf agree on what "over" means, so this cannot fire
     // today. It is checked before the guard is set rather than after, because
     // the alternative — marking the game saved and then bailing — would lose
@@ -737,7 +812,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           pgn,
           humanColour: humanIs,
           result: outcome.result,
-          reason: s.text,
+          reason: flagged ? 'out of time' : s.text,
           opponentElo: elo,
           opponentStyle: style,
           source: 'play',
@@ -765,7 +840,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         moves: assessments,
       })
     })()
-  }, [fen, booted, humanColour, elo, style])
+  }, [fen, booted, humanColour, elo, style, flagged])
 
   /* ------------------------------------------------------ actions */
 
@@ -823,14 +898,29 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       setLastMove(undefined)
       setFen(chess.current.fen())
       setErrorMsg(null)
+      // The new game gets the clock preference as it stands NOW.
+      activeClockMin.current = clockMin
+      remainRef.current = { w: clockMin * 60_000, b: clockMin * 60_000 }
+      setRemain(remainRef.current)
+      setFlagged(null)
+      lastTickAt.current = null
       void opponent.newGame()
     },
-    [opponent],
+    [opponent, clockMin],
   )
 
   const botThinking = engineState === 'thinking'
   // No further input while a move is waiting to be confirmed or taken back.
-  const playable = status.over || botThinking || pending ? null : humanColour
+  const playable = status.over || flagged || botThinking || pending ? null : humanColour
+
+  const humanIs = humanColour === 'white' ? 'w' : 'b'
+  const botIs = humanIs === 'w' ? 'b' : 'w'
+  const gameEnded = status.over || flagged !== null
+  const endText = flagged
+    ? flagged === humanIs
+      ? 'You ran out of time — that counts as a loss.'
+      : `${opponent.name} ran out of time. You win.`
+    : status.text
 
   // The review owns the whole screen. It is a different activity from playing
   // — you are studying a finished game — and squeezing it under the board
@@ -866,9 +956,34 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           {engineState === 'boot' && 'loading engine…'}
           {engineState === 'thinking' && `${opponent.name} thinking`}
           {engineState === 'error' && 'engine error'}
-          {engineState === 'ready' && (status.over ? status.text : `${turn} to move`)}
+          {engineState === 'ready' && (gameEnded ? endText : `${turn} to move`)}
         </span>
       </div>
+
+      {/* The clocks. Opponent's above the board, yours below it would split
+          them around the thing you are looking at — one row reads faster. */}
+      {activeClockMin.current > 0 && (
+        <div className="clock-row">
+          <span
+            className={
+              'clock' +
+              (!gameEnded && turn !== humanColour ? ' active' : '') +
+              (remain[botIs] < 30_000 ? ' low' : '')
+            }
+          >
+            {opponent.name} · {fmtClock(remain[botIs])}
+          </span>
+          <span
+            className={
+              'clock' +
+              (!gameEnded && turn === humanColour ? ' active' : '') +
+              (remain[humanIs] < 30_000 ? ' low' : '')
+            }
+          >
+            You · {fmtClock(remain[humanIs])}
+          </span>
+        </div>
+      )}
 
       <Board
         fen={fen}
@@ -917,10 +1032,10 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         </div>
       )}
 
-      {status.over && (
+      {gameEnded && (
         <div className="card stack">
           <div className="row spread">
-            <strong>{status.text}</strong>
+            <strong>{endText}</strong>
             <button className="primary" onClick={() => newGame(orientation)}>
               Play again
             </button>
@@ -983,6 +1098,35 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
             onChange={(e) => setElo(Number(e.target.value))}
           />
         </label>
+        <div>
+          <div className="small muted" style={{ marginBottom: 6 }}>
+            Clock
+          </div>
+          <div className="chips">
+            {CLOCK_CHOICES.map((min) => (
+              <button
+                key={min}
+                className="chip"
+                aria-pressed={clockMin === min}
+                onClick={() => {
+                  setClockMin(min)
+                  try {
+                    localStorage.setItem(CLOCK_KEY, String(min))
+                  } catch {
+                    /* preference just won't survive a reload */
+                  }
+                }}
+              >
+                {min === 0 ? 'No clock' : `${min} min`}
+              </button>
+            ))}
+          </div>
+          <div className="small muted" style={{ marginTop: 4 }}>
+            {clockMin === activeClockMin.current
+              ? 'Run out of time and the game is lost — same as online.'
+              : 'Applies from the next game.'}
+          </div>
+        </div>
         <div>
           <div className="small muted" style={{ marginBottom: 6 }}>
             Style

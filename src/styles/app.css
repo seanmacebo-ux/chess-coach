@@ -3958,3 +3958,31 @@ button.back {
 
 .receipt-lines .good { color: var(--good); }
 .receipt-lines .bad { color: var(--warn); }
+
+/* The chess clock on the Play tab. Tabular digits or the row wobbles. */
+.clock-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.clock.active {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
+
+.clock.low {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+}
