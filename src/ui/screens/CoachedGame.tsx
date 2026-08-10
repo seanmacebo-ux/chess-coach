@@ -104,10 +104,19 @@ function loadPrevReceipt(): Receipt | null {
 
 export interface CoachedGameProps {
   rating: number
+  /**
+   * Which side you play. Sean: "the coach should also teach me black tactics
+   * as well so I should play as black." Right — half of chess is answering,
+   * and a repertoire you have only ever driven from the White side is half a
+   * repertoire. The loop is identical either way; the book becomes your Black
+   * repertoire and the bot opens.
+   */
+  colour: 'w' | 'b'
   onExit: () => void
 }
 
-export function CoachedGame({ rating, onExit }: CoachedGameProps) {
+export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
+  const them = colour === 'w' ? 'b' : 'w'
   const chess = useRef(new Chess())
   const [fen, setFen] = useState(() => new Chess().fen())
   const [lastMove, setLastMove] = useState<[Key, Key] | undefined>(undefined)
@@ -130,12 +139,15 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
   )
 
   /*
-   * You play White, and the book is your own repertoire's main line at this
-   * rating — the Italian for most of the band this screen aims at. Following
-   * it inside a live game is what turns "I know twelve moves" into an opening
-   * you actually reach positions with.
+   * The book is your own repertoire's main line FOR THE SIDE YOU ARE PLAYING —
+   * the Italian as White, your defence as Black. Following it inside a live
+   * game is what turns "I know twelve moves" into an opening you actually
+   * reach positions with. As Black the book's first ply is White's expected
+   * move, so a bot that opens differently sends the game straight out of book
+   * — which is honest, and exactly the situation the loop exists for.
    */
-  const opening = useMemo(() => openingsFor('white', rating)[0] ?? openingsFor('white')[0]!, [rating])
+  const side = colour === 'w' ? 'white' : 'black'
+  const opening = useMemo(() => openingsFor(side, rating)[0] ?? openingsFor(side)[0]!, [side, rating])
   const book = useMemo(() => mainLine(opening).moves, [opening])
 
   /** How many plies of the game so far match the book. */
@@ -149,7 +161,7 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
   }, [fen, book])
   const inBook = bookPly >= 0 && bookPly < book.length
 
-  const yourTurn = chess.current.turn() === 'w' && !thinking && !chess.current.isGameOver()
+  const yourTurn = chess.current.turn() === colour && !thinking && !chess.current.isGameOver()
 
   /** The book move as an arrow, only while the game still follows the book. */
   const shapes = useMemo(() => {
@@ -178,11 +190,11 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
    */
   const readThreats = useCallback(() => {
     const f = chess.current.fen()
-    const yours = loosePieces(f, 'w')
+    const yours = loosePieces(f, colour)
     // "Take what hangs" — the other half of the banner, previously never
     // spoken. Pawns are left out: hoovering loose pawns is not the habit
     // being built, and flagging every one would drown the piece that matters.
-    const free = loosePieces(f, 'b').filter((sq) => chess.current.get(sq)?.type !== 'p')
+    const free = loosePieces(f, them).filter((sq) => chess.current.get(sq)?.type !== 'p')
     freeNow.current = free
     const pieceOn = (sq: Square) => PIECE_NAME[chess.current.get(sq)?.type ?? 'p']
 
@@ -204,16 +216,16 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
             gift ??
             'Their move threatens nothing of yours directly. Good — now improve your position.',
     )
-  }, [])
+  }, [colour, them])
 
   /* ------------------------------------------------ safety check */
   /** Steps 2+3: instant loose-piece verdict, engine comparison appended. */
   const supportFor = useCallback(async (fenBefore: string, playedSan: string) => {
     const after = chess.current.fen()
-    const loose = loosePieces(after, 'w')
+    const loose = loosePieces(after, colour)
     // The ledger counts only NEWLY loose squares — a piece you keep ignoring
     // is one failed safety check, not one per move it sits there.
-    const wasLoose = new Set(loosePieces(fenBefore, 'w'))
+    const wasLoose = new Set(loosePieces(fenBefore, colour))
     if (loose.some((sq) => !wasLoose.has(sq))) {
       log.current.hung.push(Math.ceil(chess.current.history().length / 2))
     }
@@ -259,9 +271,42 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
     } catch {
       /* engine unavailable — the loose-piece verdict already landed */
     }
-  }, [])
+  }, [colour])
 
   /* ------------------------------------------------------- moves */
+  /** The bot's turn — shared by your-move handling and the Black-side kickoff. */
+  const botReply = useCallback(() => {
+    if (chess.current.isGameOver()) return
+    setThinking(true)
+    void opponent
+      .move(chess.current.fen())
+      .then((uci) => {
+        if (!uci) return
+        try {
+          const m = chess.current.move({
+            from: uci.slice(0, 2) as Square,
+            to: uci.slice(2, 4) as Square,
+            promotion: uci[4] ?? 'q',
+          })
+          if (m) {
+            setFen(chess.current.fen())
+            setLastMove([uci.slice(0, 2) as Key, uci.slice(2, 4) as Key])
+            readThreats()
+          }
+        } catch {
+          /* an illegal engine move is not worth crashing the game over */
+        }
+      })
+      .finally(() => setThinking(false))
+  }, [opponent, readThreats])
+
+  /* As Black the game starts on their move, so the bot opens. */
+  useEffect(() => {
+    if (colour === 'b' && chess.current.history().length === 0) botReply()
+    // Mount only — the effect exists to serve move one, not to re-fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const onMove = useCallback(
     (from: Key, to: Key) => {
       if (!yourTurn) return
@@ -295,48 +340,27 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
       }
 
       void supportFor(fenBefore, san)
-
-      if (chess.current.isGameOver()) return
-      setThinking(true)
-      void opponent
-        .move(chess.current.fen())
-        .then((uci) => {
-          if (!uci) return
-          try {
-            const m = chess.current.move({
-              from: uci.slice(0, 2) as Square,
-              to: uci.slice(2, 4) as Square,
-              promotion: uci[4] ?? 'q',
-            })
-            if (m) {
-              setFen(chess.current.fen())
-              setLastMove([uci.slice(0, 2) as Key, uci.slice(2, 4) as Key])
-              readThreats()
-            }
-          } catch {
-            /* an illegal engine move is not worth crashing the game over */
-          }
-        })
-        .finally(() => setThinking(false))
+      botReply()
     },
-    [yourTurn, inBook, bookPly, book, supportFor, opponent, readThreats],
+    [yourTurn, inBook, bookPly, book, supportFor, botReply],
   )
 
   /* ------------------------------------------------ record the game */
   useEffect(() => {
     if (recorded.current) return
-    const outcome = outcomeOf(chess.current, 'w')
+    const outcome = outcomeOf(chess.current, colour)
     if (!outcome) return
     recorded.current = true
 
     // The loop, scored. Book plies are re-derived from the final history so
     // the count is what actually happened, not what a stale memo thought.
+    // Your moves are the odd plies as White, the even ones as Black.
     const history = chess.current.history()
     let plies = 0
     while (plies < history.length && plies < book.length && history[plies] === book[plies]) plies++
     const scored: Receipt = {
       ...log.current,
-      bookMoves: Math.ceil(plies / 2),
+      bookMoves: colour === 'w' ? Math.ceil(plies / 2) : Math.floor(plies / 2),
       won: outcome.result === 'win',
     }
     setPrevReceipt(loadPrevReceipt())
@@ -349,7 +373,7 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
 
     void recordFinishedGame({
       pgn: chess.current.pgn(),
-      humanColour: 'w',
+      humanColour: colour,
       result: outcome.result,
       reason: outcome.reason,
       opponentElo: bot.elo,
@@ -360,7 +384,7 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
         `Saved to History. Your rating ${delta === 0 ? 'held' : delta > 0 ? `went up ${delta}` : `went down ${-delta}`}. Review it there to see the loop's misses.`,
       )
     })
-  }, [fen, bot])
+  }, [fen, bot, colour, book])
 
   const over = chess.current.isGameOver()
 
@@ -371,7 +395,7 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
           ‹ Leave the game
         </button>
         <span className="trainer-prog">
-          {bot.face} {bot.name} {bot.elo}
+          {bot.face} {bot.name} {bot.elo} · you are {side}
         </span>
       </div>
 
@@ -389,10 +413,10 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
 
       <Board
         fen={fen}
-        orientation="white"
+        orientation={side}
         dests={dests}
         turn={chess.current.turn() === 'w' ? 'white' : 'black'}
-        playable={yourTurn ? 'white' : null}
+        playable={yourTurn ? side : null}
         lastMove={lastMove}
         check={chess.current.isCheck()}
         shapes={shapes}
@@ -420,7 +444,7 @@ export function CoachedGame({ rating, onExit }: CoachedGameProps) {
         <div className="coach-text">
           {over
             ? (chess.current.isCheckmate()
-                ? chess.current.turn() === 'w'
+                ? chess.current.turn() === colour
                   ? 'Checkmate — you lost this one. The score below says which loop step slipped.'
                   : 'Checkmate — you won. That is the style working.'
                 : 'Drawn.')

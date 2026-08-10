@@ -124,8 +124,8 @@ export function Learn({
   const [ratings, setRatings] = useState<Record<SectionId, SectionRating> | null>(null)
   /** null is the index. Anything else is that section, full screen. */
   const [view, setView] = useState<SectionKey | null>(null)
-  /** The coached game takes the whole screen, from wherever it is started. */
-  const [coached, setCoached] = useState(false)
+  /** The coached game takes the whole screen; the value is the side you play. */
+  const [coached, setCoached] = useState<'w' | 'b' | null>(null)
   /** So does the fix-your-own-games drill. */
   const [fixing, setFixing] = useState(false)
 
@@ -158,7 +158,7 @@ export function Learn({
   ).length
 
   if (coached) {
-    return <CoachedGame rating={rating} onExit={() => setCoached(false)} />
+    return <CoachedGame rating={rating} colour={coached} onExit={() => setCoached(null)} />
   }
 
   if (fixing) {
@@ -174,7 +174,7 @@ export function Learn({
         byId={byId}
         lessonsAtLevel={lessonsAtLevel}
         onOpen={setView}
-        onCoached={() => setCoached(true)}
+        onCoached={setCoached}
         onFix={() => setFixing(true)}
       />
     )
@@ -264,7 +264,7 @@ function Index({
   byId: Map<string, TierStatus>
   lessonsAtLevel: number
   onOpen: (k: SectionKey) => void
-  onCoached: () => void
+  onCoached: (colour: 'w' | 'b') => void
   onFix: () => void
 }) {
   const cleared = statuses.filter((s) => s.cleared).length
@@ -304,7 +304,9 @@ function Index({
         order, live, with arrows. The sections below are where you sharpen
         each step; this is where they become one way of playing.
       */}
-      <button className="coached-cta" onClick={onCoached}>
+      {/* Not a single button any more: half of chess is answering, and the
+          Black side runs your defence as the book with the bot opening. */}
+      <div className="coached-cta as-card">
         <span className="coached-kicker">The style, in one game</span>
         <span className="coached-title">Play a coached game</span>
         <span className="small muted">
@@ -312,7 +314,15 @@ function Index({
           they threaten, what hangs for free, is anything of yours loose. At the end the loop is
           scored — pieces taken, pieces hung, book moves — against your last coached game.
         </span>
-      </button>
+        <span className="row" style={{ gap: 8, marginTop: 8 }}>
+          <button className="primary" style={{ flex: 1 }} onClick={() => onCoached('w')}>
+            Play as White
+          </button>
+          <button className="ghost" style={{ flex: 1 }} onClick={() => onCoached('b')}>
+            Play as Black
+          </button>
+        </span>
+      </div>
 
       {/*
         The other half of "make it about MY chess": the diagnosis says what you
