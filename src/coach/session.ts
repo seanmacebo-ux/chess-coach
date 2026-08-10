@@ -20,6 +20,7 @@
 import { getProfile, db } from '../data/db'
 import { loadPrefs } from '../data/settings'
 import { pickPuzzles, type Puzzle } from '../data/puzzles'
+import { buildRedoSet } from './redo'
 import { computeWeaknesses, nextTier, type Weakness } from './profile'
 import { LICHESS_MOTIFS, isExerciseBacked, puzzleThemes, type Tier } from './tiers'
 import type { Style } from '../engine/types'
@@ -41,6 +42,8 @@ export interface DailySession {
   focus: { label: string; why: string; themes: string[] } | null
   game: SessionGame
   puzzles: Puzzle[]
+  /** How many of `puzzles` are the user's own positions, served first. */
+  ownCount: number
   drill: Tier | null
   /** Drill has no puzzle stock — it's trained by generated exercises. */
   drillIsExercise: boolean
@@ -125,13 +128,25 @@ export async function buildDailySession(opts: BuildOptions = {}): Promise<DailyS
   const focusMotifs = focusThemes.filter((t) => LICHESS_MOTIFS.has(t))
   const themes = coldStart ? drillMotifs : [...focusMotifs, ...drillMotifs]
 
-  const puzzles = await pickPuzzles({
+  /*
+   * YOUR positions first. The focus card says "missed a tactic, N times" and
+   * those N times happened in the user's own games — so the session opens
+   * with up to three of those exact positions before any corpus puzzle.
+   * Sean: "I am missing tactics but never really able to mimic those things
+   * — it's always just connected to weird puzzles." This is the join. Cold
+   * start skips it for the same reason it skips the focus: no reviewed
+   * games, nothing of yours to serve.
+   */
+  const own = coldStart ? [] : await buildRedoSet(Math.min(3, puzzleCount))
+
+  const picked = await pickPuzzles({
     rating: profile.rating,
     themes,
-    count: puzzleCount,
+    count: Math.max(0, puzzleCount - own.length),
     exclude: seen,
     rng: opts.rng,
   })
+  const puzzles = [...own, ...picked]
 
   const { style, why } = coldStart
     ? {
@@ -163,6 +178,7 @@ export async function buildDailySession(opts: BuildOptions = {}): Promise<DailyS
     focus,
     game: { elo: Math.round(profile.rating / 100) * 100, style, colour, why },
     puzzles,
+    ownCount: own.length,
     drill,
     drillIsExercise: drill ? isExerciseBacked(drill) : false,
     coldStart,

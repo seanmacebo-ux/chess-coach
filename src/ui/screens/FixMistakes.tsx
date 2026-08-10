@@ -23,53 +23,12 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Chess } from 'chess.js'
-import { db } from '../../data/db'
-import { TAG_THEMES } from '../../coach/analysis'
+import { buildRedoSet } from '../../coach/redo'
 import type { Puzzle } from '../../data/puzzles'
 import { PuzzleRunner } from './PuzzleRunner'
 
 /** Enough for a session, few enough that each gets real attention. */
 const SET_SIZE = 8
-
-async function buildRedoSet(): Promise<Puzzle[]> {
-  // Newest first: the mistake you made yesterday is the one still in your
-  // hands. orderBy('at') uses the index; 200 rows is plenty of pool.
-  const rows = await db.mistakes.orderBy('at').reverse().limit(200).toArray()
-  const seen = new Set<string>()
-  const out: Puzzle[] = []
-  for (const r of rows) {
-    // Puzzle-sourced rows have no position of "your game" behind them, and
-    // rows without a better move recorded have nothing to find.
-    if (r.source === 'puzzle' || !r.bestSan || !r.fen) continue
-    if (r.severity !== 'blunder' && r.severity !== 'mistake') continue
-    if (seen.has(r.fen)) continue
-    const probe = new Chess(r.fen)
-    let uci: string | null = null
-    try {
-      const m = probe.move(r.bestSan)
-      if (m) uci = `${m.from}${m.to}${m.promotion ?? ''}`
-    } catch {
-      uci = null
-    }
-    if (!uci) continue
-    seen.add(r.fen)
-    out.push({
-      id: `redo-${r.id ?? out.length}`,
-      fen: r.fen,
-      solution: [uci],
-      line: [uci],
-      // 0 = unrated: this is your game, not a calibrated puzzle, and the
-      // runner knows to say nothing rather than "rated 0".
-      rating: 0,
-      themes: r.tag ? TAG_THEMES[r.tag] : [],
-      opening: '',
-      colour: new Chess(r.fen).turn() === 'w' ? 'white' : 'black',
-    })
-    if (out.length >= SET_SIZE) break
-  }
-  return out
-}
 
 export interface FixMistakesProps {
   onExit: () => void
@@ -80,7 +39,7 @@ export function FixMistakes({ onExit }: FixMistakesProps) {
   const [result, setResult] = useState<{ solved: number; total: number } | null>(null)
 
   useEffect(() => {
-    void buildRedoSet().then(setPuzzles)
+    void buildRedoSet(SET_SIZE).then(setPuzzles)
   }, [])
 
   return (

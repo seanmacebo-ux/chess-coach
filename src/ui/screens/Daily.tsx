@@ -169,11 +169,18 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
               <span className="muted"> — three tries each</span>
             </div>
             <div className="small muted">
-              {session.puzzles.length > 0
-                ? `rated ${Math.min(...session.puzzles.map((p) => p.rating))}–${Math.max(
-                    ...session.puzzles.map((p) => p.rating),
-                  )}`
-                : 'no puzzles available'}
+              {/* Own-game redo positions carry rating 0, so the range is over
+                  the corpus puzzles only — "rated 0–900" would be nonsense. */}
+              {(() => {
+                const rated = session.puzzles.filter((p) => p.rating > 0).map((p) => p.rating)
+                const range = rated.length > 0 ? `rated ${Math.min(...rated)}–${Math.max(...rated)}` : null
+                const own =
+                  session.ownCount > 0
+                    ? `${session.ownCount} ${session.ownCount === 1 ? 'is a position' : 'are positions'} from your own games, served first`
+                    : null
+                if (own && range) return `${own} · the rest ${range}`
+                return own ?? range ?? 'no puzzles available'
+              })()}
             </div>
             {/* What today actually teaches. Naming the categories up front is
                 the difference between "eight puzzles" and knowing which two
