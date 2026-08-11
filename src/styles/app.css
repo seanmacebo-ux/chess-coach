@@ -3959,6 +3959,44 @@ button.back {
 .receipt-lines .good { color: var(--good); }
 .receipt-lines .bad { color: var(--warn); }
 
+/* The Learn progress card: instructions, then motion, then declines. */
+.progress-card {
+  border-left: 3px solid var(--accent);
+}
+
+.prog-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  line-height: 1.45;
+  font-size: 14px;
+}
+
+.prog-trends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prog-trend {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.prog-trend.up { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+.prog-trend.down { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.prog-trend.flat { color: var(--muted); }
+
+.prog-habit.better { color: var(--good); }
+.prog-habit.worse { color: var(--warn); }
+.prog-habit.flat { color: var(--muted); }
+
 /* The chess clock on the Play tab. Tabular digits or the row wobbles. */
 .clock-row {
   display: flex;

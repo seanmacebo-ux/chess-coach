@@ -63,6 +63,7 @@ import {
 } from '../learn/sections'
 import { CoachedGame } from './CoachedGame'
 import { FixMistakes } from './FixMistakes'
+import { buildProgress, type ProgressReport, type SectionTrend } from '../../coach/progress'
 
 /**
  * Ideas is a peer section, not a pillar — it has no tier ladder and no rating
@@ -129,16 +130,20 @@ export function Learn({
   /** So does the fix-your-own-games drill. */
   const [fixing, setFixing] = useState(false)
 
+  const [progress, setProgress] = useState<ProgressReport | null>(null)
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
       const p = await getProfile()
       const s = await tierStatuses(p.rating)
       const r = await getSectionRatings()
+      const rep = await buildProgress(p.rating)
       if (cancelled) return
       setRating(p.rating)
       setStatuses(s)
       setRatings(r)
+      setProgress(rep)
     })()
     return () => {
       cancelled = true
@@ -176,6 +181,7 @@ export function Learn({
         onOpen={setView}
         onCoached={setCoached}
         onFix={() => setFixing(true)}
+        progress={progress}
       />
     )
   }
@@ -257,6 +263,7 @@ function Index({
   onOpen,
   onCoached,
   onFix,
+  progress,
 }: {
   rating: number
   statuses: TierStatus[]
@@ -266,6 +273,7 @@ function Index({
   onOpen: (k: SectionKey) => void
   onCoached: (colour: 'w' | 'b') => void
   onFix: () => void
+  progress: ProgressReport | null
 }) {
   const cleared = statuses.filter((s) => s.cleared).length
   const openNow = statuses.filter((s) => s.inBand && !s.cleared).length
@@ -294,6 +302,14 @@ function Index({
           </div>
         </div>
       </div>
+
+      {/*
+        Motion, not just state. "I need to know what to do to show improvement
+        and how we track declines" — so the answer sits at the top of Learn:
+        numbered instructions from the ladder, this week measured against last,
+        habits counted over 15-day windows. All of it computed from the log.
+      */}
+      {progress && <ProgressCard p={progress} />}
 
       {/*
         THE STYLE, above the shelves. Sean's critique of this screen was
@@ -401,6 +417,72 @@ function Index({
             </button>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * The progress card. Three registers, in the order Sean asked for them:
+ * do THIS (steps with counts), this is MOVING (week-on-week accuracy),
+ * this is SLIPPING (habit counts, declines first). The method is stated on
+ * the card because a trend you cannot audit is just a mood.
+ */
+function ProgressCard({ p }: { p: ProgressReport }) {
+  const readable = p.sections.filter(
+    (s): s is SectionTrend & { direction: 'up' | 'down' | 'flat' } => s.direction !== 'na',
+  )
+  const arrow = { up: '▲', down: '▼', flat: '─' } as const
+
+  return (
+    <div className="card stack progress-card">
+      <div className="receipt-title">Your progress, tracked</div>
+
+      {p.steps.length > 0 && (
+        <ol className="prog-steps">
+          {p.steps.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ol>
+      )}
+
+      {readable.length > 0 ? (
+        <div className="prog-trends">
+          {readable.map((s) => (
+            <span key={s.pillar} className={`prog-trend ${s.direction}`}>
+              {arrow[s.direction]} {s.name} {s.prior.accuracy}% → {s.recent.accuracy}%
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="small muted">
+          No section has enough reps this week to read a trend — five puzzles in a section is
+          enough to start its needle.
+        </div>
+      )}
+
+      {p.habits.length > 0 && (
+        <div className="stack" style={{ gap: 3 }}>
+          {p.habits.slice(0, 3).map((h) => (
+            <div key={h.tag} className={`small prog-habit ${h.direction}`}>
+              {h.label}: {h.prior} → {h.recent} in 15-day windows —{' '}
+              {h.direction === 'better'
+                ? 'improving.'
+                : h.direction === 'worse'
+                  ? 'slipping. This is the decline to stop first.'
+                  : 'holding.'}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="small muted">
+        How this is measured: puzzle accuracy this week against last week, mistakes counted in
+        15-day windows, and the ladder records what you have been taught — {p.clearedTiers} of{' '}
+        {p.totalTiers} levels cleared, {p.gamesThisWeek} game{p.gamesThisWeek === 1 ? '' : 's'}{' '}
+        played this week.
       </div>
     </div>
   )
