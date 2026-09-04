@@ -102,6 +102,30 @@ function verdictInWords(m: MoveAssessment): string {
   return `cost ${drop} points of winning chances`
 }
 
+
+export type ProblemOrder = 'severity' | 'game'
+
+/**
+ * The positions worth looking at, in the order asked for.
+ *
+ * Exported and standalone because the component needs it twice — once to
+ * render and once to keep your place when the order changes — and two copies
+ * of a sort is how the two silently drift apart.
+ */
+export function orderProblems(
+  moves: MoveAssessment[],
+  order: ProblemOrder,
+): MoveAssessment[] {
+  const bad = moves.filter(
+    (m) => m.severity === 'blunder' || m.severity === 'mistake' || m.severity === 'inaccuracy',
+  )
+  return order === 'severity'
+    ? // Ties broken by ply so the list is stable rather than depending on
+      // whatever order the analysis happened to return.
+      [...bad].sort((a, b) => b.lossCp - a.lossCp || a.ply - b.ply)
+    : [...bad].sort((a, b) => a.ply - b.ply)
+}
+
 export interface GameReviewProps {
   moves: MoveAssessment[]
   /** Which colour is being reviewed, for board orientation. */
@@ -128,22 +152,28 @@ export function GameReview({
   onSwapSide,
   swapping = false,
 }: GameReviewProps) {
-  // Worst first. You have limited attention after a game and the biggest
-  // mistake is the one worth spending it on; move order would bury a dropped
-  // rook under two opening inaccuracies.
-  const problems = useMemo(
-    () =>
-      moves
-        .filter((m) => m.severity === 'blunder' || m.severity === 'mistake' || m.severity === 'inaccuracy')
-        .sort((a, b) => b.lossCp - a.lossCp),
-    [moves],
-  )
+  /*
+   * ORDER IS A CHOICE NOW.
+   *
+   * This screen only ever showed worst-first, on the reasoning that attention
+   * after a game is limited and the dropped rook matters more than two opening
+   * inaccuracies. That is true for triage and useless for understanding:
+   * Sean — "sometimes it's not sequential so I can't follow through". Jumping
+   * from move 22 to move 6 to move 15 shows you a pile of positions, not a
+   * game. Both readings are legitimate, so both are offered, and the game
+   * graph above them gives the shape either way.
+   */
+  const [order, setOrder] = useState<ProblemOrder>('severity')
+
+  const problems = useMemo(() => orderProblems(moves, order), [moves, order])
 
   const [index, setIndex] = useState(0)
   /** Which move is on the board: what you played, or what you should have. */
   const [showing, setShowing] = useState<'yours' | 'better'>('yours')
 
   const current = problems[index]
+  /** Last ply assessed, so the pager can say where in the game you are. */
+  const lastPly = moves.length > 0 ? moves[moves.length - 1]!.ply : 0
 
   const blunders = moves.filter((m) => m.severity === 'blunder').length
   const mistakes = moves.filter((m) => m.severity === 'mistake').length
@@ -191,10 +221,59 @@ export function GameReview({
       ) : (
         <>
           <p className="lede">
-            {problems.length} position{problems.length === 1 ? '' : 's'} worth looking at, worst
-            first. The board shows what you were looking at — tap between your move and the better
-            one to see the difference.
+            {problems.length} position{problems.length === 1 ? '' : 's'} worth looking at
+            {order === 'severity' ? ', worst first' : ', in the order they happened'}. The board
+            shows what you were looking at — tap between your move and the better one to see the
+            difference.
           </p>
+
+          {/*
+            The game itself, as a shape. Every one of your moves plotted by
+            what your winning chances were after it, so the review opens with
+            the story — where it was level, where it turned — before it starts
+            picking through individual positions. Marks are the moves worth
+            looking at; tapping one goes there.
+          */}
+          <GameGraph
+            moves={moves}
+            problems={problems}
+            currentPly={current?.ply ?? null}
+            onPick={(ply) => {
+              const i = problems.findIndex((p) => p.ply === ply)
+              if (i >= 0) {
+                setIndex(i)
+                setShowing('yours')
+              }
+            }}
+          />
+
+          <div className="rev-order">
+            {(
+              [
+                ['severity', 'Worst first'],
+                ['game', 'In game order'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                className="chip"
+                aria-pressed={order === id}
+                onClick={() => {
+                  // Keep the position you are looking at when the order
+                  // changes — re-sorting under the reader and silently
+                  // showing them a different move is disorienting.
+                  const keep = current?.ply
+                  setOrder(id)
+                  if (keep !== undefined) {
+                    const i = orderProblems(moves, id).findIndex((m) => m.ply === keep)
+                    if (i >= 0) setIndex(i)
+                  }
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           <div className="rev-pager">
             <button
@@ -210,6 +289,12 @@ export function GameReview({
             </button>
             <span className="rev-count">
               {index + 1} of {problems.length}
+              {current && (
+                <span className="muted">
+                  {' '}
+                  · move {Math.floor(current.ply / 2) + 1} of {Math.floor(lastPly / 2) + 1}
+                </span>
+              )}
             </span>
             <button
               className="pg-nav"
@@ -430,6 +515,80 @@ function MistakeCard({
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+
+/**
+ * The game as a shape: your winning chances after every move you played.
+ *
+ * Sean asked for "the progression of the game" because the review served a
+ * pile of positions in severity order with nothing tying them together. A
+ * position out of context teaches a move; a line across the whole game teaches
+ * where you actually lost it — the long slide, or the one cliff.
+ *
+ * Drawn from numbers already computed: `cpPlayed` per move through the same
+ * win-probability curve the odds meter uses, so the graph and the meter can
+ * never disagree. Only YOUR moves are assessed, so each step is one of yours.
+ *
+ * The line is an SVG scaled to the container (non-scaling stroke keeps it an
+ * even weight at any width); the marks are positioned HTML so they stay round
+ * rather than stretching with the viewBox.
+ */
+function GameGraph({
+  moves,
+  problems,
+  currentPly,
+  onPick,
+}: {
+  moves: MoveAssessment[]
+  problems: MoveAssessment[]
+  currentPly: number | null
+  onPick: (ply: number) => void
+}) {
+  if (moves.length < 2) return null
+
+  const pct = moves.map((m) => winChance(m.cpPlayed))
+  const x = (i: number) => (i / (moves.length - 1)) * 100
+  /*
+   * The plot is inset top and bottom. Without it a move at 0% or 100% sits
+   * exactly on the frame edge and its mark is sliced in half by the rounded
+   * clip — which is precisely where the interesting moves are, since those
+   * are the ones that won or lost the game.
+   */
+  const PAD = 11
+  const y = (p: number) => PAD + ((100 - p) * (100 - 2 * PAD)) / 100
+
+  const line = pct.map((p, i) => `${x(i)},${y(p)}`).join(' ')
+  const area = `0,100 ${line} 100,100`
+
+  const flagged = new Map(problems.map((p) => [p.ply, p]))
+
+  return (
+    <div className="rev-graph">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <polygon points={area} className="rev-graph-fill" />
+        <line x1="0" y1="50" x2="100" y2="50" className="rev-graph-mid" vectorEffect="non-scaling-stroke" />
+        <polyline points={line} className="rev-graph-line" vectorEffect="non-scaling-stroke" />
+      </svg>
+      {moves.map((m, i) => {
+        const bad = flagged.get(m.ply)
+        if (!bad) return null
+        const on = m.ply === currentPly
+        return (
+          <button
+            key={m.ply}
+            className={`rev-mark ${bad.severity}${on ? ' on' : ''}`}
+            style={{ left: `${x(i)}%`, top: `${y(pct[i]!)}%` }}
+            title={`Move ${Math.floor(m.ply / 2) + 1} — ${m.san}`}
+            aria-label={`Move ${Math.floor(m.ply / 2) + 1}, ${m.san}`}
+            onClick={() => onPick(m.ply)}
+          />
+        )
+      })}
+      <span className="rev-graph-cap top">winning</span>
+      <span className="rev-graph-cap bottom">losing</span>
     </div>
   )
 }

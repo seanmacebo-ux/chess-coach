@@ -4024,3 +4024,109 @@ button.back {
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
 }
+
+/* ---------------------------------------------------- game review graph */
+/*
+ * The progression of the game, above the position cards. Fixed height so the
+ * review's rhythm does not change with the length of the game.
+ */
+.rev-graph {
+  position: relative;
+  height: 92px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.rev-graph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.rev-graph-fill {
+  fill: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.rev-graph-line {
+  fill: none;
+  stroke: var(--accent-hi);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+
+.rev-graph-mid {
+  stroke: var(--border);
+  stroke-width: 1px;
+  stroke-dasharray: 3 3;
+}
+
+/*
+ * Marks sit in HTML rather than the stretched viewBox so they stay round.
+ *
+ * The button is a thumb-sized hit area with no appearance of its own; the dot
+ * you actually see is the ::after. Sizing the button itself to 11px does not
+ * work — the global `button` rule sets min-height 44px for thumbs, which is
+ * right, and quietly turned every mark into a 44px block that hung out of the
+ * frame. So the target keeps its size and the dot is drawn inside it.
+ */
+.rev-mark {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  margin: -16px 0 0 -16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.rev-mark::after {
+  content: '';
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid var(--surface);
+  background: var(--text-muted);
+  transition: none;
+}
+
+.rev-mark.mistake::after { background: var(--warn); }
+.rev-mark.blunder::after { background: var(--danger); }
+
+.rev-mark.on::after {
+  width: 15px;
+  height: 15px;
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* The hit area must never paint a hover slab over the graph. */
+.rev-mark:hover,
+.rev-mark:focus-visible {
+  background: transparent;
+}
+
+.rev-graph-cap {
+  position: absolute;
+  right: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.rev-graph-cap.top { top: 6px; }
+.rev-graph-cap.bottom { bottom: 6px; }
+
+.rev-order {
+  display: flex;
+  gap: 8px;
+}
