@@ -97,6 +97,48 @@ type ReviewState = { phase: 'idle' } | { phase: 'running'; done: number; total: 
   moves: MoveAssessment[]
 }
 
+
+/*
+ * Tab icons, drawn.
+ *
+ * These were dingbat characters — ◎ ♟ ⚡ ❖ ◔ ⚙ — which render as a different
+ * shape, weight and baseline on every device, and on some Android builds as
+ * a tofu box. Both design directions replaced them with drawn icons for the
+ * same reason: a glyph you do not control is not an icon.
+ */
+const TAB_ICON: Record<Tab, string> = {
+  daily:
+    '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/>',
+  play:
+    '<path d="M12 4.2a2.9 2.9 0 0 1 1.7 5.3c1.1.8 1.8 2.1 1.9 3.6H8.4c.1-1.5.8-2.8 1.9-3.6A2.9 2.9 0 0 1 12 4.2Z"/><path d="M7.4 19.8h9.2l-1.1-4.2H8.5l-1.1 4.2Z"/>',
+  puzzles: '<path d="M13.4 3.2 5.8 13.1h4.7l-1 7.7 7.7-9.9h-4.7l.9-7.7Z"/>',
+  learn:
+    '<path d="M12 7.1S9.9 5.2 4.6 5.2v11.9c5.3 0 7.4 1.9 7.4 1.9s2.1-1.9 7.4-1.9V5.2C14.1 5.2 12 7.1 12 7.1Z"/><path d="M12 7.1v11.9"/>',
+  history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.2v5.1l3.1 1.9"/>',
+  settings:
+    '<path d="M3.6 7.6h9.2M17.2 7.6h3.2M3.6 16.4h3.6M11.6 16.4h8.8"/><circle cx="15" cy="7.6" r="2.2"/><circle cx="9.4" cy="16.4" r="2.2"/>',
+  // Sub-screens never appear in the bar; they exist so the record is total.
+  scan: '', threat: '', candidates: '', endgames: '', positional: '',
+}
+
+function TabIcon({ tab }: { tab: Tab }) {
+  return (
+    <svg
+      className="ico"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: TAB_ICON[tab] }}
+    />
+  )
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>('daily')
   const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme())
@@ -486,18 +528,18 @@ export default function App() {
       <nav className="tabs">
         {(
           [
-            ['daily', '◎', 'Today'],
-            ['play', '♟', 'Play'],
+            ['daily', 'Today'],
+            ['play', 'Play'],
             // Puzzles had no front door at all — it was reachable only by
             // being handed there from Today or Learn, which is most of why it
             // read as an extension of Learn rather than its own thing. The
             // climb needs somewhere to live.
-            ['puzzles', '⚡', 'Puzzles'],
-            ['learn', '❖', 'Learn'],
-            ['history', '◔', 'History'],
-            ['settings', '⚙', 'Settings'],
-          ] as [Tab, string, string][]
-        ).map(([id, icon, label]) => (
+            ['puzzles', 'Puzzles'],
+            ['learn', 'Learn'],
+            ['history', 'History'],
+            ['settings', 'Settings'],
+          ] as [Tab, string][]
+        ).map(([id, label]) => (
           <button
             key={id}
             // Remounting on every visit is what makes History and Learn
@@ -506,9 +548,7 @@ export default function App() {
             aria-current={tab === id ? 'page' : undefined}
             onClick={() => setTab(id)}
           >
-            <span className="ico" aria-hidden="true">
-              {icon}
-            </span>
+            <TabIcon tab={id} />
             {label}
           </button>
         ))}

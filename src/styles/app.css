@@ -9,6 +9,29 @@
 @import 'chessground/assets/chessground.base.css';
 
 /*
+ * ONE DISPLAY FACE, self-hosted.
+ *
+ * Sean picked both design directions — "I like B but I also want A" — and the
+ * resolution is not a toggle but a rule: the surfaces where you ACT are calm
+ * and editorial, the surfaces where you ASSESS are dense and numeric. This
+ * face carries the first half; tabular system mono carries the second.
+ *
+ * Self-hosted rather than pulled from Google, because this is a PWA that has
+ * to work on a train: 21KB of latin subset sitting in public/fonts and
+ * precached by the service worker (vite.config.ts globs woff2 for exactly
+ * this reason). `swap` so a cold load shows Georgia and never blank text —
+ * the fallbacks are chosen to be close enough in metric that the swap does
+ * not jump the layout.
+ */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/chess-coach/fonts/instrument-serif.woff2') format('woff2');
+}
+
+/*
  * Colour is defined once as semantic tokens, then re-pointed per theme.
  * Nothing below this block references a raw hex — so adding a theme means
  * adding a token set, not hunting through components.
@@ -57,6 +80,15 @@
   --t-lead: 17px;
   --t-title: 20px;
   --t-display: 30px;
+
+  /*
+   * Two registers, one system.
+   *   --font-display  the act surfaces: Today, the board, the coached game
+   *   --font-num      the assess surfaces: progress, history, calibration
+   * Body text stays system sans in both; these are for headlines and figures.
+   */
+  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-num: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   /* Spacing rhythm, 4pt based. */
   --s1: 4px;
@@ -1081,9 +1113,11 @@ input[type='email'] {
   color: var(--text-muted);
 }
 
+/* The icon is drawn SVG now, not a glyph, so it is sized not font-sized. */
 .tabs button .ico {
-  font-size: 17px;
-  line-height: 1;
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .tabs button:hover:not(:disabled) {
@@ -4129,4 +4163,139 @@ button.back {
 .rev-order {
   display: flex;
   gap: 8px;
+}
+
+/* ================================================================== */
+/* THE CALM REGISTER — surfaces where you act                          */
+/*                                                                     */
+/* Sean picked both directions: "I like B but I also want A." They are  */
+/* not a toggle, they are a rule. Where you are DOING one thing — Today,*/
+/* the board — the chrome comes off: no cards, hairlines and space, and */
+/* the display face carries the hierarchy so prose does not have to.    */
+/* Where you are READING numbers — progress, calibration — the dense    */
+/* register below takes over.                                          */
+/* ================================================================== */
+
+.rule {
+  height: 1px;
+  background: var(--border);
+  /* Cancels the parent .stack gap on one side so a rule reads as a
+     separator between blocks rather than a third floating element. */
+  margin: 2px 0;
+}
+
+.day-hero {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s3);
+  padding: var(--s3) 0 var(--s2);
+}
+
+.day-num {
+  font-family: var(--font-display);
+  font-size: 62px;
+  line-height: 0.82;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 5px;
+}
+
+.day-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-kicker {
+  font-family: var(--font-display);
+  font-size: var(--t-caption);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.day-lead {
+  font-family: var(--font-display);
+  font-size: 29px;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+
+/* The session: numbered rows on the page, not a card of them. */
+.day-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.day-steps .step {
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.day-steps .step:last-of-type {
+  border-bottom: none;
+}
+
+/*
+ * The step number becomes a marginal figure rather than a filled disc.
+ * A green circle per row made three equal-weight badges compete with the
+ * text they were numbering.
+ */
+.day-steps .step-n {
+  width: 18px;
+  height: auto;
+  border: none;
+  background: none;
+  border-radius: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 400;
+  color: var(--text-muted);
+  place-items: start;
+  margin-top: 1px;
+}
+
+/*
+ * The connector line between numbered steps belongs to the card version,
+ * where the discs it joins are solid. Against marginal figures it reads as a
+ * stray rule down the page — and it ran on past the last step into the
+ * buttons, because the row of buttons is not a .step and so nothing was the
+ * ":last-of-type" it stopped at.
+ */
+.day-steps .step:not(:last-of-type)::before {
+  display: none;
+}
+
+.day-steps .day-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+.day-idea {
+  display: flex;
+  flex-direction: column;
+}
+
+.day-idea .lesson-head {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.day-idea .lesson-title {
+  font-family: var(--font-display);
+  font-size: 21px;
+  line-height: 1.15;
+  font-weight: 400;
 }

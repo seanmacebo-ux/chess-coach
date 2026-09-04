@@ -62,7 +62,7 @@ export default defineConfig({
         // Deliberately NOT precaching puzzles/: all nine bands is ~4.5MB and
         // you only ever need the two or three around your rating. They're
         // cached on first use instead — see runtimeCaching below.
-        globPatterns: ['**/*.{js,css,html,svg,wasm}'],
+        globPatterns: ['**/*.{js,css,html,svg,wasm,woff2}'],
         globIgnores: ['**/puzzles/**'],
         runtimeCaching: [
           {

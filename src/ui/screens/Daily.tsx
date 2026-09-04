@@ -76,49 +76,43 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
         the same visual weight as a paragraph of copy — the "flat" complaint in
         one element.
       */}
-      <div className="card hero-strip row spread">
-        <div>
-          <div className="small muted">Your rating</div>
-          <div className="stat">{session.rating}</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div className="small muted">Streak</div>
-          <div className="stat">
-            {session.streak}
-            <span className="small muted" style={{ fontWeight: 400 }}>
-              {' '}
-              day{session.streak === 1 ? '' : 's'}
-            </span>
+      <div className="day-hero">
+        <div className="day-num">{session.rating}</div>
+        <div className="day-hero-side">
+          <div className="small muted">your rating</div>
+          <div className="small muted">
+            {session.streak} day{session.streak === 1 ? '' : 's'} running
           </div>
         </div>
       </div>
 
+      <div className="rule" />
+
       {/* ----------------------------------------------------- focus */}
       {session.coldStart ? (
-        <div className="card">
-          <div className="small muted" style={{ marginBottom: 4 }}>
-            Today
-          </div>
-          <div>
-            Play a few games first. Once there are three to look at, this screen starts
-            targeting what you actually get wrong.
+        <div className="day-block">
+          <div className="day-kicker">Today</div>
+          <div className="day-lead">Play a few games first.</div>
+          <div className="small muted">
+            Once there are three to look at, this screen starts targeting what you actually get
+            wrong.
           </div>
         </div>
       ) : (
         session.focus && (
-          <div className="card focus">
-            <div className="small muted" style={{ marginBottom: 4 }}>
-              Today is about
-            </div>
-            <div className="focus-title">{session.focus.label}</div>
+          <div className="day-block">
+            <div className="day-kicker">Today is about</div>
+            <div className="day-lead">{session.focus.label}</div>
             <div className="small muted">{session.focus.why}</div>
           </div>
         )
       )}
 
+      <div className="rule" />
+
       {/* ---------------------------------------------------- lesson */}
       {lesson && (
-        <div className="card lesson">
+        <div className="day-idea">
           <button
             className="lesson-head"
             onClick={() => setLessonOpen(!lessonOpen)}
@@ -146,8 +140,11 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
       )}
 
       {/* --------------------------------------------------- session */}
-      <div className="card stack">
-        <div className="small muted">Today's session — about 15 minutes</div>
+      <div className="day-steps">
+        <div className="row spread" style={{ alignItems: 'baseline' }}>
+          <div className="day-kicker">Today's session</div>
+          <div className="small muted">about 15 minutes</div>
+        </div>
 
         <div className="step">
           <span className="step-n">1</span>
@@ -209,7 +206,7 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
           </div>
         )}
 
-        <div className="row" style={{ gap: 8, marginTop: 4 }}>
+        <div className="day-actions">
           <button
             className="primary"
             style={{ flex: 1 }}
