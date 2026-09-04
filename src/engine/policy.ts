@@ -16,14 +16,23 @@
  *
  * CALIBRATION HONESTY: the ACPL targets below are drawn from published
  * rating-band averages and the temperature≈ACPL mapping is a first-order
- * approximation, not a fitted model. It needs empirical tuning against real
- * played games — see `docs/calibration.md`. It will feel roughly right on day
- * one and properly right after we have data.
+ * approximation, not a fitted model. The numbers in PROFILES are the day-one
+ * guess and they are known to be wrong — scripts/calibrate.ts measured every
+ * band playing far stronger than its label (800 shedding 70cp against a 150
+ * target, 1400 shedding 43 against 75).
+ *
+ * That guess is no longer the last word. `bandProfile` applies whatever
+ * calibration.ts has measured from games actually played, so the table below
+ * is a starting point that the app corrects with use rather than a constant
+ * somebody has to remember to edit. The correction is bounded, damped, needs
+ * a real sample before it does anything, and — importantly — never reads the
+ * RESULT of a game, only the bot's own move quality. See calibration.ts.
  */
 
 import { Chess } from 'chess.js'
 import type { Band, Line, Style, UciMove } from './types'
 import { lineScore, nearestBand } from './types'
+import { factorFor, registerTargets } from './calibration'
 
 export interface BandProfile {
   band: Band
@@ -54,9 +63,35 @@ const PROFILES: Record<Band, Omit<BandProfile, 'band'>> = {
   2200: { targetAcpl: 30, temperature: 30, blunderChance: 0.012, depth: 13, multipv: 5 },
 }
 
+/*
+ * The targets above are what each band is SUPPOSED to shed. calibration.ts
+ * measures what it actually sheds in real games and hands back a multiplier;
+ * registering them here rather than importing PROFILES over there keeps the
+ * two modules from forming a load-time cycle.
+ */
+registerTargets(
+  Object.fromEntries(
+    (Object.keys(PROFILES) as unknown as Band[]).map((b) => [b, PROFILES[b].targetAcpl]),
+  ) as Record<Band, number>,
+)
+
 export function bandProfile(elo: number): BandProfile {
   const band = nearestBand(elo)
-  return { band, ...PROFILES[band] }
+  const base = PROFILES[band]
+  // Everything the app has learned about this band from games actually
+  // played. 1 until a band has a real sample, so day one is unchanged.
+  const factor = factorFor(band)
+  return {
+    band,
+    ...base,
+    temperature: Math.round(base.temperature * factor),
+    // The blunder path is the knob with real headroom — the softmax can only
+    // ever be as loose as the candidate pool — so it carries the correction
+    // too, at half strength and never past a third of moves, which is the
+    // point where a bot stops reading as a weak human and starts reading as
+    // broken.
+    blunderChance: Math.min(0.33, base.blunderChance * (1 + (factor - 1) * 0.5)),
+  }
 }
 
 /* ------------------------------------------------------------------ */

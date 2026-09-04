@@ -35,6 +35,7 @@ const LOCAL_KEYS = [
   'cc.coached',
   'cc.clock',
   'cc.coachedBot',
+  'cc.calib',
 ] as const
 
 /** Bumped if the shape ever changes, so restore can refuse what it cannot read. */

@@ -27,6 +27,7 @@ import { Chess } from 'chess.js'
 import { db } from '../data/db'
 import { updateRatingFromGame } from './profile'
 import { analyseGame, acpl, performanceRating, type MoveAssessment } from './analysis'
+import { recordBotGame } from '../engine/calibration'
 import type { Style } from '../engine/types'
 
 export interface FinishedGame {
@@ -122,6 +123,20 @@ export async function recordFinishedGame(
           at: playedAt,
         })),
     )
+
+    /*
+     * Feed the bot's own move quality back into the band it was drawn from.
+     * Free: `botLosses` derives it from the assessments already computed, so
+     * this adds no engine work.
+     *
+     * Every game that reaches this function was played against one of our
+     * bots — imported chess.com games are written straight to db.games by
+     * chesscom.ts and never come through here — so all three sources count,
+     * and a stranger's moves can never land in a band.
+     */
+    if (typeof game.opponentElo === 'number') {
+      recordBotGame(game.opponentElo, assessments)
+    }
 
     const avg = acpl(assessments)
     await db.games.update(gameId, {

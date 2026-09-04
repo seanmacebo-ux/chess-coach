@@ -24,6 +24,7 @@ import {
 } from '../../data/chesscom'
 import { saveProfile } from '../../data/db'
 import { describeCounts, downloadBackup, restoreBackup } from '../../data/backup'
+import { calibrationRows, MIN_MOVES } from '../../engine/calibration'
 import {
   SECTION_IDS,
   SECTION_NAME,
@@ -279,6 +280,11 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
         delete). The honest storage story is stated right on the card, because
         "where does my progress actually live" should not require asking.
       */}
+      <div className="card stack">
+        <span className="small muted">What the bots have learned</span>
+        <BotCalibration />
+      </div>
+
       <div className="card stack">
         <span className="small muted">Backup</span>
         <div className="small muted">
@@ -690,6 +696,60 @@ function BuildInfo() {
         The app caches itself so it works offline, which means it can keep serving an old version
         after a deploy. If something looks out of date, check the commit above against what you
         expect — then use this, which unregisters the service worker and empties every cache.
+      </div>
+    </div>
+  )
+}
+
+
+/**
+ * The bots measuring themselves, shown rather than hidden.
+ *
+ * An offline harness measured every band as far too strong back in July and
+ * the report sat in calibration/ doing nothing. This panel is the same
+ * measurement taken from games actually played, so the number moves while the
+ * app is used, and it says plainly when it does not yet have enough to act.
+ */
+function BotCalibration() {
+  const rows = calibrationRows().filter((r) => r.moves > 0)
+
+  if (rows.length === 0) {
+    return (
+      <div className="small muted">
+        Nothing measured yet. Every game you play against a bot is checked against a deeper
+        search afterwards — once a rating band has {MIN_MOVES} of its moves on record, the app
+        starts correcting that band toward the strength it claims.
+      </div>
+    )
+  }
+
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      {rows.map((r) => {
+        const ratio = r.measured !== null && r.target > 0 ? r.measured / r.target : null
+        const tone =
+          ratio === null ? 'muted' : ratio < 0.8 ? 'warn' : ratio > 1.25 ? 'warn' : 'good'
+        return (
+          <div key={r.band} className="row spread small">
+            <span>
+              Bots at <strong>{r.band}</strong>
+              <span className="muted">
+                {' '}
+                · {r.games} game{r.games === 1 ? '' : 's'}, {r.moves} moves
+              </span>
+            </span>
+            <span className={tone === 'good' ? 'ok' : tone === 'warn' ? 'warn' : 'muted'}>
+              {r.measured === null ? '—' : `${Math.round(r.measured)} vs ${r.target} target`}
+              {r.applied ? ` · x${r.factor.toFixed(2)}` : ' · measuring'}
+            </span>
+          </div>
+        )
+      })}
+      <div className="small muted">
+        Left is what a band actually sheds per move against a deeper search; right is what it
+        should shed at that rating. Below target means the bot is playing stronger than its
+        label, so the app loosens it — and never the other way round from your results, because
+        a bot that gets easier when you lose would make the whole ladder meaningless.
       </div>
     </div>
   )
