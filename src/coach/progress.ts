@@ -57,10 +57,22 @@ export interface HabitTrend {
   direction: 'better' | 'worse' | 'flat'
 }
 
+/** One pillar's row on the ladder strip: how far along it you are. */
+export interface LadderRow {
+  pillar: Pillar
+  name: string
+  total: number
+  cleared: number
+  /** Open to you now but not yet cleared — where the work is. */
+  open: number
+}
+
 export interface ProgressReport {
   steps: string[]
   sections: SectionTrend[]
   habits: HabitTrend[]
+  /** The whole ladder at a glance, so "what have you taught me" is visible. */
+  ladder: LadderRow[]
   clearedTiers: number
   totalTiers: number
   gamesThisWeek: number
@@ -160,10 +172,27 @@ export async function buildProgress(rating: number): Promise<ProgressReport> {
     )
   }
 
+  /*
+   * The ladder as state rather than a sentence. "2 of 24 cleared" tells you a
+   * quantity; five rows of cells tell you WHERE — that tactics is moving and
+   * endgames has not been started.
+   */
+  const ladder: LadderRow[] = PILLARS.map((p) => {
+    const mine = statuses.filter((st) => st.tier.pillar === p.id)
+    return {
+      pillar: p.id,
+      name: p.name,
+      total: mine.length,
+      cleared: mine.filter((st) => st.cleared).length,
+      open: mine.filter((st) => st.inBand && !st.cleared).length,
+    }
+  })
+
   return {
     steps,
     sections,
     habits,
+    ladder,
     clearedTiers: statuses.filter((s) => s.cleared).length,
     totalTiers: statuses.length,
     gamesThisWeek,

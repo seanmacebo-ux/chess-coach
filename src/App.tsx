@@ -996,31 +996,33 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           {engineState === 'boot' && 'loading engine…'}
           {engineState === 'thinking' && `${opponent.name} thinking`}
           {engineState === 'error' && 'engine error'}
-          {engineState === 'ready' && (gameEnded ? endText : `${turn} to move`)}
+          {engineState === 'ready' &&
+            (gameEnded
+              ? endText
+              : /* With clocks running, the live dot beside a name already says
+                   whose turn it is, and saying it twice is the kind of small
+                   redundancy that made every screen feel padded. */
+                activeClockMin.current > 0
+                ? null
+                : `${turn} to move`)}
         </span>
       </div>
 
       {/* The clocks. Opponent's above the board, yours below it would split
           them around the thing you are looking at — one row reads faster. */}
+      {/*
+        Opponent above the board, you below it — the arrangement every chess
+        player already reads, rather than both clocks stacked on one side. The
+        calm register: no boxes, the figure carries it.
+      */}
       {activeClockMin.current > 0 && (
-        <div className="clock-row">
-          <span
-            className={
-              'clock' +
-              (!gameEnded && turn !== humanColour ? ' active' : '') +
-              (remain[botIs] < 30_000 ? ' low' : '')
-            }
-          >
-            {opponent.name} · {fmtClock(remain[botIs])}
+        <div className="side-strip">
+          <span className="side-who">
+            <i className={'dot-sm' + (!gameEnded && turn !== humanColour ? ' live' : '')} />
+            {opponent.name}
           </span>
-          <span
-            className={
-              'clock' +
-              (!gameEnded && turn === humanColour ? ' active' : '') +
-              (remain[humanIs] < 30_000 ? ' low' : '')
-            }
-          >
-            You · {fmtClock(remain[humanIs])}
+          <span className={'side-clock' + (remain[botIs] < 30_000 ? ' low' : '')}>
+            {fmtClock(remain[botIs])}
           </span>
         </div>
       )}
@@ -1035,6 +1037,22 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         check={chess.current.isCheck()}
         onMove={onMove}
       />
+
+      {activeClockMin.current > 0 && (
+        <div className="side-strip">
+          <span className="side-who">
+            <i className={'dot-sm' + (!gameEnded && turn === humanColour ? ' live' : '')} />
+            You
+          </span>
+          <span
+            className={
+              'side-clock yours' + (remain[humanIs] < 30_000 ? ' low' : '')
+            }
+          >
+            {fmtClock(remain[humanIs])}
+          </span>
+        </div>
+      )}
 
       {pending && (
         <div

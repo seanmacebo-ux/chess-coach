@@ -3994,20 +3994,6 @@ button.back {
 .receipt-lines .bad { color: var(--warn); }
 
 /* The Learn progress card: instructions, then motion, then declines. */
-.progress-card {
-  border-left: 3px solid var(--accent);
-}
-
-.prog-steps {
-  margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  line-height: 1.45;
-  font-size: 14px;
-}
-
 .prog-trends {
   display: flex;
   flex-wrap: wrap;
@@ -4031,33 +4017,6 @@ button.back {
 .prog-habit.worse { color: var(--warn); }
 .prog-habit.flat { color: var(--muted); }
 
-/* The chess clock on the Play tab. Tabular digits or the row wobbles. */
-.clock-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.clock {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  font-size: 14px;
-  padding: 4px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  background: var(--surface);
-}
-
-.clock.active {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
-}
-
-.clock.low {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
-}
 
 /* ---------------------------------------------------- game review graph */
 /*
@@ -4298,4 +4257,284 @@ button.back {
   font-size: 21px;
   line-height: 1.15;
   font-weight: 400;
+}
+
+/* ================================================================== */
+/* THE DENSE REGISTER — surfaces where you assess                      */
+/*                                                                     */
+/* The other half of the rule. Reading where you stand is a different   */
+/* act from deciding what to play: it wants tabular figures you can     */
+/* compare down a column, labels small enough to disappear once learned,*/
+/* and colour used only as signal. This is the register Sean picked out */
+/* of direction B — "I like B" — applied where B was actually right.    */
+/* ================================================================== */
+
+.prog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.prog-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prog-label,
+.prog-note {
+  font-family: var(--font-num);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.prog-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.prog-task,
+.prog-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.prog-task:last-child,
+.prog-row:last-child {
+  border-bottom: none;
+}
+
+.prog-n {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  background: var(--surface-hi);
+  font-family: var(--font-num);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.prog-task-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* --- accuracy, week on week ---------------------------------------- */
+
+/*
+ * Fits the number of sections that actually have enough reps to read, rather
+ * than always three. Early on only one section has a trend, and a lone cell
+ * marooned in a third of the row reads as a rendering fault.
+ */
+.prog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.prog-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.prog-cell-name {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.prog-cell-num {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.prog-cell-num b {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.prog-cell-num span {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.prog-cell.up .prog-cell-num b { color: var(--accent-hi); }
+.prog-cell.down .prog-cell-num b { color: var(--danger); }
+.prog-cell.flat .prog-cell-num b { color: var(--text-muted); }
+
+.prog-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 28px;
+}
+
+.prog-bars i {
+  flex: 1;
+  border-radius: 1px;
+  background: var(--surface-hi);
+}
+
+.prog-cell.up .prog-bars i.now { background: var(--accent); }
+.prog-cell.down .prog-bars i.now { background: var(--danger); }
+.prog-cell.flat .prog-bars i.now { background: var(--text-muted); }
+
+/* --- habits --------------------------------------------------------- */
+
+.prog-row-name {
+  flex: 1;
+  font-size: 12.5px;
+}
+
+.prog-delta {
+  flex: none;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.prog-delta i {
+  padding: 0 4px;
+  color: var(--border);
+  font-style: normal;
+}
+
+.prog-delta b.better { color: var(--accent-hi); }
+.prog-delta b.worse { color: var(--danger); }
+.prog-delta b.flat { color: var(--text-muted); }
+
+.prog-verdict {
+  flex: none;
+  width: 62px;
+  text-align: right;
+  font-family: var(--font-num);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prog-verdict.better { color: var(--accent-hi); }
+.prog-verdict.worse { color: var(--danger); }
+.prog-verdict.flat { color: var(--text-muted); }
+
+/* --- the ladder, as state ------------------------------------------- */
+
+.prog-ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.prog-lrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prog-lname {
+  flex: none;
+  width: 66px;
+  font-family: var(--font-num);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.prog-lcells {
+  flex: 1;
+  display: flex;
+  gap: 3px;
+}
+
+.prog-lcells i {
+  flex: 1;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--surface-hi);
+}
+
+.prog-lcells i.done { background: var(--accent); }
+.prog-lcells i.open {
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--accent-hi);
+}
+
+/* --- the clocks, in the calm register ------------------------------- */
+/*
+ * Opponent above the board, you below it, both on the page rather than in
+ * boxes. The boxed two-up row put both clocks on one side of the board,
+ * which is not how anyone reads a chess position.
+ */
+.side-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 2px;
+}
+
+.side-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.dot-sm {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+/* Whose turn it is, said by the one thing that is already on screen. */
+.dot-sm.live {
+  background: var(--accent);
+}
+
+.side-clock {
+  font-family: var(--font-display);
+  font-size: 27px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.side-clock.yours {
+  font-size: 33px;
+  color: var(--text);
+}
+
+.side-clock.low {
+  color: var(--danger);
 }

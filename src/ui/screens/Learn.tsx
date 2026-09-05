@@ -434,55 +434,117 @@ function ProgressCard({ p }: { p: ProgressReport }) {
   const readable = p.sections.filter(
     (s): s is SectionTrend & { direction: 'up' | 'down' | 'flat' } => s.direction !== 'na',
   )
-  const arrow = { up: '▲', down: '▼', flat: '─' } as const
 
   return (
-    <div className="card stack progress-card">
-      <div className="receipt-title">Your progress, tracked</div>
-
+    <div className="prog">
+      {/* -------------------------------------------------- what to do */}
       {p.steps.length > 0 && (
-        <ol className="prog-steps">
-          {p.steps.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
+        <section className="prog-sec">
+          <div className="prog-head">
+            <span className="prog-label">Next actions</span>
+          </div>
+          <div className="prog-panel">
+            {p.steps.map((step, i) => (
+              <div key={step} className="prog-task">
+                <span className="prog-n">{i + 1}</span>
+                <span className="prog-task-text">{step}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
-      {readable.length > 0 ? (
-        <div className="prog-trends">
-          {readable.map((s) => (
-            <span key={s.pillar} className={`prog-trend ${s.direction}`}>
-              {arrow[s.direction]} {s.name} {s.prior.accuracy}% → {s.recent.accuracy}%
-            </span>
-          ))}
+      {/* ------------------------------------------------- improvement */}
+      <section className="prog-sec">
+        <div className="prog-head">
+          <span className="prog-label">Accuracy</span>
+          <span className="prog-note">7d vs prior 7d</span>
         </div>
-      ) : (
-        <div className="small muted">
-          No section has enough reps this week to read a trend — five puzzles in a section is
-          enough to start its needle.
-        </div>
-      )}
+        {readable.length > 0 ? (
+          <div className="prog-grid">
+            {readable.map((s) => (
+              <div key={s.pillar} className={`prog-cell ${s.direction}`}>
+                <div className="prog-cell-name">{s.name}</div>
+                <div className="prog-cell-num">
+                  <b>{s.recent.accuracy}%</b>
+                  <span>from {s.prior.accuracy}%</span>
+                </div>
+                {/* Two bars, prior then recent: the comparison the number is
+                    making, drawn, so the direction reads before the digits do. */}
+                <div className="prog-bars">
+                  <i style={{ height: `${Math.max(4, s.prior.accuracy * 0.28)}px` }} />
+                  <i className="now" style={{ height: `${Math.max(4, s.recent.accuracy * 0.28)}px` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="small muted">
+            No section has enough reps this week to read a trend — five puzzles in a section is
+            enough to start its needle.
+          </div>
+        )}
+      </section>
 
+      {/* ---------------------------------------------------- declines */}
       {p.habits.length > 0 && (
-        <div className="stack" style={{ gap: 3 }}>
-          {p.habits.slice(0, 3).map((h) => (
-            <div key={h.tag} className={`small prog-habit ${h.direction}`}>
-              {h.label}: {h.prior} → {h.recent} in 15-day windows —{' '}
-              {h.direction === 'better'
-                ? 'improving.'
-                : h.direction === 'worse'
-                  ? 'slipping. This is the decline to stop first.'
-                  : 'holding.'}
+        <section className="prog-sec">
+          <div className="prog-head">
+            <span className="prog-label">Habits</span>
+            <span className="prog-note">15d windows</span>
+          </div>
+          <div className="prog-panel">
+            {p.habits.slice(0, 4).map((h) => (
+              <div key={h.tag} className="prog-row">
+                <span className="prog-row-name">{h.label}</span>
+                <span className="prog-delta">
+                  {h.prior}
+                  <i>→</i>
+                  <b className={h.direction}>{h.recent}</b>
+                </span>
+                <span className={`prog-verdict ${h.direction}`}>
+                  {h.direction === 'better'
+                    ? 'improving'
+                    : h.direction === 'worse'
+                      ? 'slipping'
+                      : 'holding'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ------------------------------------------------- the ladder */}
+      <section className="prog-sec">
+        <div className="prog-head">
+          <span className="prog-label">Ladder</span>
+          <span className="prog-note">
+            {p.clearedTiers}/{p.totalTiers} cleared
+          </span>
+        </div>
+        <div className="prog-ladder">
+          {p.ladder.map((row) => (
+            <div key={row.pillar} className="prog-lrow">
+              <span className="prog-lname">{row.name}</span>
+              <span className="prog-lcells">
+                {Array.from({ length: row.total }, (_, i) => (
+                  <i
+                    key={i}
+                    className={
+                      i < row.cleared ? 'done' : i < row.cleared + row.open ? 'open' : 'locked'
+                    }
+                  />
+                ))}
+              </span>
             </div>
           ))}
         </div>
-      )}
+      </section>
 
       <div className="small muted">
-        How this is measured: puzzle accuracy this week against last week, mistakes counted in
-        15-day windows, and the ladder records what you have been taught — {p.clearedTiers} of{' '}
-        {p.totalTiers} levels cleared, {p.gamesThisWeek} game{p.gamesThisWeek === 1 ? '' : 's'}{' '}
-        played this week.
+        Measured, not guessed: puzzle accuracy this week against last week, mistakes counted in
+        15-day windows, {p.gamesThisWeek} game{p.gamesThisWeek === 1 ? '' : 's'} played this week.
       </div>
     </div>
   )
