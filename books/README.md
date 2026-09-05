@@ -1,59 +1,79 @@
 # Books
 
-**Put them here.** `books/` in the repo root. PDF, EPUB, PGN, photographed
-pages — anything. Then say so, and I'll read them.
+## Put them here
 
-That works immediately. What it does not do is survive, and the difference
-matters enough to be the rest of this file.
+Drop the files in this folder — `books/`. Nothing else to configure.
 
-## Two different things
+**This repository is PUBLIC**, so everything in here except this README is
+gitignored. A committed PDF is a published PDF, and that is not yours to do
+with someone else's book. Files you put here stay on your machine.
 
-**Using them in a session.** Drop a file in `books/`, tell me it is there, I
-read it and work from it. Nothing else needed. This is the answer most of the
-time.
+If you would rather they lived somewhere permanent, there is a private repo,
+`seanmacebo-ux/chess-books`. And if git is being git, the simplest path that
+has always worked: **send the file in the chat** and it gets committed for you.
 
-**Using them in EVERY session.** Needs the files to be in git, and that is
-where it stops being simple:
+## What actually happens to them — the honest version
 
-> **`seanmacebo-ux/chess-coach` is a PUBLIC repository.**
-> A book committed here is a book published to the internet under your name.
+A PDF in a folder teaches the app nothing. There is no mechanism by which a
+file changes how the app plays or what it serves. The app is code and
+structured data, and a book becomes app behaviour only when its content is
+turned into that data — everything in `src/content/` got there this way.
 
-So `.gitignore` covers `books/*` — everything except this file. Not to stop you
-using the folder. To stop a drag-and-drop turning into a publication.
+There are two routes in, and only one of them is deterministic.
 
-Sessions run in a container that gets reclaimed when it goes idle, and ignored
-files live only on the machine that made them. That is exactly what happened
-last time: books went into `scripts/raw/`, also ignored, and went with the
-container.
+### 1. Positions — a machine can do this
 
-## Making them permanent
+Run:
 
-Pick one.
+    npm run import-book -- books/your-file.epd
 
-**1. A private repo. Recommended.** Make `seanmacebo-ux/chess-books`, private,
-and commit the books there normally. Nothing links it to this repo. Then in any
-session: *"add my chess-books repo"* — I can attach a private repo you own and
-read from it. Books backed up and versioned, app repo still public and still
-deploying free.
+Formats it reads:
 
-**2. Make this repo private.** One place for everything. Costs you: GitHub
-Pages from a private repo needs a paid plan, and the site is served from this
-repo for free right now.
+| Format | What it is | What it gives |
+|---|---|---|
+| `.epd` | The standard study format: a position plus `bm` (best move) and an `id` | Position **and** the book's answer |
+| `.fen` | Bare positions, one per line | Positions; the engine supplies the answer |
+| `.pgn` | Games or annotated studies | Every mainline position past `--from-move` |
 
-**3. Don't persist them.** Upload per session, and let me extract what matters
-into `src/content/` — which is what already happened, and the extracted version
-is the part the app actually runs on.
+Nothing is taken on trust:
 
-## What already came out of the books
+- every position is parsed and dropped if it is not legal
+- every claimed move is played to confirm it exists in that position
+- every position is searched, and the book's move is compared against the
+  engine's
 
-Worth being clear about, because it is easy to assume none of it landed:
+Positions that verify are written to `books/imported/<name>.json` with **the
+book's move** — not the engine's. Positions that do not verify are kept in the
+same file under `rejected`, with the reason, because a book is usually right
+and an OCR slip usually is not, and the difference is worth reading before
+anything is discarded.
 
-| Source | What it became | Where |
-| --- | --- | --- |
-| Silman, *Reassess Your Chess* / *Endgame Course* | Rating-banded imbalance lessons; the endgame ladder ordered by what decides games at each band | `src/content/lessons.ts`, `src/coach/endgames.ts` |
-| Polgár, *Chess: 5334 Problems* | The mate-pattern ratio the tactics tiers are weighted by | `src/coach/tiers.ts` |
-| Kotov, *Think Like a Grandmaster* | The candidate-move trainer — list them, order them, then calculate | `src/ui/screens/CandidateRunner.tsx`, `src/coach/drills.ts` |
-| Nunn, *Secrets of Practical Chess* | "Loose pieces drop off" — the loose-piece scan | `src/coach/drills.ts` |
+Import a set and you get a count of each: agreed, disagreed, illegal move,
+illegal position.
 
-27 lessons carry a source line. That is the pattern to keep: the book goes in
-this folder, the idea comes out into `src/content/`, and the idea is what ships.
+Note this is where content *stops* until someone moves it. The imported JSON
+is not yet served by the app — promoting verified positions into
+`src/coach/endgames.ts`, `src/coach/positional.ts` or the puzzle corpus is a
+deliberate step, so nothing reaches training without being looked at.
+
+### 2. Ideas — a person has to do this
+
+Silman's imbalances, Kotov's candidate moves, Nunn's loose pieces: that is
+prose, and no script converts an argument into a drill. Someone reads it and
+encodes it as a lesson, a plan, or a breakdown.
+
+That someone has previously written chess that was not on the board, and you
+caught it. Which is why `scripts/verify-*.ts` exists: every move named in
+prose is played against the real position, and every counting claim ("she has
+seven moves") is counted. The verifiers do not care where a claim came from —
+a book, or an invention — only whether the board agrees.
+
+## What each book is actually for
+
+| Book | Feeds |
+|---|---|
+| Silman, *Reassess Your Chess* | imbalances → `src/coach/positional.ts`, middlegame plans |
+| Polgár, *5334 Problems* | mate and tactic positions → puzzle corpus (`.epd` imports cleanly) |
+| Kotov, *Think Like a Grandmaster* | candidate-move method → the Kotov trainer, coached-game loop |
+| Nunn, *Understanding Chess Middlegames* | loose pieces, plans → `src/content/middlegame.ts` |
+| Dvoretsky, *Endgame Manual* | theoretical endings → `src/coach/endgames.ts` |
