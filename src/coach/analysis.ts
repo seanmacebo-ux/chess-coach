@@ -98,6 +98,17 @@ export interface MoveAssessment {
    */
   pvBest?: UciMove[]
   pvPunish?: UciMove[]
+  /**
+   * The other moves that were actually on the table, best first, with what
+   * each was worth — the choice you were facing, not just the verdict on the
+   * one you took.
+   *
+   * Sean: "you not breaking down my choices or my movement." The review could
+   * say your move cost 40 points of winning chances and still never show you
+   * what the alternative WAS, which is the part you can act on next time. The
+   * search already produces these; it was only ever asked for one line.
+   */
+  alts?: { san: string; cp: number; played: boolean }[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -108,6 +119,9 @@ const VALUE: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, 
 
 /** Same clamp rationale as the calibration harness: mates would swamp everything. */
 const EVAL_CAP = 1000
+
+/** How many candidate moves to keep per position. */
+const CANDIDATES = 3
 const clampEval = (cp: number) => Math.max(-EVAL_CAP, Math.min(EVAL_CAP, cp))
 
 function phaseOf(chess: Chess): Phase {
@@ -294,7 +308,10 @@ export async function analyseGame(
       continue
     }
 
-    const before = await engine.analyse(fenBefore, { depth, multipv: 1 })
+    // multipv 3 rather than 1: the extra lines share the same search tree, so
+    // the cost is a fraction of a second per move, and they are what makes a
+    // breakdown of your CHOICE possible rather than only of your mistake.
+    const before = await engine.analyse(fenBefore, { depth, multipv: CANDIDATES })
     const bestLine = before.lines[0]
     const bestScore = bestLine ? clampEval(lineScore(bestLine)) : 0
     const bestIsMate = Boolean(bestLine?.mate && bestLine.mate > 0)
@@ -314,7 +331,29 @@ export async function analyseGame(
       }
     }
 
+    /*
+     * Each multipv line named and scored, from the mover's point of view, with
+     * the one actually played marked. Lines that will not replay are dropped
+     * rather than shown as a move that does not exist.
+     */
     const playedUci = `${h.from}${h.to}${h.promotion ?? ''}`
+    const alts = before.lines
+      .map((line) => {
+        const uci = line.pv?.[0]
+        if (!uci) return null
+        const probe = new Chess(fenBefore)
+        let san: string | null = null
+        try {
+          san = probe.move({
+            from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4],
+          })?.san ?? null
+        } catch {
+          san = null
+        }
+        if (!san) return null
+        return { san, cp: clampEval(lineScore(line)), played: uci === playedUci }
+      })
+      .filter((a): a is { san: string; cp: number; played: boolean } => a !== null)
     board.move({ from: h.from, to: h.to, promotion: h.promotion })
 
     let lossCp = 0
@@ -355,6 +394,7 @@ export async function analyseGame(
       phase,
       pvBest: bestLine?.pv?.slice(0, 6) ?? [],
       pvPunish,
+      alts,
     })
 
     opts.onProgress?.(++done, mine)

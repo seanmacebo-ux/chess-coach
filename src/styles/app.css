@@ -4538,3 +4538,71 @@ button.back {
 .side-clock.low {
   color: var(--danger);
 }
+
+/* --- the choice you were facing ------------------------------------- */
+/*
+ * "You not breaking down my choices or my movement." A verdict on the move
+ * you played says nothing about the decision you made; these are the moves
+ * that were on the table, yours marked, so the alternative is visible rather
+ * than merely named.
+ */
+.alts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.alt-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.alt-san {
+  flex: none;
+  width: 62px;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.alt-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+
+.alt-bar i {
+  display: block;
+  height: 100%;
+  background: var(--text-muted);
+}
+
+.alt-pct {
+  flex: none;
+  width: 34px;
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+/* Yours, so the comparison has an anchor. */
+.alt.played {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.alt.played .alt-bar i {
+  background: var(--accent);
+}

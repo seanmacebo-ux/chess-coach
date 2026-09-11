@@ -70,6 +70,14 @@ const PIECE: Record<string, string> = {
  * say odds, which is what the engine actually measured.
  */
 function verdictInWords(m: MoveAssessment): string {
+  /*
+   * Every move is walkable now, not just the flagged ones, so this has to
+   * have something true to say about a GOOD move. It did not: a move labelled
+   * "Best" was being described as "the better move keeps more of it", which
+   * names a better move that by definition does not exist.
+   */
+  if (m.severity === 'best') return 'the engine plays this too'
+  if (m.severity === 'good') return 'nothing lost'
   if (m.cpPlayed <= -900) return 'walked into a forced mate'
   if (m.tag === 'missed-mate') return 'missed a forced mate'
 
@@ -103,7 +111,7 @@ function verdictInWords(m: MoveAssessment): string {
 }
 
 
-export type ProblemOrder = 'severity' | 'game'
+export type ProblemOrder = 'severity' | 'game' | 'all'
 
 /**
  * The positions worth looking at, in the order asked for.
@@ -116,6 +124,17 @@ export function orderProblems(
   moves: MoveAssessment[],
   order: ProblemOrder,
 ): MoveAssessment[] {
+  /*
+   * 'all' is every move you played, in order.
+   *
+   * Sean: "you not breaking down my choices or my movement." The review only
+   * ever showed the moves it flagged — and since severity became odds-based,
+   * a decided game can flag exactly one. Every other decision you made, good
+   * ones included, got no account at all. Walking the whole game is how you
+   * look at a choice you were unsure of rather than only the ones that cost.
+   */
+  if (order === 'all') return [...moves].sort((a, b) => a.ply - b.ply)
+
   const bad = moves.filter(
     (m) => m.severity === 'blunder' || m.severity === 'mistake' || m.severity === 'inaccuracy',
   )
@@ -221,8 +240,15 @@ export function GameReview({
       ) : (
         <>
           <p className="lede">
-            {problems.length} position{problems.length === 1 ? '' : 's'} worth looking at
-            {order === 'severity' ? ', worst first' : ', in the order they happened'}. The board
+            {problems.length}{' '}
+            {order === 'all'
+              ? `move${problems.length === 1 ? '' : 's'}`
+              : `position${problems.length === 1 ? '' : 's'} worth looking at`}
+            {order === 'severity'
+              ? ', worst first'
+              : order === 'all'
+                ? ' — every move you played, in order'
+                : ', in the order they happened'}. The board
             shows what you were looking at — tap between your move and the better one to see the
             difference.
           </p>
@@ -252,6 +278,7 @@ export function GameReview({
               [
                 ['severity', 'Worst first'],
                 ['game', 'In game order'],
+                ['all', 'Every move'],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -492,12 +519,50 @@ function MistakeCard({
             <span className="brief-key">{showing === 'better' ? 'The line' : 'What follows'}</span>{' '}
             {showing === 'better'
               ? `After ${m.bestSan}: ${lineSan} — the arrows on the board walk it.`
-              : `Best play punishes ${m.san} with ${lineSan} — drawn on the board.`}
+              : /* "punishes" is only true if the move was a mistake. On a good
+                   move the same line is simply how the game goes on. */
+                m.severity === 'best' || m.severity === 'good'
+                ? `The game continues ${lineSan} — drawn on the board.`
+                : `Best play punishes ${m.san} with ${lineSan} — drawn on the board.`}
           </p>
         )}
         <p className="brief-when">
           <span className="brief-key">Odds</span> {oddsSwing(m.cpBest, m.cpPlayed)}
         </p>
+
+        {/*
+          The choice, not just the verdict. These are the moves that were
+          actually on the table in this position, best first, with yours
+          marked — so a move you were unsure about has an account even when it
+          cost nothing, which is most of them.
+        */}
+        {m.alts && m.alts.length > 1 && (
+          <div className="alts">
+            <span className="brief-key">Your options</span>
+            <div className="alt-rows">
+              {m.alts.map((a, i) => (
+                <div key={a.san + i} className={'alt' + (a.played ? ' played' : '')}>
+                  <span className="alt-san">{a.san}</span>
+                  <span className="alt-bar">
+                    <i style={{ width: `${Math.round(winChance(a.cp))}%` }} />
+                  </span>
+                  <span className="alt-pct">{Math.round(winChance(a.cp))}%</span>
+                </div>
+              ))}
+              {/* Played something the engine never shortlisted: say so rather
+                  than leaving your own move missing from your own options. */}
+              {!m.alts.some((a) => a.played) && (
+                <div className="alt played">
+                  <span className="alt-san">{m.san}</span>
+                  <span className="alt-bar">
+                    <i style={{ width: `${Math.round(winChance(m.cpPlayed))}%` }} />
+                  </span>
+                  <span className="alt-pct">{Math.round(winChance(m.cpPlayed))}%</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <p className="brief-when">
           <span className="brief-key">Where</span> Move {moveNumber} of the {m.phase}.
         </p>
@@ -508,7 +573,13 @@ function MistakeCard({
             for it.
           </p>
         )}
-        {m.bestSan && (
+        {/*
+          Only where there is a lesson. A move the engine also plays has no
+          better version, and one that lost nothing measurable does not have a
+          "difference between the two boards" worth calling the lesson — the
+          toggle is still there for both, it just stops being instructed.
+        */}
+        {m.bestSan && m.severity !== 'best' && m.severity !== 'good' && (
           <p className="brief-role">
             Tap "Better was {m.bestSan}" above to see the position you could have had. The
             difference between the two boards is the lesson.
