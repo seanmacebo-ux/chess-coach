@@ -21,7 +21,7 @@ import { getProfile, db } from '../data/db'
 import { loadPrefs } from '../data/settings'
 import { pickPuzzles, type Puzzle } from '../data/puzzles'
 import { buildRedoSet } from './redo'
-import { computeWeaknesses, nextTier, type Weakness } from './profile'
+import { computeStreak, computeWeaknesses, nextTier, type Weakness } from './profile'
 import { LICHESS_MOTIFS, isExerciseBacked, puzzleThemes, type Tier } from './tiers'
 import type { Style } from '../engine/types'
 
@@ -174,7 +174,7 @@ export async function buildDailySession(opts: BuildOptions = {}): Promise<DailyS
   return {
     date,
     rating: profile.rating,
-    streak: profile.streak,
+    streak: await computeStreak(now),
     focus,
     game: { elo: Math.round(profile.rating / 100) * 100, style, colour, why },
     puzzles,

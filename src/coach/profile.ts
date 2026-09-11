@@ -267,15 +267,69 @@ export async function updateRatingFromGame(
   return { rating, delta }
 }
 
-/** Day-streak bookkeeping. Call once when a daily session completes. */
-export async function markSessionComplete(today = new Date()): Promise<number> {
-  const p = await getProfile()
-  const dayKey = today.toISOString().slice(0, 10)
-  if (p.lastSessionDate === dayKey) return p.streak
+/**
+ * A local YYYY-MM-DD key. Deliberately local rather than UTC: a streak is
+ * about the days YOU trained, and a session at 11pm in London is not
+ * yesterday because a server in another timezone says so.
+ */
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
 
-  const yesterday = new Date(today.getTime() - 86_400_000).toISOString().slice(0, 10)
-  const streak = p.lastSessionDate === yesterday ? p.streak + 1 : 1
-  await saveProfile({ lastSessionDate: dayKey, streak })
+/**
+ * The streak, DERIVED from what you actually did rather than maintained by a
+ * counter somebody has to remember to increment.
+ *
+ * THE BUG THIS REPLACES. markSessionComplete() was called from exactly one
+ * place in the whole app: finishing the daily session's puzzle set. Play three
+ * games, run the Climb, do a coached game, fix your own mistakes — none of it
+ * touched the streak, so the number on the front screen sat unchanged however
+ * much the app got used. A motivator that ignores the work is worse than no
+ * motivator: it quietly says none of that counted.
+ *
+ * Deriving it removes the class of bug rather than adding a ninth call site.
+ * Every game and every puzzle attempt is already stored with a timestamp, so
+ * training on a day is a fact in the log; the streak is just how many days
+ * back that fact runs without a gap.
+ *
+ * Today not being present is not a break — the day is not over. So the walk
+ * starts at today if there is activity, otherwise yesterday, and a streak
+ * only ends when a full day passed with nothing in it.
+ */
+export async function computeStreak(now = new Date()): Promise<number> {
+  const [games, attempts] = await Promise.all([
+    db.games.toArray(),
+    db.puzzleAttempts.toArray(),
+  ])
+
+  const active = new Set<string>()
+  for (const g of games) active.add(dayKey(new Date(g.playedAt)))
+  for (const a of attempts) active.add(dayKey(new Date(a.at)))
+  if (active.size === 0) return 0
+
+  const cursor = new Date(now)
+  if (!active.has(dayKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1)
+    if (!active.has(dayKey(cursor))) return 0
+  }
+
+  let streak = 0
+  while (active.has(dayKey(cursor))) {
+    streak++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
+/**
+ * Kept so the profile still records the last day trained — the sync payload
+ * and History read it — but the number shown is computed, not this.
+ */
+export async function markSessionComplete(today = new Date()): Promise<number> {
+  const streak = await computeStreak(today)
+  await saveProfile({ lastSessionDate: dayKey(today), streak })
   return streak
 }
 
