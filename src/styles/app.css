@@ -4606,3 +4606,21 @@ button.back {
 .alt.played .alt-bar i {
   background: var(--accent);
 }
+
+/* What a game against this bot is worth, on the bot itself. */
+.bot-stakes {
+  display: flex;
+  gap: 6px;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.bot-stakes i {
+  font-style: normal;
+}
+
+.bot-stakes .up { color: var(--accent-hi); }
+.bot-stakes .down { color: var(--danger); }
+.bot-stakes .none { color: var(--text-muted); }

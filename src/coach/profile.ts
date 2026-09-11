@@ -249,15 +249,40 @@ export async function detectPatterns(): Promise<Pattern[]> {
  * fast and later ones barely nudge it. RD shrinks with every game and is
  * floored so the rating never becomes completely rigid.
  */
+/**
+ * What this game is worth, before you play it.
+ *
+ * THE COMPLAINT THIS ANSWERS. "It's always the same" — and against a weaker
+ * bot that is exactly right, but not a bug: Elo pays you for the result it
+ * did not expect. Rated 800 against a 350, you are expected to win 93% of the
+ * time, so a win is worth about +1 and a loss about -19. Grind wins against
+ * a bot well below you and the number genuinely does not move.
+ *
+ * That is correct and it is invisible, which makes it feel broken. So the
+ * numbers are computed once here and SHOWN — on each bot before you pick it,
+ * and on the result afterwards — rather than left for the player to infer
+ * from a rating that stubbornly will not budge.
+ */
+export function ratingStakes(
+  rating: number,
+  ratingDeviation: number,
+  opponentElo: number,
+): { win: number; draw: number; loss: number; expected: number } {
+  const expected = 1 / (1 + Math.pow(10, (opponentElo - rating) / 400))
+  const k = 16 + (ratingDeviation / 250) * 24
+  const at = (score: number) => Math.round(k * (score - expected))
+  return { win: at(1), draw: at(0.5), loss: at(0), expected }
+}
+
 export async function updateRatingFromGame(
   opponentElo: number,
   score: 0 | 0.5 | 1,
 ): Promise<{ rating: number; delta: number }> {
   const p = await getProfile()
-  const expected = 1 / (1 + Math.pow(10, (opponentElo - p.rating) / 400))
-  // RD 250 (fresh) -> K 40; RD 45 (settled) -> K ~20.
-  const k = 16 + (p.ratingDeviation / 250) * 24
-  const delta = Math.round(k * (score - expected))
+  // Same arithmetic the stakes shown before the game used — one definition,
+  // so what you were promised and what you get cannot drift apart.
+  const stakes = ratingStakes(p.rating, p.ratingDeviation, opponentElo)
+  const delta = score === 1 ? stakes.win : score === 0 ? stakes.loss : stakes.draw
   // Floor at 100, not 400. The old floor sat above real beginners: a player
   // rated 316 could never have their rating go DOWN, so every loss was
   // silently discarded and the number they were coached against was fiction.

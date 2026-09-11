@@ -41,7 +41,7 @@ import {
 } from './ui/screens/CandidateRunner'
 import { Settings, type ColourMode } from './ui/screens/Settings'
 import { syncInBackground } from './data/sync'
-import { markSessionComplete } from './coach/profile'
+import { markSessionComplete, ratingStakes } from './coach/profile'
 import type { DailySession } from './coach/session'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
 import { createOpponent, type Opponent } from './engine/opponent'
@@ -689,6 +689,8 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
    * makes people stop trusting the whole display.
    */
   const [myRating, setMyRating] = useState<number | null>(null)
+  /** Needed alongside the rating: K scales with it, so the stakes do too. */
+  const [myRd, setMyRd] = useState<number | null>(null)
   const [sections, setSections] = useState<Record<SectionId, SectionRating> | null>(null)
 
   const humanColour = orientation
@@ -721,6 +723,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       const s = await getSectionRatings()
       if (cancelled) return
       setMyRating(p.rating)
+      setMyRd(p.ratingDeviation)
       setSections(s)
     })()
     return () => {
@@ -1103,6 +1106,19 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           )}
           {review.phase === 'done' && (
             <div className="stack">
+              {/*
+                Why the rating did what it did. A win worth +1 reads as a
+                broken app unless the reason is on screen next to it.
+              */}
+              <div className="small muted">
+                {(() => {
+                  const st = ratingStakes(myRating ?? 800, myRd ?? 250, elo)
+                  const pct = Math.round(st.expected * 100)
+                  return st.win <= 2
+                    ? `You were expected to win this one (${pct}%), so beating it is worth about +${st.win}. Play someone nearer your own number to move it.`
+                    : `Against ${elo} you were about ${pct}% to win: +${st.win} for a win, ${st.loss} for a loss.`
+                })()}
+              </div>
               <div className="small">
                 You averaged <strong>{review.acpl}</strong> centipawns lost per move — that's about{' '}
                 <strong>{review.perf}</strong> strength.{' '}
@@ -1136,6 +1152,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       */}
       <BotRoster
         rating={myRating ?? 800}
+        ratingDeviation={myRd ?? 250}
         elo={elo}
         style={style}
         onPick={(b) => {
@@ -1237,11 +1254,13 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
  */
 function BotRoster({
   rating,
+  ratingDeviation,
   elo,
   style,
   onPick,
 }: {
   rating: number
+  ratingDeviation: number
   elo: number
   style: Style
   onPick: (b: Bot) => void
@@ -1275,6 +1294,26 @@ function BotRoster({
               <span className="bot-id">
                 <span className="bot-name">{b.name}</span>
                 <span className="bot-elo">{b.elo}</span>
+              </span>
+              {/*
+                What the game is worth, on the bot, before you commit to it.
+                Elo pays for the unexpected result, so a bot far below you is
+                worth about nothing to beat and a lot to lose to — true, and
+                completely invisible until it is written down.
+              */}
+              <span className="bot-stakes">
+                {(() => {
+                  const st = ratingStakes(rating, ratingDeviation, b.elo)
+                  return (
+                    <>
+                      <i className="up">+{st.win}</i>
+                      {/* A loss worth nothing is good news; painting the 0
+                          red made "you cannot lose anything here" look like
+                          a penalty. */}
+                      <i className={st.loss < 0 ? 'down' : 'none'}>{st.loss}</i>
+                    </>
+                  )
+                })()}
               </span>
               {isNext && <span className="bot-tag">next up</span>}
             </button>
