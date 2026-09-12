@@ -23,7 +23,8 @@
     "sandbox:puzzles": "tsx scripts/sandbox-puzzles.ts",
     "sandbox:drills": "tsx scripts/sandbox-drills.ts",
     "sandbox:tiers": "tsx scripts/sandbox-tiers.ts",
-    "import-book": "tsx scripts/import-book.ts"
+    "import-book": "tsx scripts/import-book.ts",
+    "verify:position": "tsx scripts/verify-position.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

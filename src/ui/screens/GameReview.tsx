@@ -45,6 +45,7 @@ import type { DrawShape } from 'chessground/draw'
 import { Board } from '../Board'
 import { TAG_LABEL, type MoveAssessment, type Severity } from '../../coach/analysis'
 import { loosePieces } from '../../coach/exercises'
+import { readPosition, weighMove } from '../../coach/position'
 import { EvalMeter, oddsSwing, winChance } from '../EvalMeter'
 
 const SEVERITY_LABEL: Record<Severity, string> = {
@@ -371,6 +372,9 @@ function MistakeCard({
   showing: 'yours' | 'better'
   onShow: (s: 'yours' | 'better') => void
 }) {
+  /** Which option has its breakdown open, by SAN. */
+  const [weighing, setWeighing] = useState<string | null>(null)
+
   const uci = showing === 'better' && m.bestUci ? m.bestUci : m.uci
 
   const { fen, lastMove, shapes, lineSan } = useMemo(() => {
@@ -531,6 +535,27 @@ function MistakeCard({
         </p>
 
         {/*
+          WHAT WAS HAPPENING HERE. Every number on this screen so far is the
+          engine's verdict, which cannot be reproduced at the board. This is
+          the position in terms you can check yourself: material, what is
+          loose on both sides, king safety, development, the centre. Computed
+          from the board, so it cannot say something the position does not.
+        */}
+        {(() => {
+          const read = readPosition(m.fen, m.uci.length > 0 ? (new Chess(m.fen).turn() as 'w' | 'b') : 'w')
+          return (
+            <div className="reading">
+              <span className="brief-key">What was happening</span>
+              <ul className="read-lines">
+                {read.lines.map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
+            </div>
+          )
+        })()}
+
+        {/*
           The choice, not just the verdict. These are the moves that were
           actually on the table in this position, best first, with yours
           marked — so a move you were unsure about has an account even when it
@@ -538,26 +563,49 @@ function MistakeCard({
         */}
         {m.alts && m.alts.length > 1 && (
           <div className="alts">
-            <span className="brief-key">Your options</span>
+            <span className="brief-key">Your options — tap one to weigh it</span>
             <div className="alt-rows">
               {m.alts.map((a, i) => (
-                <div key={a.san + i} className={'alt' + (a.played ? ' played' : '')}>
-                  <span className="alt-san">{a.san}</span>
-                  <span className="alt-bar">
-                    <i style={{ width: `${Math.round(winChance(a.cp))}%` }} />
-                  </span>
-                  <span className="alt-pct">{Math.round(winChance(a.cp))}%</span>
+                <div key={a.san + i}>
+                  <button
+                    className={'alt' + (a.played ? ' played' : '') + (weighing === a.san ? ' open' : '')}
+                    onClick={() => setWeighing(weighing === a.san ? null : a.san)}
+                  >
+                    <span className="alt-san">{a.san}</span>
+                    <span className="alt-bar">
+                      <i style={{ width: `${Math.round(winChance(a.cp))}%` }} />
+                    </span>
+                    <span className="alt-pct">{Math.round(winChance(a.cp))}%</span>
+                  </button>
+                  {/*
+                    Tap an option and it says what it DOES and what it COSTS —
+                    deliberately two lists and no score, because a number
+                    lets you skip the weighing, which is the skill.
+                  */}
+                  {weighing === a.san && <Weighed fen={m.fen} san={a.san} />}
                 </div>
               ))}
               {/* Played something the engine never shortlisted: say so rather
                   than leaving your own move missing from your own options. */}
+              {/*
+                Played something the engine never shortlisted. It goes in the
+                list like any other option AND it opens like one — it is the
+                move most worth weighing, and in the first version it was the
+                only row you could not tap.
+              */}
               {!m.alts.some((a) => a.played) && (
-                <div className="alt played">
-                  <span className="alt-san">{m.san}</span>
-                  <span className="alt-bar">
-                    <i style={{ width: `${Math.round(winChance(m.cpPlayed))}%` }} />
-                  </span>
-                  <span className="alt-pct">{Math.round(winChance(m.cpPlayed))}%</span>
+                <div>
+                  <button
+                    className={'alt played' + (weighing === m.san ? ' open' : '')}
+                    onClick={() => setWeighing(weighing === m.san ? null : m.san)}
+                  >
+                    <span className="alt-san">{m.san}</span>
+                    <span className="alt-bar">
+                      <i style={{ width: `${Math.round(winChance(m.cpPlayed))}%` }} />
+                    </span>
+                    <span className="alt-pct">{Math.round(winChance(m.cpPlayed))}%</span>
+                  </button>
+                  {weighing === m.san && <Weighed fen={m.fen} san={m.san} />}
                 </div>
               )}
             </div>
@@ -660,6 +708,38 @@ function GameGraph({
       })}
       <span className="rev-graph-cap top">winning</span>
       <span className="rev-graph-cap bottom">losing</span>
+    </div>
+  )
+}
+
+/**
+ * One move, weighed: what it does and what it costs.
+ *
+ * No score. "d3 82%" is an answer; these are the reasons, and the reasons are
+ * the part that transfers to the next game. Both lists come from the board —
+ * see coach/position.ts on why nothing here is allowed to be true "usually".
+ */
+function Weighed({ fen, san }: { fen: string; san: string }) {
+  const w = weighMove(fen, san)
+  if (!w) return null
+  return (
+    <div className="weighed">
+      <div className="weigh-col">
+        <span className="weigh-head good">What it does</span>
+        <ul>
+          {w.does.map((d) => (
+            <li key={d}>{d}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="weigh-col">
+        <span className="weigh-head bad">What it costs</span>
+        <ul>
+          {w.costs.map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }

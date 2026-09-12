@@ -4597,14 +4597,27 @@ button.back {
   font-size: 12px;
 }
 
-/* Yours, so the comparison has an anchor. */
+/*
+ * Yours, so the comparison has an anchor — marked by weight, NOT by colour.
+ *
+ * The first version filled your bar with the accent green, which on a 20%
+ * blunder said "good" in the loudest channel the design has while the number
+ * beside it said the opposite. Colour here would have to mean quality, and
+ * quality is the thing being weighed rather than announced.
+ */
 .alt.played {
   color: var(--text);
   font-weight: 600;
 }
 
 .alt.played .alt-bar i {
-  background: var(--accent);
+  background: var(--text-muted);
+}
+
+.alt.played .alt-san::after {
+  content: ' ·you';
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 /* What a game against this bot is worth, on the bot itself. */
@@ -4624,3 +4637,84 @@ button.back {
 .bot-stakes .up { color: var(--accent-hi); }
 .bot-stakes .down { color: var(--danger); }
 .bot-stakes .none { color: var(--text-muted); }
+
+/* --- the position read, and weighing one option --------------------- */
+/*
+ * "I need to understand what is happening in the game and how to weigh
+ * options." Everything else on this screen is the engine's verdict; this is
+ * the part you could reach yourself at the board, which is why it is in the
+ * same plain type as the rest of the brief rather than dressed up as a score.
+ */
+.reading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.read-lines {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* The option row is a button now — it opens its own breakdown. */
+button.alt {
+  width: 100%;
+  min-height: 0;
+  padding: 5px 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+  text-align: left;
+}
+
+button.alt:hover,
+button.alt.open {
+  background: none;
+}
+
+button.alt.open .alt-san {
+  color: var(--accent-hi);
+}
+
+.weighed {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0 10px 8px;
+  margin-left: 54px;
+  border-left: 1px solid var(--border);
+}
+
+.weigh-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.weigh-head {
+  font-family: var(--font-num);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.weigh-head.good { color: var(--accent-hi); }
+.weigh-head.bad { color: var(--warn); }
+
+.weigh-col ul {
+  margin: 0;
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
