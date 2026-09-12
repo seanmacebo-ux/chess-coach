@@ -58,6 +58,7 @@ import { loosePieces } from '../../coach/exercises'
 import { recordFinishedGame, outcomeOf } from '../../coach/record'
 import { BOTS, suggestedBot, type Bot } from '../../engine/roster'
 import { openingsFor, mainLine } from '../../content/openings'
+import { loadTree, lookup, type TreeNode } from '../../content/tree'
 import { toDests } from '../../chess/game'
 
 /** Same thresholds as the opening trainer's live support, for the same feel. */
@@ -132,6 +133,17 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
   const log = useRef<LoopLog>({ took: [], missed: [], hung: [] })
   /** Free enemy pieces on the board when your turn started — step 1's output. */
   const freeNow = useRef<Square[]>([])
+  /*
+   * The generated tree, which covers the replies the written line does not.
+   * Consulted only when the written line has been left — that line carries a
+   * human explanation and the tree carries computed reasons, so the better
+   * text wins while it is still valid.
+   */
+  const [tree, setTree] = useState<Map<string, TreeNode> | null>(null)
+  useEffect(() => {
+    void loadTree().then(setTree)
+  }, [])
+
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [prevReceipt, setPrevReceipt] = useState<Receipt | null>(null)
 
@@ -176,18 +188,32 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
 
   const yourTurn = chess.current.turn() === colour && !thinking && !chess.current.isGameOver()
 
-  /** The book move as an arrow, only while the game still follows the book. */
-  const shapes = useMemo(() => {
-    if (!inBook || !yourTurn) return []
-    const probe = new Chess(chess.current.fen())
-    try {
-      const m = probe.move(book[bookPly]!)
-      return m ? uciArrow(m.from + m.to) : []
-    } catch {
-      return []
-    }
+  /**
+   * What the tree says here, once the written line has been left. This is the
+   * whole point of generating it: being deviated from no longer ends the
+   * opening guidance.
+   */
+  const fromTree = useMemo(
+    () => (!inBook && yourTurn && tree ? lookup(tree, chess.current.fen()) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inBook, yourTurn, bookPly, fen, book])
+    [inBook, yourTurn, fen, tree],
+  )
+
+  /** The move to point at: the written book while it holds, else the tree. */
+  const shapes = useMemo(() => {
+    if (!yourTurn) return []
+    if (inBook) {
+      const probe = new Chess(chess.current.fen())
+      try {
+        const m = probe.move(book[bookPly]!)
+        return m ? uciArrow(m.from + m.to) : []
+      } catch {
+        return []
+      }
+    }
+    return fromTree ? uciArrow(fromTree.uci, 'blue') : []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inBook, yourTurn, bookPly, fen, book, fromTree])
 
   const dests = useMemo(
     () => (yourTurn ? toDests(chess.current) : new Map<Key, Key[]>()),
@@ -514,7 +540,9 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
               ? `${bot.name} is thinking…`
               : inBook
                 ? `Book: ${opening.name}`
-                : 'Out of book — the loop is everything now'}
+                : fromTree
+                  ? `Still covered: ${fromTree.opening}`
+                  : 'Out of book — the loop is everything now'}
         </div>
         <div className="coach-text">
           {over
@@ -530,13 +558,41 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
                 coachLine ??
                 (inBook
                   ? `Follow the arrow while the game follows the book — this is your ${opening.name}. When either side leaves it, the loop takes over.`
-                  : 'Your move. Ask the three questions in order — the loop is the style.'))}
+                  : fromTree
+                    ? `They left the main line, but this position is still covered: ${fromTree.play}.`
+                    : 'Your move. Ask the three questions in order — the loop is the style.'))}
         </div>
         {threatLine && coachLine && !over && (
           <div className="small muted" style={{ marginTop: 6 }}>
             Last move — {coachLine}
           </div>
         )}
+        {/*
+          Why that move, from the board. The written lines carry a human
+          explanation; the generated ones carry these, which is the honest
+          difference between the two and better than a bare arrow.
+        */}
+        {fromTree && !over && (
+          <div className="weighed" style={{ marginLeft: 0, marginTop: 8 }}>
+            <div className="weigh-col">
+              <span className="weigh-head good">What it does</span>
+              <ul>
+                {fromTree.does.map((d) => (
+                  <li key={d}>{d}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="weigh-col">
+              <span className="weigh-head bad">What it costs</span>
+              <ul>
+                {fromTree.costs.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
         {gameNote && (
           <div className="small muted" style={{ marginTop: 6 }}>
             {gameNote}

@@ -124,6 +124,36 @@ async function main() {
   const overlap = r4.yourHanging.filter((p) => r4.theirHanging.some((q) => q.square === p.square))
   check('a square is never both yours and theirs', overlap.length === 0)
 
+  /* ---------------- king safety must not fire on an uncastled king ---- */
+
+  // After 1.e4 the e2 pawn has gone, so a naive "pawns around the king"
+  // count drops when d4 follows — and the first version therefore called
+  // d4 a king-safety error on move two. It is correct opening play.
+  const afterE4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
+  const afterE4E5 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2'
+  const wD4 = weighMove(afterE4E5, 'd4')!
+  check('a central pawn push is not called a king-safety error',
+        !has(wD4.costs, /pawn cover/), JSON.stringify(wD4.costs))
+
+  /*
+   * But once castled, genuinely breaking the cover IS the claim to make.
+   * One pawn forward is not a break — h3 and g3 are ordinary moves — so the
+   * threshold is two of three still home. This fixture is castled with the
+   * g-pawn already on g3, so pushing h4 takes the cover down to one.
+   */
+  const castledThin = 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2NP1/PPPP1P1P/R1BQ1RK1 w kq - 0 7'
+  const wH4 = weighMove(castledThin, 'h4')
+  check('a genuine break of a castled king\'s cover is a cost',
+        Boolean(wH4) && has(wH4!.costs, /pawn cover/),
+        JSON.stringify(wH4?.costs ?? 'h4 illegal in fixture'))
+
+  // And one pawn forward, leaving two, must NOT be called a break.
+  const castledFull = 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQ1RK1 w kq - 0 7'
+  const wH3 = weighMove(castledFull, 'h3')
+  check('one shield pawn forward is not a break',
+        Boolean(wH3) && !has(wH3!.costs, /pawn cover/),
+        JSON.stringify(wH3?.costs ?? 'h3 illegal in fixture'))
+
   console.log(fail === 0 ? '\nOK — position read and move weighing' : `\n${fail} FAILED`)
   process.exit(fail === 0 ? 0 : 1)
 }

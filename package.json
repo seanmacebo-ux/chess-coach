@@ -24,7 +24,9 @@
     "sandbox:drills": "tsx scripts/sandbox-drills.ts",
     "sandbox:tiers": "tsx scripts/sandbox-tiers.ts",
     "import-book": "tsx scripts/import-book.ts",
-    "verify:position": "tsx scripts/verify-position.ts"
+    "verify:position": "tsx scripts/verify-position.ts",
+    "build:tree": "tsx scripts/build-opening-tree.ts",
+    "verify:tree": "tsx scripts/verify-tree.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

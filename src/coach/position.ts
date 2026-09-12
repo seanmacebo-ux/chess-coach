@@ -121,12 +121,26 @@ function attackersNearKing(chess: Chess, side: Side): number {
   }).length
 }
 
-/** Pawns still on their starting squares in front of a castled king. */
+/**
+ * Pawns still home in front of a CASTLED king.
+ *
+ * The king must actually have castled for this to mean anything. The first
+ * version accepted any king on its home rank, which includes e1 before
+ * castling — so after 1.e4 (e2 gone) the move d4 dropped the count below the
+ * threshold and the tree generator duly reported that d4 "breaks the pawn
+ * cover in front of your own king". A central pawn advance on move two is
+ * correct opening play, not a king-safety error, and that sentence is exactly
+ * the plausible-sounding fiction this module exists to avoid.
+ *
+ * A king on the d or e file has not castled (or has walked back to the
+ * middle), and the shield idea does not apply to it — so: no opinion.
+ */
 function shieldIntact(chess: Chess, side: Side): boolean | null {
   const king = kingSquare(chess, side)
   if (!king) return null
   const homeRank = side === 'w' ? '1' : '8'
   if (king[1] !== homeRank) return null
+  if (king[0] === 'd' || king[0] === 'e') return null
   const file = king.charCodeAt(0)
   const shieldRank = side === 'w' ? '2' : '7'
   let intact = 0
