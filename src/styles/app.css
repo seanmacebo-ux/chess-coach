@@ -4727,3 +4727,9 @@ button.alt.open .alt-san {
   padding: 10px 2px 2px;
   border-top: 1px solid var(--border);
 }
+
+.prog-drills {
+  font-family: var(--font-num);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}

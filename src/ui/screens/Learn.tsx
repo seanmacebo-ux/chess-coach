@@ -486,6 +486,47 @@ function ProgressCard({ p }: { p: ProgressReport }) {
         )}
       </section>
 
+      {/* ------------------------------------------- did it actually work */}
+      {p.effects.some((e) => e.verdict !== 'untested') && (
+        <section className="prog-sec">
+          <div className="prog-head">
+            <span className="prog-label">Is the training working</span>
+            <span className="prog-note">drills vs games</span>
+          </div>
+          <div className="prog-panel">
+            {p.effects
+              .filter((e) => e.verdict !== 'untested')
+              .slice(0, 3)
+              .map((e) => (
+                <div key={e.tag} className="prog-row">
+                  <span className="prog-row-name">
+                    {e.label}
+                    <span className="prog-drills"> · {e.drills} drilled</span>
+                  </span>
+                  <span className="prog-delta">
+                    {e.before}
+                    <i>→</i>
+                    <b className={e.verdict === 'working' ? 'better' : e.verdict === 'not yet' ? 'worse' : 'flat'}>
+                      {e.after}
+                    </b>
+                  </span>
+                  <span
+                    className={`prog-verdict ${e.verdict === 'working' ? 'better' : e.verdict === 'not yet' ? 'worse' : 'flat'}`}
+                  >
+                    {e.verdict === 'working' ? 'working' : e.verdict === 'not yet' ? 'not yet' : 'holding'}
+                  </span>
+                </div>
+              ))}
+          </div>
+          <div className="small muted">
+            Drills you did, against how often that mistake showed up{' '}
+            <b>in games</b> — before and after. An association, not a proof: you also played
+            different opponents and more games. It stays quiet until a habit has had real
+            training behind it.
+          </div>
+        </section>
+      )}
+
       {/* ---------------------------------------------------- declines */}
       {p.habits.length > 0 && (
         <section className="prog-sec">
