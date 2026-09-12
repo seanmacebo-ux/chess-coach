@@ -56,6 +56,7 @@ import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
 import { loadPrefs } from './data/settings'
 import { loosePieces } from './coach/exercises'
+import { readPosition } from './coach/position'
 import { applyTheme, loadTheme, resolveTheme, saveTheme, type ThemeChoice } from './theme/theme'
 
 type Tab =
@@ -676,6 +677,12 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   // Read once per game rather than per render — flipping the setting
   // mid-game would change the rules underneath you.
   const [blunderCheck] = useState(() => loadPrefs().blunderCheck)
+  /*
+   * Read once per game for the same reason as the blunder check: flipping a
+   * training aid on halfway through changes the rules of a game already in
+   * progress.
+   */
+  const [liveRead] = useState(() => loadPrefs().liveRead)
   const [showReview, setShowReview] = useState(false)
   /** Set while a move is on the board but not yet committed. */
   const [pending, setPending] = useState<{ loose: string[] } | null>(null)
@@ -1054,6 +1061,30 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           >
             {fmtClock(remain[humanIs])}
           </span>
+        </div>
+      )}
+
+      {/*
+        THE POSITION, LIVE.
+        Sean: "I need to be able to understand what is happening in the game."
+        This is the same board-computed read the review uses, during the game
+        instead of after it — the point in time where it could actually change
+        a decision. It is NOT the engine: no evaluation, no best move, nothing
+        you could not work out yourself by looking properly. That distinction
+        is the whole design, because a coach that hands over the answer trains
+        obedience and this is meant to train the habit of looking.
+      */}
+      {liveRead && !gameEnded && (
+        <div className="live-read">
+          <div className="row spread" style={{ alignItems: 'baseline' }}>
+            <span className="brief-key">What is happening</span>
+            <span className="small muted">from the board, not the engine</span>
+          </div>
+          <ul className="read-lines">
+            {readPosition(fen, humanColour === 'white' ? 'w' : 'b').lines.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
         </div>
       )}
 

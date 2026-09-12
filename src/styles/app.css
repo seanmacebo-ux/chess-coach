@@ -4718,3 +4718,12 @@ button.alt.open .alt-san {
   line-height: 1.4;
   color: var(--text-muted);
 }
+
+/* The position read during a game. Calm register: on the page, no card. */
+.live-read {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 2px 2px;
+  border-top: 1px solid var(--border);
+}

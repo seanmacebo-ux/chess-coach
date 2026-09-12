@@ -479,6 +479,22 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
 
         <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
           <span style={{ flex: 1 }}>
+            <div>Read the position while I play</div>
+            <div className="small muted">
+              During a game, say what is actually on the board: material, what is loose on both
+              sides, king safety, the centre. Facts you could establish yourself by looking — not
+              the engine's opinion, so no evaluation and no best move.
+            </div>
+          </span>
+          <input
+            type="checkbox"
+            checked={prefs.liveRead}
+            onChange={(e) => patchPrefs({ liveRead: e.target.checked })}
+          />
+        </label>
+
+        <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
+          <span style={{ flex: 1 }}>
             <div>Board coordinates</div>
             <div className="small muted">Files and ranks around the edge.</div>
           </span>

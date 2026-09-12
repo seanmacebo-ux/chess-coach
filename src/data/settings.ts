@@ -25,6 +25,16 @@ export interface Prefs {
   showCoordinates: boolean
   /** Move sounds. */
   sound: boolean
+  /**
+   * Read the position out to you DURING the game — material, what is loose on
+   * both sides, king safety, the centre.
+   *
+   * Deliberately a training aid you switch on, not a default. It is not the
+   * engine's opinion (no eval, no best move), only facts about the board you
+   * could establish yourself if you looked properly — which is the habit it
+   * exists to build. Off by default so a normal game stays a normal game.
+   */
+  liveRead: boolean
 }
 
 export const PUZZLE_COUNTS = [3, 5, 8, 12, 20] as const
@@ -41,6 +51,7 @@ const DEFAULT: Prefs = {
   blunderCheck: false,
   showCoordinates: true,
   sound: false,
+  liveRead: false,
 }
 
 function clampCount(n: unknown): number {
@@ -59,6 +70,7 @@ export function loadPrefs(): Prefs {
       showCoordinates:
         typeof p.showCoordinates === 'boolean' ? p.showCoordinates : DEFAULT.showCoordinates,
       sound: typeof p.sound === 'boolean' ? p.sound : DEFAULT.sound,
+      liveRead: typeof p.liveRead === 'boolean' ? p.liveRead : DEFAULT.liveRead,
     }
   } catch {
     return DEFAULT
