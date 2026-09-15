@@ -59,6 +59,7 @@
   --warn: #e6912c;
   --good: #5c8bb0;
   --brilliant: #26c2a3;
+  --miss: #a35ed8;
 
   --shadow-board: 0 4px 14px rgb(0 0 0 / 32%);
   --hover: #45413c;
@@ -128,6 +129,7 @@
     --warn: #b26a12;
     --good: #3d6a8c;
     --brilliant: #0f8f78;
+    --miss: #7b3fb0;
 
     --shadow-board: 0 3px 10px rgb(0 0 0 / 10%);
     --hover: #e2dfd9;
@@ -153,6 +155,7 @@
   --warn: #b26a12;
   --good: #3d6a8c;
   --brilliant: #0f8f78;
+  --miss: #7b3fb0;
 
   --shadow-board: 0 3px 10px rgb(0 0 0 / 10%);
   --hover: #e2dfd9;
@@ -2996,41 +2999,151 @@ button.back {
  * than a number.
  * ================================================================== */
 
-.rev-tally {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--s2);
-}
+/*
+ * ONE TOKEN PER RATING, then everything that shows a rating reads from it.
+ *
+ * The strip, the legend dots, the badge on the card and the marks on the
+ * game graph all say the same nine things, and the fastest way for four
+ * surfaces to start disagreeing about what colour a Mistake is, is to let
+ * each pick its own. `--rat` is set once per rating and inherited.
+ */
+.rat-brilliant { --rat: var(--brilliant); }
+.rat-best      { --rat: var(--accent); }
+.rat-excellent { --rat: color-mix(in srgb, var(--accent) 62%, var(--text-muted)); }
+.rat-good      { --rat: var(--text-muted); }
+.rat-book      { --rat: var(--good); }
+.rat-inaccuracy { --rat: color-mix(in srgb, var(--warn) 62%, var(--text-muted)); }
+.rat-mistake   { --rat: var(--warn); }
+.rat-blunder   { --rat: var(--danger); }
+.rat-miss      { --rat: var(--miss); }
 
-.tally {
+.rat-strip {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: var(--s3) var(--s2);
-  border-radius: var(--radius);
+  gap: var(--s3);
+}
+
+/*
+ * The mix as one bar. Segments are flex-grown by their count, so the whole
+ * game is one object a hundred pixels wide — the thing you look at before you
+ * read anything.
+ */
+.rat-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
 }
 
-.tally-n {
-  font-size: var(--t-title);
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
+.rat-seg {
+  background: var(--rat);
+  min-width: 2px;
 }
 
-.tally-l {
-  margin-top: 3px;
+.rat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+}
+
+.rat-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: var(--t-caption);
+}
+
+.rat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rat);
+  align-self: center;
+}
+
+.rat-n {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--rat);
+}
+
+.rat-l {
+  color: var(--text-muted);
+}
+
+/* The badge on a move card and the dots on the graph, same source. */
+.eval-badge[class*='rat-'] {
+  background: color-mix(in srgb, var(--rat) 20%, transparent);
+  color: var(--rat);
+}
+
+/* ==================================================================
+ * WHERE IT TURNED
+ *
+ * Two or three rows, not a list. A turning point that has eight siblings
+ * is not a turning point, so the component caps it and these styles assume
+ * the cap — the rows are tall enough to carry a sentence each.
+ * ================================================================== */
+
+.moments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.moment {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  padding: var(--s3);
+  text-align: left;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  /* The direction of the swing, as a stripe you read before the words. */
+  border-left: 3px solid var(--rat, var(--border));
+}
+
+.moment.yours-lost { --rat: var(--danger); }
+.moment.theirs-gave { --rat: var(--accent); }
+
+.moment-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.moment-move {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: var(--t-body);
+}
+
+.moment-swing {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption);
+  color: var(--rat);
+}
+
+.moment-say {
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.moment-who {
+  margin-top: 2px;
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-
-.tally.danger .tally-n { color: var(--danger); }
-.tally.warn .tally-n { color: var(--warn); }
-.tally.good .tally-n { color: var(--accent); }
-.tally.muted .tally-n { color: var(--text-muted); }
 
 .rev-pager {
   display: flex;
@@ -4090,8 +4203,7 @@ button.back {
   transition: none;
 }
 
-.rev-mark.mistake::after { background: var(--warn); }
-.rev-mark.blunder::after { background: var(--danger); }
+.rev-mark[class*='rat-']::after { background: var(--rat); }
 
 .rev-mark.on::after {
   width: 15px;

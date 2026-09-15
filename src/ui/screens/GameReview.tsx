@@ -32,9 +32,17 @@
  *   it here is what connects "I lost a rook on move 22" to "this is why the
  *   app is serving me loose-piece drills tomorrow".
  *
- * Best and good moves are not listed. A review that walks you through 30 fine
- * moves to reach the 3 that mattered buries the lesson — the count of good
- * moves is in the summary, and this screen is only about what to fix.
+ *   EVERY MOVE IS RATED, AND THE GAME HAS A SHAPE. The header used to count
+ *   three kinds of failure and put everything else in a bucket called "fine" —
+ *   a report card written by someone who only noticed you when you got it
+ *   wrong. Now each move carries a verdict with a rule behind it (coach/
+ *   report.ts), the mix is one bar, and the two or three plies the game
+ *   actually turned on are named at the top, including the ones where the
+ *   OPPONENT handed you something.
+ *
+ * The move-by-move list still defaults to what needs fixing, because attention
+ * after a game is limited — but "Every move" walks the whole game, and it is
+ * reachable from a clean game too.
  */
 
 import { useMemo, useState } from 'react'
@@ -43,18 +51,27 @@ import type { Square } from 'chess.js'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import { Board } from '../Board'
-import { TAG_LABEL, type MoveAssessment, type Severity } from '../../coach/analysis'
+import { TAG_LABEL, type MoveAssessment } from '../../coach/analysis'
 import { loosePieces } from '../../coach/exercises'
 import { readPosition, weighMove } from '../../coach/position'
+import {
+  buildReport, RATING_LABEL, RATING_MEANING,
+  type MoveRating, type Moment,
+} from '../../coach/report'
 import { EvalMeter, oddsSwing, winChance } from '../EvalMeter'
 
-const SEVERITY_LABEL: Record<Severity, string> = {
-  best: 'Best',
-  good: 'Good',
-  inaccuracy: 'Inaccuracy',
-  mistake: 'Mistake',
-  blunder: 'Blunder',
-}
+/**
+ * The ratings in the order they are shown: best news first, worst last.
+ *
+ * Not alphabetical and not by frequency — a strip that reads left to right
+ * from brilliant to blunder is a shape you can take in without reading the
+ * labels, and the same order is used for the bar and its legend so the two
+ * are the same object seen twice.
+ */
+const RATING_ORDER: MoveRating[] = [
+  'brilliant', 'best', 'excellent', 'good', 'book',
+  'inaccuracy', 'mistake', 'blunder', 'miss',
+]
 
 const PIECE: Record<string, string> = {
   p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
@@ -187,6 +204,15 @@ export function GameReview({
 
   const problems = useMemo(() => orderProblems(moves, order), [moves, order])
 
+  /*
+   * Every move rated, and the game's turning points, from the numbers the
+   * analysis already produced. Sean: "please can you also start rating the
+   * moves, I need a full game review and you can highlight the moments."
+   * Until now this screen counted three kinds of bad move and nothing else —
+   * a game was a list of failures with no shape and no credit.
+   */
+  const report = useMemo(() => buildReport(moves), [moves])
+
   const [index, setIndex] = useState(0)
   /** Which move is on the board: what you played, or what you should have. */
   const [showing, setShowing] = useState<'yours' | 'better'>('yours')
@@ -195,10 +221,25 @@ export function GameReview({
   /** Last ply assessed, so the pager can say where in the game you are. */
   const lastPly = moves.length > 0 ? moves[moves.length - 1]!.ply : 0
 
-  const blunders = moves.filter((m) => m.severity === 'blunder').length
-  const mistakes = moves.filter((m) => m.severity === 'mistake').length
-  const inaccuracies = moves.filter((m) => m.severity === 'inaccuracy').length
-  const clean = moves.length - blunders - mistakes - inaccuracies
+  /** Jump the pager to a ply, if that ply is in the current list. */
+  const goTo = (ply: number) => {
+    const i = problems.findIndex((p) => p.ply === ply)
+    if (i >= 0) {
+      setIndex(i)
+      setShowing('yours')
+      return true
+    }
+    // The move exists but this ordering hides it — switch to the full walk
+    // rather than doing nothing when a turning point is tapped.
+    const j = orderProblems(moves, 'all').findIndex((p) => p.ply === ply)
+    if (j >= 0) {
+      setOrder('all')
+      setIndex(j)
+      setShowing('yours')
+      return true
+    }
+    return false
+  }
 
   return (
     <div className="stack">
@@ -223,12 +264,22 @@ export function GameReview({
         </button>
       )}
 
-      <div className="rev-tally">
-        <Tally n={blunders} label="blunders" tone="danger" />
-        <Tally n={mistakes} label="mistakes" tone="warn" />
-        <Tally n={inaccuracies} label="inaccuracies" tone="muted" />
-        <Tally n={clean} label="fine" tone="good" />
-      </div>
+      <RatingStrip counts={report.counts} total={moves.length} />
+
+      {/*
+        The game itself, as a shape — above the conditional, because the shape
+        of a clean game is worth seeing too. Every one of your moves plotted by
+        what your winning chances were after it, so the review opens with the
+        story before it starts picking through individual positions.
+      */}
+      <GameGraph
+        moves={moves}
+        ratings={report.ratings}
+        currentPly={current?.ply ?? null}
+        onPick={goTo}
+      />
+
+      <Moments moments={report.moments} colour={colour} onGo={goTo} />
 
       {problems.length === 0 ? (
         <div className="feature">
@@ -237,6 +288,15 @@ export function GameReview({
             No inaccuracies, mistakes or blunders in {moves.length} moves. That is a genuinely
             clean game — play someone stronger.
           </p>
+          {/*
+            A clean game still has 30 decisions in it. The walk used to be
+            unreachable from here, because the only way to it was a chip inside
+            the branch that this message replaces — so playing well locked you
+            out of the screen that explains your play.
+          */}
+          <button className="chip" onClick={() => { setOrder('all'); setIndex(0) }}>
+            Walk the game move by move
+          </button>
         </div>
       ) : (
         <>
@@ -253,26 +313,6 @@ export function GameReview({
             shows what you were looking at — tap between your move and the better one to see the
             difference.
           </p>
-
-          {/*
-            The game itself, as a shape. Every one of your moves plotted by
-            what your winning chances were after it, so the review opens with
-            the story — where it was level, where it turned — before it starts
-            picking through individual positions. Marks are the moves worth
-            looking at; tapping one goes there.
-          */}
-          <GameGraph
-            moves={moves}
-            problems={problems}
-            currentPly={current?.ply ?? null}
-            onPick={(ply) => {
-              const i = problems.findIndex((p) => p.ply === ply)
-              if (i >= 0) {
-                setIndex(i)
-                setShowing('yours')
-              }
-            }}
-          />
 
           <div className="rev-order">
             {(
@@ -341,6 +381,7 @@ export function GameReview({
             <MistakeCard
               key={`${current.ply}-${current.san}`}
               m={current}
+              rating={report.ratings.get(current.ply) ?? 'good'}
               colour={colour}
               showing={showing}
               onShow={setShowing}
@@ -352,22 +393,129 @@ export function GameReview({
   )
 }
 
-function Tally({ n, label, tone }: { n: number; label: string; tone: string }) {
+/**
+ * Every move you played, by kind — the whole game, not only the bad parts.
+ *
+ * The old header counted blunders, mistakes, inaccuracies and "fine". Three
+ * ways to have failed and one bucket for everything else, which is a report
+ * card written by someone who only noticed you when you got it wrong. The
+ * moves you found are now named too, and Brilliant is in there because it is
+ * earned by a rule (report.ts) rather than handed out for looking nice.
+ *
+ * The bar is the mix at a glance; the legend under it is the exact counts.
+ * Zero-count ratings are dropped — a row of noughts is not information.
+ */
+function RatingStrip({
+  counts,
+  total,
+}: {
+  counts: Record<MoveRating, number>
+  total: number
+}) {
+  if (total === 0) return null
+  const shown = RATING_ORDER.filter((r) => counts[r] > 0)
   return (
-    <div className={`tally ${tone}`}>
-      <span className="tally-n">{n}</span>
-      <span className="tally-l">{label}</span>
+    <div className="rat-strip">
+      <div className="rat-bar" role="img" aria-label={
+        shown.map((r) => `${counts[r]} ${RATING_LABEL[r]}`).join(', ')
+      }>
+        {shown.map((r) => (
+          <span key={r} className={`rat-seg rat-${r}`} style={{ flexGrow: counts[r] }} />
+        ))}
+      </div>
+      <div className="rat-legend">
+        {shown.map((r) => (
+          <span key={r} className="rat-item" title={RATING_MEANING[r]}>
+            <span className={`rat-dot rat-${r}`} />
+            <span className="rat-n">{counts[r]}</span>
+            <span className="rat-l">{RATING_LABEL[r]}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The moments — where the game actually turned.
+ *
+ * Sean: "you can highlight the moments for me, like specific turnaround."
+ * A list of mistakes sorted by size is not the story of a game; two or three
+ * plies are, and one of them is usually something the OPPONENT did. Each row
+ * says which way the swing went, in winning chances, and taps through to the
+ * position.
+ *
+ * Gifts carry your answer with them. "They dropped a piece" only means
+ * something alongside whether you took it, and that is the difference between
+ * a turning point and a moment that passed you by.
+ */
+function Moments({
+  moments,
+  colour,
+  onGo,
+}: {
+  moments: Moment[]
+  colour: 'white' | 'black'
+  onGo: (ply: number) => boolean
+}) {
+  // Three at most. A list of nine turning points has no turning points in it.
+  const top = moments.slice(0, 3)
+  if (top.length === 0) return null
+
+  const you = colour === 'white' ? 'White' : 'Black'
+  return (
+    <div className="moments">
+      <span className="brief-key">Where it turned</span>
+      {top.map((mo, i) => {
+        const dots = mo.ply % 2 === 0 ? '.' : '…'
+        // A gift is their move; the position to look at is your answer to it.
+        const target = mo.kind === 'theirs-gave' ? mo.ply + 1 : mo.ply
+        return (
+          <button
+            key={`${mo.kind}-${mo.ply}`}
+            className={`moment ${mo.kind}`}
+            onClick={() => onGo(target)}
+          >
+            <span className="moment-head">
+              <span className="moment-move">
+                {mo.moveNo}
+                {dots} {mo.san}
+              </span>
+              <span className="moment-swing">
+                {Math.round(mo.from)}% → {Math.round(mo.to)}%
+              </span>
+            </span>
+            <span className="moment-say">
+              {mo.kind === 'yours-lost'
+                ? `You gave up ${Math.round(mo.swing)} points of winning chances here${
+                    // Only the first row can claim to be the biggest — the
+                    // list is sorted by swing, so saying it on every row of a
+                    // game with two collapses in it is simply false.
+                    i === 0 ? ' — the biggest single swing of the game' : ''
+                  }.`
+                : `They handed you ${Math.round(mo.swing)} points. ${
+                    mo.punished
+                      ? `You answered ${mo.reply} — the engine's move too.`
+                      : `You answered ${mo.reply}, which gave some of it straight back.`
+                  }`}
+            </span>
+            <span className="moment-who">{mo.kind === 'yours-lost' ? you : 'Opponent'}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
 
 function MistakeCard({
   m,
+  rating,
   colour,
   showing,
   onShow,
 }: {
   m: MoveAssessment
+  rating: MoveRating
   colour: 'white' | 'black'
   showing: 'yours' | 'better'
   onShow: (s: 'yours' | 'better') => void
@@ -515,9 +663,19 @@ function MistakeCard({
       />
 
       <div className="line-brief">
-        <div className={`eval-badge ${m.severity === 'blunder' ? 'danger' : m.severity === 'mistake' ? 'warn' : 'good'}`}>
-          {SEVERITY_LABEL[m.severity]} — {verdictInWords(m)}
+        {/*
+          The rating, its rule, and what it cost — in that order.
+          The badge used to read "Blunder — cost 40 points" and stop there,
+          which tells you the verdict but never the standard it was judged by.
+          RATING_MEANING is the standard, printed next to the word, so a
+          Brilliant is checkable rather than flattering.
+        */}
+        <div className={`eval-badge rat-${rating}`}>
+          {RATING_LABEL[rating]} — {verdictInWords(m)}
         </div>
+        <p className="brief-when">
+          <span className="brief-key">Why that word</span> {RATING_MEANING[rating]}
+        </p>
         {lineSan && (
           <p className="brief-when">
             <span className="brief-key">{showing === 'better' ? 'The line' : 'What follows'}</span>{' '}
@@ -657,12 +815,13 @@ function MistakeCard({
  */
 function GameGraph({
   moves,
-  problems,
+  ratings,
   currentPly,
   onPick,
 }: {
   moves: MoveAssessment[]
-  problems: MoveAssessment[]
+  /** Every move's rating, so a mark can be a verdict and not just a dot. */
+  ratings: Map<number, MoveRating>
   currentPly: number | null
   onPick: (ply: number) => void
 }) {
@@ -682,7 +841,14 @@ function GameGraph({
   const line = pct.map((p, i) => `${x(i)},${y(p)}`).join(' ')
   const area = `0,100 ${line} 100,100`
 
-  const flagged = new Map(problems.map((p) => [p.ply, p]))
+  /*
+   * Which moves get a mark. Previously it was "whatever the current ordering
+   * is showing", which meant the graph's dots moved when you changed the sort
+   * — the shape of the game is not supposed to depend on how you are reading
+   * it. Now it is the moves with something to say about them: the costly ones
+   * and the ones you earned.
+   */
+  const MARKED: MoveRating[] = ['brilliant', 'miss', 'blunder', 'mistake', 'inaccuracy']
 
   return (
     <div className="rev-graph">
@@ -692,16 +858,17 @@ function GameGraph({
         <polyline points={line} className="rev-graph-line" vectorEffect="non-scaling-stroke" />
       </svg>
       {moves.map((m, i) => {
-        const bad = flagged.get(m.ply)
-        if (!bad) return null
+        const r = ratings.get(m.ply)
+        if (!r || !MARKED.includes(r)) return null
         const on = m.ply === currentPly
+        const no = Math.floor(m.ply / 2) + 1
         return (
           <button
             key={m.ply}
-            className={`rev-mark ${bad.severity}${on ? ' on' : ''}`}
+            className={`rev-mark rat-${r}${on ? ' on' : ''}`}
             style={{ left: `${x(i)}%`, top: `${y(pct[i]!)}%` }}
-            title={`Move ${Math.floor(m.ply / 2) + 1} — ${m.san}`}
-            aria-label={`Move ${Math.floor(m.ply / 2) + 1}, ${m.san}`}
+            title={`Move ${no} — ${m.san} · ${RATING_LABEL[r]}`}
+            aria-label={`Move ${no}, ${m.san}, ${RATING_LABEL[r]}`}
             onClick={() => onPick(m.ply)}
           />
         )
