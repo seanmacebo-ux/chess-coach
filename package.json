@@ -27,7 +27,10 @@
     "verify:position": "tsx scripts/verify-position.ts",
     "build:tree": "tsx scripts/build-opening-tree.ts",
     "verify:tree": "tsx scripts/verify-tree.ts",
-    "verify:report": "tsx scripts/verify-report.ts"
+    "verify:report": "tsx scripts/verify-report.ts",
+    "import-epub": "tsx scripts/import-epub.ts",
+    "verify:pgn": "tsx scripts/verify-pgn.ts",
+    "mine-sacrifices": "tsx scripts/mine-sacrifices.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
