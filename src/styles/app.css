@@ -4247,19 +4247,128 @@ button.back {
 /* register below takes over.                                          */
 /* ================================================================== */
 
+/*
+ * ==================================================================
+ * CHESS, NOT CHROME
+ *
+ * Sean, looking at Today: "I don't want it blocky. I want it chess-like,
+ * and graphics instead of lacklustre themes. I like the colours and boards
+ * and pieces, but we can do better."
+ *
+ * He is right, and the diagnosis is precise. The calm register stripped the
+ * cards off these surfaces and left type, space and hairlines — which is
+ * legible and completely characterless. Every genuinely chess-like thing in
+ * the app was locked inside the board component. Nothing else on the screen
+ * knew what app it belonged to.
+ *
+ * The fix is not decoration bolted on. It is the board's own vocabulary —
+ * alternating squares, the piece set he already chose — used as the
+ * furniture: dividers, washes, list markers. Three rules for it:
+ *
+ *   NOTHING NEW TO LOOK AT. Ornament is drawn from the board's colours and
+ *   the chosen piece set, so it changes when the theme changes and can never
+ *   sit alongside the board looking like a different product.
+ *
+ *   ORNAMENT NEVER OUTRANKS INFORMATION. The washes run at low contrast
+ *   behind type that keeps its full contrast; the piece markers replace
+ *   numerals that were already the quietest thing in the row.
+ *
+ *   IT COSTS NOTHING TO DOWNLOAD. Gradients and the piece SVGs that are
+ *   already cached for the board. No new images.
+ * ================================================================== */
+
+/*
+ * The divider is a rank of squares.
+ *
+ * A 1px hairline is the most neutral mark in interface design, which is
+ * exactly the problem — it says nothing. A row of alternating squares says
+ * chessboard at a glance, costs one gradient, and reads as the EDGE of a
+ * board, which is what a divider is doing anyway.
+ */
 .rule {
-  height: 1px;
-  background: var(--border);
-  /* Cancels the parent .stack gap on one side so a rule reads as a
-     separator between blocks rather than a third floating element. */
+  height: 7px;
   margin: 2px 0;
+  border-radius: 1px;
+  /*
+   * The BOARD's two squares, not two greys. The first version alternated the
+   * border colour with transparent, which renders as a dashed line — the
+   * least chess-like mark available, and invisible in light mode. Reading
+   * --sq-light and --sq-dark means the divider is literally a rank of the
+   * board you are playing on, and it re-colours with the board theme instead
+   * of drifting away from it.
+   */
+  background: repeating-linear-gradient(
+    90deg,
+    var(--sq-dark, var(--border)) 0 7px,
+    var(--sq-light, var(--surface-hi)) 7px 14px
+  );
+  opacity: 0.45;
+  /* Fades out to the right so it reads as a mark on the page rather than a
+     ruler drawn edge to edge. */
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 55%, transparent 97%);
+  mask-image: linear-gradient(90deg, #000 0%, #000 55%, transparent 97%);
 }
 
+/* Where a plain hairline is still wanted — inside dense tables. */
+.rule.hair {
+  height: 1px;
+  border-radius: 0;
+  opacity: 1;
+  background: var(--border);
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+/*
+ * A piece, anywhere in the interface.
+ *
+ * The background-image comes from src/theme/theme.ts, generated per piece
+ * set, so these follow whichever pieces are chosen for the board.
+ */
+.pc {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex: none;
+}
+
+.pc.sm { width: 18px; height: 18px; }
+.pc.lg { width: 38px; height: 38px; }
+
+/*
+ * The rating sits on a board.
+ *
+ * Eight squares' worth of checker, at the opacity of a watermark, behind the
+ * one number the screen opens with. It is the cheapest possible way to make
+ * the top of the app look like chess, and because it is masked diagonally it
+ * reads as a corner of a board catching the light rather than as a pattern
+ * fill.
+ */
 .day-hero {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: var(--s3);
   padding: var(--s3) 0 var(--s2);
+  isolation: isolate;
+}
+
+.day-hero::before {
+  content: '';
+  position: absolute;
+  inset: -6px auto -6px -10px;
+  width: 230px;
+  z-index: -1;
+  background: repeating-conic-gradient(
+      var(--sq-dark, var(--surface-hi)) 0% 25%, transparent 0% 50%
+    ) 0 0 / 34px 34px;
+  opacity: 0.4;
+  -webkit-mask-image: linear-gradient(112deg, #000 0%, transparent 78%);
+  mask-image: linear-gradient(112deg, #000 0%, transparent 78%);
+  pointer-events: none;
 }
 
 .day-num {
@@ -4316,22 +4425,27 @@ button.back {
 }
 
 /*
- * The step number becomes a marginal figure rather than a filled disc.
- * A green circle per row made three equal-weight badges compete with the
- * text they were numbering.
+ * The session is marked by pieces, not numerals.
+ *
+ * Three steps, three pieces, and they are not arbitrary: the game is a king
+ * (the whole thing at stake), the puzzles are a knight (the piece every
+ * tactic at this level runs through), the drill is a pawn. They are the same
+ * pieces as the board below, at the size of a list bullet, and they carry
+ * the ordering perfectly well — the numerals they replace were already the
+ * quietest mark in the row.
  */
 .day-steps .step-n {
-  width: 18px;
-  height: auto;
+  width: 26px;
+  /* An explicit height, because a background-image has nothing to paint in
+     without one — `height: auto` was inherited from the numeral version,
+     where the digit gave the box its height, and silently rendered the
+     pieces at zero pixels. */
+  height: 26px;
   border: none;
-  background: none;
+  background-color: transparent;
   border-radius: 0;
-  font-family: var(--font-display);
-  font-size: 19px;
-  font-weight: 400;
-  color: var(--text-muted);
   place-items: start;
-  margin-top: 1px;
+  margin-top: -1px;
 }
 
 /*
@@ -4844,4 +4958,45 @@ button.alt.open .alt-san {
   font-family: var(--font-num);
   font-size: 10.5px;
   color: var(--text-muted);
+}
+
+/* ==================================================================
+ * POSITION OF THE DAY
+ *
+ * A board, on the screen you open the app to. Not an illustration — the
+ * day's hardest single decision, from a game that was actually played, and
+ * the same one all day so you can come back to one you failed.
+ * ================================================================== */
+
+.master {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/*
+ * Smaller than a playing board and centred. Full width would make it the
+ * subject of the screen, and the subject of Today is the session.
+ */
+.master-board {
+  width: min(100%, 280px);
+  align-self: center;
+}
+
+.master-say {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.master-who {
+  font-family: var(--font-display);
+  font-size: var(--t-body);
+  letter-spacing: -0.005em;
+}
+
+.master-say p {
+  margin: 0;
+  line-height: 1.55;
+  max-width: 58ch;
 }

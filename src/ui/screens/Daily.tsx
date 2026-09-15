@@ -12,6 +12,7 @@ import { pickLesson, type Lesson } from '../../content/lessons'
 import { tierStatuses, type TierStatus } from '../../coach/profile'
 import { PILLARS } from '../../coach/tiers'
 import { categoriesIn } from '../../coach/categories'
+import { MasterPosition } from '../MasterPosition'
 import type { Style } from '../../engine/types'
 
 export interface DailyProps {
@@ -110,6 +111,11 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
 
       <div className="rule" />
 
+      {/* ------------------------------------------ position of the day */}
+      <MasterPosition />
+
+      <div className="rule" />
+
       {/* ---------------------------------------------------- lesson */}
       {lesson && (
         <div className="day-idea">
@@ -147,7 +153,7 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
         </div>
 
         <div className="step">
-          <span className="step-n">1</span>
+          <span className="step-n pc king white" role="img" aria-label="Step 1" />
           <div style={{ flex: 1 }}>
             <div>
               <strong>One game</strong> as {session.game.colour} vs {session.game.style} bot{' '}
@@ -158,7 +164,7 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
         </div>
 
         <div className="step">
-          <span className="step-n">2</span>
+          <span className="step-n pc knight white" role="img" aria-label="Step 2" />
           <div style={{ flex: 1 }}>
             <div>
               <strong>{session.puzzles.length} puzzles</strong>
@@ -196,7 +202,7 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
 
         {session.drill && (
           <div className="step">
-            <span className="step-n">3</span>
+            <span className="step-n pc pawn white" role="img" aria-label="Step 3" />
             <div style={{ flex: 1 }}>
               <div>
                 <strong>{session.drill.name}</strong>

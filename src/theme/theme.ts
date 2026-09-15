@@ -692,9 +692,19 @@ function pieceRules(pieces: PieceSet): string {
       ['white', 'w'],
       ['black', 'b'],
     ] as const) {
-      out.push(
-        `.cg-wrap piece.${role}.${colour}{background-image:url("${base}piece/${pieces.dir}/${prefix}${letter}.svg")}`,
-      )
+      const url = `url("${base}piece/${pieces.dir}/${prefix}${letter}.svg")`
+      out.push(`.cg-wrap piece.${role}.${colour}{background-image:${url}}`)
+      /*
+       * The same pieces, available to the rest of the interface.
+       *
+       * Sean: "I like the colours and boards and pieces, but we can do
+       * better" — the chrome around the board was type and hairlines while
+       * the one genuinely chess-like thing in the app stayed locked inside
+       * the board. A `.pc` element can now wear any piece, and because the
+       * rule is generated here it follows whichever set is chosen instead of
+       * hard-coding one and drifting from it.
+       */
+      out.push(`.pc.${role}.${colour}{background-image:${url}}`)
     }
   }
   return out.join('\n')
