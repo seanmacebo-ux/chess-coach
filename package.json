@@ -26,6 +26,8 @@
     "import-book": "tsx scripts/import-book.ts",
     "verify:position": "tsx scripts/verify-position.ts",
     "build:tree": "tsx scripts/build-opening-tree.ts",
+    "build:eco": "tsx scripts/build-eco.ts",
+    "verify:eco": "tsx scripts/verify-eco.ts",
     "verify:tree": "tsx scripts/verify-tree.ts",
     "verify:report": "tsx scripts/verify-report.ts",
     "import-epub": "tsx scripts/import-epub.ts",

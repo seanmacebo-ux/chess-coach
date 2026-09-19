@@ -49,6 +49,7 @@ import { STYLES, type Style } from './engine/types'
 import { acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
 import { GameOver } from './ui/screens/GameOver'
+import { openingOfPgn, type OpeningName } from './coach/eco'
 import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
 import { BOTS, suggestedBot, type Bot } from './engine/roster'
@@ -676,6 +677,8 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   } | null>(null)
   /** Ply the review should open on, when arrived at from a named moment. */
   const [reviewPly, setReviewPly] = useState<number | null>(null)
+  /** What the game's opening was called, once the book has been consulted. */
+  const [opening, setOpening] = useState<OpeningName | null>(null)
 
   /** The preference (live) and the value the CURRENT game was dealt. */
   const [clockMin, setClockMin] = useState(loadClockMin)
@@ -916,6 +919,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
       setOutcomeCard((c) => (c ? { ...c, rating: newRating, delta } : c))
       setMyRating(newRating)
+      // One fetch of a cached file, no engine time — so it lands well before
+      // the move ratings do and the result screen can name the game early.
+      void openingOfPgn(pgn).then(setOpening)
 
       if (!assessments) {
         // The game is saved and the rating has moved — the recorder does both
@@ -990,6 +996,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       setShowReview(false)
       setOutcomeCard(null)
       setReviewPly(null)
+      setOpening(null)
       setOrientation(side)
       setLastMove(undefined)
       setFen(chess.current.fen())
@@ -1028,6 +1035,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         colour={humanColour}
         acpl={review.acpl}
         perf={review.perf}
+        opening={opening}
         startPly={reviewPly}
         onClose={() => {
           setShowReview(false)
@@ -1054,6 +1062,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         colour={humanColour}
         rating={outcomeCard.rating}
         delta={outcomeCard.delta}
+        opening={opening}
         moves={review.phase === 'done' ? review.moves : null}
         analysing={review.phase === 'running' ? { done: review.done, total: review.total } : null}
         acpl={review.phase === 'done' ? review.acpl : null}

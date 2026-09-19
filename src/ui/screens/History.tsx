@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { db, getProfile, type GameRow, type PuzzleAttemptRow } from '../../data/db'
 import { analyseGame, acpl, performanceRating, type MoveAssessment } from '../../coach/analysis'
 import { GameReview } from './GameReview'
+import { openingOfPgn, type OpeningName } from '../../coach/eco'
 import { ReviewProgress } from '../ReviewProgress'
 import {
   balanceVerdict,
@@ -81,6 +82,7 @@ function useGameReview() {
     colour: 'white' | 'black'
     acpl: number
     perf: number
+    opening: OpeningName | null
   } | null>(null)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   /** Kept so the side swap can re-analyse the same game. */
@@ -112,7 +114,13 @@ function useGameReview() {
           analysedAt: new Date().toISOString(),
         })
       }
-      setOpen({ moves, colour: colour === 'w' ? 'white' : 'black', acpl: avg, perf })
+      /*
+       * The name costs one fetch of a cached file and no engine time, so it
+       * is worked out here rather than inside the review — which has only
+       * one side's moves and could not walk the opening if it wanted to.
+       */
+      const opening = await openingOfPgn(g.pgn)
+      setOpen({ moves, colour: colour === 'w' ? 'white' : 'black', acpl: avg, perf, opening })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -207,6 +215,7 @@ export function History() {
         colour={gr.open.colour}
         acpl={gr.open.acpl}
         perf={gr.open.perf}
+        opening={gr.open.opening}
         onClose={gr.close}
         onSwapSide={gr.swapSide}
         swapping={gr.swapping}

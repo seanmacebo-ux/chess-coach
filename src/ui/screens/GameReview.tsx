@@ -59,6 +59,7 @@ import {
   type MoveRating, type Moment,
 } from '../../coach/report'
 import { EvalMeter, oddsSwing, winChance } from '../EvalMeter'
+import { bookPlies, type OpeningName } from '../../coach/eco'
 
 /**
  * The ratings in the order they are shown: best news first, worst last.
@@ -179,6 +180,14 @@ export interface GameReviewProps {
   onSwapSide?: (() => void) | undefined
   swapping?: boolean
   /**
+   * What the opening was called, when it is known.
+   *
+   * Two jobs. It names the game — which this screen could never do — and it
+   * decides which of your moves were PREPARED. Without it, a book move was
+   * scored as though you had worked it out at the board.
+   */
+  opening?: OpeningName | null
+  /**
    * Open on this ply rather than at the top of the list.
    *
    * The end-of-game screen names the move the game turned on; tapping it has
@@ -195,6 +204,7 @@ export function GameReview({
   onClose,
   onSwapSide,
   swapping = false,
+  opening = null,
   startPly = null,
 }: GameReviewProps) {
   /*
@@ -224,7 +234,7 @@ export function GameReview({
    * Until now this screen counted three kinds of bad move and nothing else —
    * a game was a list of failures with no shape and no credit.
    */
-  const report = useMemo(() => buildReport(moves), [moves])
+  const report = useMemo(() => buildReport(moves, bookPlies(opening)), [moves, opening])
 
   const [index, setIndex] = useState(() => {
     if (startPly === null) return 0
@@ -270,6 +280,12 @@ export function GameReview({
             {colour === 'white' ? 'White' : 'Black'} · {acpl} centipawns lost per move · about{' '}
             {perf} strength
           </div>
+          {opening && (
+            <div className="view-sub opening">
+              <span className="eco">{opening.eco}</span> {opening.name}
+              <span className="muted"> · book to move {Math.floor(opening.ply / 2) + 1}</span>
+            </div>
+          )}
         </div>
       </div>
 

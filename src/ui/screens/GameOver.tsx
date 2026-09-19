@@ -34,6 +34,7 @@ import { buildReport } from '../../coach/report'
 import type { Moment, MoveRating } from '../../coach/report'
 import type { MoveAssessment } from '../../coach/analysis'
 import { RatingStrip, Moments } from './GameReview'
+import { bookPlies, type OpeningName } from '../../coach/eco'
 
 export type GameResult = 'win' | 'loss' | 'draw'
 
@@ -49,6 +50,8 @@ export interface GameOverProps {
   /** Rating after the game and the move it made, once the recorder is done. */
   rating: number | null
   delta: number | null
+  /** What the opening was called, when the book knows it. */
+  opening?: OpeningName | null
   /** Absent until the analysis finishes; the screen works without it. */
   moves: MoveAssessment[] | null
   analysing: { done: number; total: number } | null
@@ -122,6 +125,7 @@ export function GameOver({
   colour,
   rating,
   delta,
+  opening = null,
   moves,
   analysing,
   acpl,
@@ -129,7 +133,10 @@ export function GameOver({
   onRematch,
   onClose,
 }: GameOverProps) {
-  const report = useMemo(() => (moves ? buildReport(moves) : null), [moves])
+  const report = useMemo(
+    () => (moves ? buildReport(moves, bookPlies(opening)) : null),
+    [moves, opening],
+  )
 
   const board = useMemo(() => {
     try {
@@ -150,6 +157,11 @@ export function GameOver({
           <div className="view-sub">
             by {how} · vs {opponentName} {opponentElo}
           </div>
+          {opening && (
+            <div className="view-sub opening">
+              <span className="eco">{opening.eco}</span> {opening.name}
+            </div>
+          )}
         </div>
       </div>
 
