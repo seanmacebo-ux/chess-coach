@@ -48,6 +48,7 @@ import { createOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
 import { acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
+import { GameOver } from './ui/screens/GameOver'
 import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
 import { BOTS, suggestedBot, type Bot } from './engine/roster'
@@ -658,6 +659,23 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const [engineState, setEngineState] = useState<EngineState>('boot')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [review, setReview] = useState<ReviewState>({ phase: 'idle' })
+  /**
+   * What the game did to the rating, and whether the result screen is up.
+   *
+   * recordFinishedGame has always returned the new rating and the delta and
+   * App threw both away, so the end-of-game card could only explain what a
+   * win WOULD have been worth. The number that actually moved is the one
+   * anyone looks at.
+   */
+  const [outcomeCard, setOutcomeCard] = useState<{
+    result: 'win' | 'loss' | 'draw'
+    how: string
+    rating: number | null
+    delta: number | null
+    fen: string
+  } | null>(null)
+  /** Ply the review should open on, when arrived at from a named moment. */
+  const [reviewPly, setReviewPly] = useState<number | null>(null)
 
   /** The preference (live) and the value the CURRENT game was dealt. */
   const [clockMin, setClockMin] = useState(loadClockMin)
@@ -857,7 +875,30 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
        * so the three cannot drift apart.
        */
       setReview({ phase: 'running', done: 0, total: 1 })
-      const { assessments } = await recordFinishedGame(
+      /*
+       * The result screen goes up BEFORE the analysis runs. Rating and
+       * outcome are known the moment the game ends; the move ratings take
+       * fifteen seconds. Waiting for both means the screen you get for
+       * winning a game arrives well after the win.
+       */
+      setOutcomeCard({
+        result: outcome.result,
+        how: flagged
+          ? 'time'
+          : chess.current.isCheckmate()
+            ? 'checkmate'
+            : chess.current.isStalemate()
+              ? 'stalemate'
+              : chess.current.isThreefoldRepetition()
+                ? 'repetition'
+                : chess.current.isInsufficientMaterial()
+                  ? 'insufficient material'
+                  : 'agreement',
+        rating: null,
+        delta: null,
+        fen: chess.current.fen(),
+      })
+      const { assessments, rating: newRating, delta } = await recordFinishedGame(
         {
           pgn,
           humanColour: humanIs,
@@ -872,6 +913,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           onProgress: (done, total) => setReview({ phase: 'running', done, total }),
         },
       )
+
+      setOutcomeCard((c) => (c ? { ...c, rating: newRating, delta } : c))
+      setMyRating(newRating)
 
       if (!assessments) {
         // The game is saved and the rating has moved — the recorder does both
@@ -944,6 +988,8 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       setPending(null)
       setReview({ phase: 'idle' })
       setShowReview(false)
+      setOutcomeCard(null)
+      setReviewPly(null)
       setOrientation(side)
       setLastMove(undefined)
       setFen(chess.current.fen())
@@ -982,7 +1028,41 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         colour={humanColour}
         acpl={review.acpl}
         perf={review.perf}
-        onClose={() => setShowReview(false)}
+        startPly={reviewPly}
+        onClose={() => {
+          setShowReview(false)
+          setReviewPly(null)
+        }}
+      />
+    )
+  }
+
+  /*
+   * The result gets the screen. It used to be a grey card below the board,
+   * under the clocks and the move list — you finished a game and the reply
+   * was an audit in the margin. Closing it puts you back on the board with
+   * the final position and every control still there.
+   */
+  if (outcomeCard) {
+    return (
+      <GameOver
+        result={outcomeCard.result}
+        how={outcomeCard.how}
+        opponentName={opponent.name}
+        opponentElo={elo}
+        fen={outcomeCard.fen}
+        colour={humanColour}
+        rating={outcomeCard.rating}
+        delta={outcomeCard.delta}
+        moves={review.phase === 'done' ? review.moves : null}
+        analysing={review.phase === 'running' ? { done: review.done, total: review.total } : null}
+        acpl={review.phase === 'done' ? review.acpl : null}
+        onReview={(ply) => {
+          setReviewPly(ply ?? null)
+          setShowReview(true)
+        }}
+        onRematch={() => newGame(orientation)}
+        onClose={() => setOutcomeCard(null)}
       />
     )
   }
@@ -1157,13 +1237,37 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
                   ? 'No blunders.'
                   : `${review.blunders} blunder${review.blunders === 1 ? '' : 's'} logged.`}
               </div>
-              {/* The summary is the headline; the review is the coaching. Making
-                  it a button rather than inlining it keeps the end-of-game card
-                  short, and going in is a deliberate act — you look at your
-                  mistakes when you are ready to. */}
-              <button className="chip solid" onClick={() => setShowReview(true)}>
-                Review my mistakes →
-              </button>
+              {/*
+                Two ways on, and neither is called "review my mistakes"
+                any more. That label framed the only route forward as a list
+                of your failures — which is also all the review used to
+                contain. It now rates every move you played, so the honest
+                name for it is the one chess.com uses.
+              */}
+              <div className="row" style={{ gap: 8 }}>
+                <button className="chip solid" onClick={() => setShowReview(true)}>
+                  Game review →
+                </button>
+                <button
+                  className="chip"
+                  onClick={() =>
+                    setOutcomeCard({
+                      result:
+                        status.winner === 'draw'
+                          ? 'draw'
+                          : status.winner === humanColour
+                            ? 'win'
+                            : 'loss',
+                      how: chess.current.isCheckmate() ? 'checkmate' : endText,
+                      rating: myRating,
+                      delta: null,
+                      fen: chess.current.fen(),
+                    })
+                  }
+                >
+                  See the result
+                </button>
+              </div>
             </div>
           )}
         </div>

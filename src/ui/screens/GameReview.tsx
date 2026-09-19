@@ -178,6 +178,13 @@ export interface GameReviewProps {
    */
   onSwapSide?: (() => void) | undefined
   swapping?: boolean
+  /**
+   * Open on this ply rather than at the top of the list.
+   *
+   * The end-of-game screen names the move the game turned on; tapping it has
+   * to land there, not at whatever the worst-first sort puts first.
+   */
+  startPly?: number | null
 }
 
 export function GameReview({
@@ -188,6 +195,7 @@ export function GameReview({
   onClose,
   onSwapSide,
   swapping = false,
+  startPly = null,
 }: GameReviewProps) {
   /*
    * ORDER IS A CHOICE NOW.
@@ -200,7 +208,12 @@ export function GameReview({
    * game. Both readings are legitimate, so both are offered, and the game
    * graph above them gives the shape either way.
    */
-  const [order, setOrder] = useState<ProblemOrder>('severity')
+  /*
+   * Arriving on a named move means walking the game from there, so the order
+   * starts as the full walk. Worst-first is for triage you chose; it is the
+   * wrong thing to drop someone into when they tapped a specific position.
+   */
+  const [order, setOrder] = useState<ProblemOrder>(startPly === null ? 'severity' : 'all')
 
   const problems = useMemo(() => orderProblems(moves, order), [moves, order])
 
@@ -213,7 +226,11 @@ export function GameReview({
    */
   const report = useMemo(() => buildReport(moves), [moves])
 
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(() => {
+    if (startPly === null) return 0
+    const i = orderProblems(moves, 'all').findIndex((m) => m.ply >= startPly)
+    return i >= 0 ? i : 0
+  })
   /** Which move is on the board: what you played, or what you should have. */
   const [showing, setShowing] = useState<'yours' | 'better'>('yours')
 
@@ -405,7 +422,7 @@ export function GameReview({
  * The bar is the mix at a glance; the legend under it is the exact counts.
  * Zero-count ratings are dropped — a row of noughts is not information.
  */
-function RatingStrip({
+export function RatingStrip({
   counts,
   total,
 }: {
@@ -449,17 +466,20 @@ function RatingStrip({
  * something alongside whether you took it, and that is the difference between
  * a turning point and a moment that passed you by.
  */
-function Moments({
+export function Moments({
   moments,
   colour,
   onGo,
+  max = 3,
 }: {
   moments: Moment[]
   colour: 'white' | 'black'
   onGo: (ply: number) => boolean
+  /** How many to show. The result screen wants fewer than the review does. */
+  max?: number
 }) {
-  // Three at most. A list of nine turning points has no turning points in it.
-  const top = moments.slice(0, 3)
+  // A list of nine turning points has no turning points in it.
+  const top = moments.slice(0, max)
   if (top.length === 0) return null
 
   const you = colour === 'white' ? 'White' : 'Black'

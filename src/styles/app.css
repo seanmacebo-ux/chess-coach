@@ -5000,3 +5000,106 @@ button.alt.open .alt-san {
   line-height: 1.55;
   max-width: 58ch;
 }
+
+/* ==================================================================
+ * THE END OF A GAME
+ *
+ * Sean sent chess.com's post-game screen — "You Won! by Checkmate", the
+ * rating jumping, three big tallies, a coach line, one large Game Review
+ * button — and asked to work on ours. Ours was a grey card under the board:
+ * a status line, a sentence about centipawns, and a chip offering to show
+ * you your mistakes. You had just won a game of chess and the reply was an
+ * audit in the margin.
+ *
+ * The shape is worth taking: finishing is the moment you feel something, and
+ * it should get the screen. What is NOT taken is the tone — the coach line
+ * here names the move and the number (see GameOver.tsx), so it is about your
+ * game rather than about a shape of graph.
+ * ================================================================== */
+
+.over {
+  position: relative;
+  /* The headline is 34px on a screen that opens at the top of the scroll
+     area, so without this the first thing you read after winning a game is
+     clipped by the status bar. */
+  padding-top: 4px;
+}
+
+/*
+ * The result in the display face, at the size of a headline, coloured by
+ * what happened. A win and a loss reading identically in grey is the single
+ * clearest way to tell someone their game did not matter.
+ */
+.over-head {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  margin: 0;
+  font-weight: 400;
+}
+
+.over-head.win { color: var(--accent); }
+.over-head.loss { color: var(--danger); }
+.over-head.draw { color: var(--text-muted); }
+
+/*
+ * The final position, small and centred. On a win by mate it is the picture
+ * worth keeping — a line of text cannot show you the mate.
+ */
+.over-board {
+  width: min(100%, 268px);
+  align-self: center;
+}
+
+.over-rating {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.over-rating-n {
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The delta is the number that gets looked at, so it gets the colour — but
+ * it sits against the rating it moved, because "+14" alone is trivia.
+ */
+.over-delta {
+  font-family: var(--font-num);
+  font-size: var(--t-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.over-delta.up { color: var(--accent); }
+.over-delta.down { color: var(--danger); }
+
+/* The one sentence about the game. Big enough to be the thing you read. */
+.over-say {
+  font-family: var(--font-display);
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  margin: 0;
+  max-width: 34ch;
+}
+
+.over-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-top: var(--s2);
+}
+
+.over-actions .primary.big {
+  flex: 1;
+  font-size: var(--t-body);
+  padding: 15px 18px;
+}
