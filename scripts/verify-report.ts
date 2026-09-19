@@ -126,7 +126,11 @@ const noAlts = rateMove(asses({
 }))
 check('without recorded alternatives it will not claim brilliance', noAlts === 'best', noAlts)
 
-// Mate itself is Best, not Brilliant — nothing was given up to play it.
+/*
+ * Mate is not Brilliant — nothing was given up to play it. It IS Great,
+ * because nothing else mates, and that is the whole distinction: Brilliant
+ * is Great plus a sacrifice.
+ */
 const mateMove = rateMove(asses({
   fen: operaMate, uci: 'd1d8', san: 'Rd8#', lossCp: 0, cpBest: 900, cpPlayed: 900,
   alts: [
@@ -134,7 +138,45 @@ const mateMove = rateMove(asses({
     { san: 'Bf4', cp: 40, played: false },
   ],
 }))
-check('mate with nothing offered is Best, not Brilliant', mateMove === 'best', mateMove)
+check('mate with nothing offered is never Brilliant', mateMove !== 'brilliant', mateMove)
+check('the only move that mates is Great', mateMove === 'great', mateMove)
+
+/*
+ * GREAT, and the line it has to hold against Best.
+ *
+ * A move that is merely the engine's preference among several reasonable
+ * ones must stay Best. If Great leaks into that, it stops meaning anything —
+ * most moves in most games are "the engine's choice" by a hair.
+ */
+const onlyMove = rateMove(asses({
+  fen: new Chess().fen(), uci: 'g1f3', san: 'Nf3', lossCp: 0, cpBest: 120, cpPlayed: 120,
+  alts: [
+    { san: 'Nf3', cp: 120, played: true },
+    { san: 'd4', cp: -260, played: false },
+    { san: 'e4', cp: -300, played: false },
+  ],
+}))
+check('the one move that holds the position is Great', onlyMove === 'great', onlyMove)
+
+const amongEquals = rateMove(asses({
+  fen: new Chess().fen(), uci: 'g1f3', san: 'Nf3', lossCp: 0, cpBest: 30, cpPlayed: 30,
+  alts: [
+    { san: 'Nf3', cp: 30, played: true },
+    { san: 'd4', cp: 26, played: false },
+    { san: 'e4', cp: 22, played: false },
+  ],
+}))
+check('best among several fine moves stays Best', amongEquals === 'best', amongEquals)
+
+// A Great must never be handed out for a move that lost something.
+const costlyOnly = rateMove(asses({
+  fen: new Chess().fen(), uci: 'g1f3', san: 'Nf3', lossCp: 300, cpBest: 100, cpPlayed: -200,
+  alts: [
+    { san: 'Nf3', cp: -200, played: true },
+    { san: 'd4', cp: 100, played: false },
+  ],
+}))
+check('a move that drops the game is not Great', costlyOnly !== 'great', costlyOnly)
 
 // A quiet best move must not be dressed up as brilliant.
 check('a quiet best move stays Best',

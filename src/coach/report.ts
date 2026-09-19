@@ -25,6 +25,7 @@ import { winChance } from '../ui/EvalMeter'
 
 export type MoveRating =
   | 'brilliant'
+  | 'great'
   | 'best'
   | 'excellent'
   | 'good'
@@ -36,6 +37,7 @@ export type MoveRating =
 
 export const RATING_LABEL: Record<MoveRating, string> = {
   brilliant: 'Brilliant',
+  great: 'Great',
   best: 'Best',
   excellent: 'Excellent',
   good: 'Good',
@@ -49,6 +51,7 @@ export const RATING_LABEL: Record<MoveRating, string> = {
 /** What each label actually means, so a badge is never just a colour. */
 export const RATING_MEANING: Record<MoveRating, string> = {
   brilliant: 'You gave up material and it was still the strongest move.',
+  great: 'The only move that held it — everything else was clearly worse.',
   best: 'The engine plays this too.',
   excellent: 'As good as makes no difference.',
   good: 'Sound. A little was available elsewhere.',
@@ -176,6 +179,21 @@ export function rateMove(m: MoveAssessment, opts: RateOptions = {}): MoveRating 
   if (isBest && m.cpPlayed >= -100 && isSacrifice(m.fen, m.uci) && isOnlyMove(m)) {
     return 'brilliant'
   }
+  /*
+   * GREAT: you found the only move, and it cost you nothing to find.
+   *
+   * Sean's chess.com screenshot reads "2 Great, 12 Best, 20 Excellent" and
+   * this app had no Great at all, so every forced resource you spotted was
+   * filed under the same word as a quiet developing move the engine also
+   * happens to like. Those are not the same achievement.
+   *
+   * No new machinery: Brilliant already needed to know whether a move was
+   * the ONLY one that worked, and that test on its own — without the
+   * material sacrifice — is exactly what Great means. Which also fixes the
+   * ordering: Brilliant is Great plus a sacrifice, so a sacrifice that
+   * qualifies can never be demoted to Great by being tested first.
+   */
+  if (isBest && isOnlyMove(m)) return 'great'
   if (isBest) return 'best'
   if (drop < 2) return 'excellent'
   return 'good'
@@ -312,7 +330,7 @@ export function buildReport(
 ): GameReport {
   const ratings = new Map<number, MoveRating>()
   const counts = {
-    brilliant: 0, best: 0, excellent: 0, good: 0, book: 0,
+    brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0,
     inaccuracy: 0, mistake: 0, blunder: 0, miss: 0,
   } as Record<MoveRating, number>
 

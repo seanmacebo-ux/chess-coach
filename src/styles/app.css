@@ -3008,10 +3008,14 @@ button.back {
  * each pick its own. `--rat` is set once per rating and inherited.
  */
 .rat-brilliant { --rat: var(--brilliant); }
+/* Great takes the blue chess.com uses for it; Book steps back to a quieter
+   version of the same hue, because remembering a move is not an achievement
+   and should not sit at the same weight as finding one. */
+.rat-great     { --rat: var(--good); }
 .rat-best      { --rat: var(--accent); }
 .rat-excellent { --rat: color-mix(in srgb, var(--accent) 62%, var(--text-muted)); }
 .rat-good      { --rat: var(--text-muted); }
-.rat-book      { --rat: var(--good); }
+.rat-book      { --rat: color-mix(in srgb, var(--good) 50%, var(--text-muted)); }
 .rat-inaccuracy { --rat: color-mix(in srgb, var(--warn) 62%, var(--text-muted)); }
 .rat-mistake   { --rat: var(--warn); }
 .rat-blunder   { --rat: var(--danger); }

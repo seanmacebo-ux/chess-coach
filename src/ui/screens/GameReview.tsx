@@ -70,7 +70,7 @@ import { bookPlies, type OpeningName } from '../../coach/eco'
  * are the same object seen twice.
  */
 const RATING_ORDER: MoveRating[] = [
-  'brilliant', 'best', 'excellent', 'good', 'book',
+  'brilliant', 'great', 'best', 'excellent', 'good', 'book',
   'inaccuracy', 'mistake', 'blunder', 'miss',
 ]
 
@@ -884,7 +884,7 @@ function GameGraph({
    * it. Now it is the moves with something to say about them: the costly ones
    * and the ones you earned.
    */
-  const MARKED: MoveRating[] = ['brilliant', 'miss', 'blunder', 'mistake', 'inaccuracy']
+  const MARKED: MoveRating[] = ['brilliant', 'great', 'miss', 'blunder', 'mistake', 'inaccuracy']
 
   return (
     <div className="rev-graph">
