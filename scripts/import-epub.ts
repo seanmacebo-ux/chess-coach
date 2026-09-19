@@ -255,14 +255,33 @@ function replaySequenced(toks: { no: number | null; black: boolean; san: string 
   const board = new Chess()
   let problem: string | undefined
   let skipping = false
+  /*
+   * Tokens seen since the last one that actually played.
+   *
+   * This is the tell for a SILENT TRUNCATION, and it cost a whole corpus.
+   * Once the numbering stops matching, the replay skips, and it can only
+   * rejoin at a token numbered exactly where it left off — which frequently
+   * never arrives, because the Tal book gives some main-line moves in prose
+   * rather than in a table. The rest of the game is then dropped without a
+   * word, and verify-pgn cannot see it: a truncated game is a legal game, it
+   * replays, it clears 20 plies, every assertion passes. Comparing against a
+   * published PGN of the same book found 27 games short out of 64, the worst
+   * stopping at ply 67 of 146.
+   *
+   * Leftover tokens do not prove truncation — a game genuinely ends with the
+   * book's closing analysis unplayed — but they are the only signal available
+   * from inside, so they are reported rather than swallowed.
+   */
+  let sinceLast = 0
   for (const t of toks) {
     const wantNo = Math.floor(board.history().length / 2) + 1
     const wantBlack = board.turn() === 'b'
     if (t.no !== null) {
       const inSeq = t.no === wantNo && t.black === wantBlack
-      if (!inSeq) { skipping = true; continue }
+      if (!inSeq) { skipping = true; sinceLast++; continue }
       skipping = false
     } else if (skipping) {
+      sinceLast++
       continue
     }
     let mv
@@ -272,8 +291,20 @@ function replaySequenced(toks: { no: number | null; black: boolean; san: string 
       // than skipping past, because it means the parse has drifted.
       problem ??= `${t.san} will not play at ply ${board.history().length + 1}`
       skipping = true
+      sinceLast++
       continue
     }
+    sinceLast = 0
+  }
+
+  /*
+   * A long tail of unused tokens after the last accepted move means the
+   * source had more game in it than came out. Twelve is a whole variation's
+   * worth; below that it is usually the book's closing note.
+   */
+  const TAIL = 12
+  if (sinceLast >= TAIL) {
+    problem ??= `stopped at ply ${board.history().length} with ${sinceLast} moves unread — probably truncated`
   }
   return problem === undefined ? { san: board.history() } : { san: board.history(), problem }
 }
@@ -434,6 +465,14 @@ function toPgn(g: ExtractedGame, source: string): string {
     `[Result "${g.result}"]`,
     `[Source "${source}"]`,
     g.n ? `[SourceGame "${g.n}"]` : '',
+    /*
+     * Say so in the data, not just in the run log. A game the extractor
+     * suspects it cut short is still worth having, but anything mining these
+     * files should be able to tell a finished game from a probable fragment
+     * — and a warning that only ever appeared on stdout is a warning nobody
+     * downstream will ever see.
+     */
+    g.problem ? `[Truncated "suspected"]` : '',
   ].filter(Boolean).join('\n')
 
   const body: string[] = []
@@ -486,6 +525,13 @@ async function main() {
   const avg = plies.length ? Math.round(plies.reduce((a, c) => a + c, 0) / plies.length) : 0
   console.log(`  games found     ${games.length}`)
   console.log(`  replayed clean  ${good.length}   (median ${plies.sort((a, b) => a - b)[plies.length >> 1] ?? 0} plies, mean ${avg})`)
+  const suspect = good.filter((g) => g.problem)
+  if (suspect.length > 0) {
+    console.log(`  SUSPECT         ${suspect.length} games may be cut short`)
+    for (const g of suspect.slice(0, 6)) {
+      console.log(`     Game ${g.n ?? '?'} ${g.white}-${g.black}: ${g.problem}`)
+    }
+  }
   console.log(`  rejected        ${bad.length}`)
   for (const r of bad.slice(0, 12)) {
     console.log(`     Game ${r.g.n ?? '?'} ${r.g.white}-${r.g.black}: ${r.why}`)

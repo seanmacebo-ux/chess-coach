@@ -31,6 +31,7 @@
     "verify:tree": "tsx scripts/verify-tree.ts",
     "verify:report": "tsx scripts/verify-report.ts",
     "import-epub": "tsx scripts/import-epub.ts",
+    "fetch-pgn": "tsx scripts/fetch-pgn.ts",
     "verify:pgn": "tsx scripts/verify-pgn.ts",
     "mine-sacrifices": "tsx scripts/mine-sacrifices.ts"
   },

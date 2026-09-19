@@ -19,6 +19,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "2"]
+[Truncated "suspected"]
 
 1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. Bg5 Bb4 5. e5 h6 6. Bd2 Bxc3 7. bxc3 Ne4 8. Qg4 g6 9. h4 c5 10. Bd3 Nxd2 11. Kxd2 Nc6 12. Rh3 Qa5 13. Bxg6 Rf8 14. Rf3 cxd4 15. Bxf7+ Kd8 16. Qg7 dxc3+ 17. Ke1 Qb4 18. Bg6 Rxf3 19. Nxf3 Qf4 20. Rd1 Rb8 21. Qf6+ Qxf6 22. exf6 Bd7 23. g4 Kc7 24. g5 Rh8 25. Bd3 hxg5 26. hxg5 e5 27. g6 Be6 28. Ng5 Nd4 29. Nh7 Nf3+ 30. Ke2 e4 31. f7 Nd4+ 32. Ke3 Nf5+ 33. Kf4 Ne7 34. g7 Rxh7 1-0
 
@@ -31,6 +32,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "5"]
+[Truncated "suspected"]
 
 1. Nf3 d5 2. c4 d4 3. b4 g6 4. e3 a5 5. b5 c5 6. exd4 Bg7 7. d3 cxd4 8. g3 Nd7 9. Nbd2 Nc5 10. Nb3 Qb6 11. Nxc5 Qxc5 12. Bg2 Nh6 13. O-O O-O 14. a4 Re8 15. Re1 Bf5 16. Ba3 Qc7 17. c5 Rad8 18. Ng5 Bf6 19. Ne4 Bg7 20. Qd2 Ng4 21. b6 Qc8 22. c6 bxc6 23. Qxa5 Ne5 24. Qd2 Qa6 25. a5 Nxd3 26. Nc5 Nxc5 27. Bxc5 Qb5 28. Bxe7 Rc8 29. Bf1 Qb3 30. Ra3 Qd5 31. b7 Rb8 32. a6 Bc8 1-0
 
@@ -43,6 +45,7 @@
 [Result "1/2-1/2"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "7"]
+[Truncated "suspected"]
 
 1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. Qc2 d5 5. a3 Bxc3+ 6. Qxc3 dxc4 7. Qxc4 O-O 8. Bg5 c6 9. Nf3 Nbd7 10. e3 Qa5+ 11. b4 Qd5 12. Qc2 1/2-1/2
 
@@ -259,6 +262,7 @@
 [Result "0-1"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "28"]
+[Truncated "suspected"]
 
 1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 c5 5. a3 Bxc3+ 6. bxc3 b6 7. Bd3 Bb7 8. f3 Nc6 9. Ne2 O-O 10. O-O Na5 11. e4 Ne8 12. Ng3 cxd4 13. cxd4 Rc8 14. f4 Nxc4 15. f5 f6 16. Rf4 b5 17. Rh4 Qb6 18. e5 Nxe5 19. fxe6 Nxd3 20. Qxd3 Qxe6 21. Qxh7+ Kf7 22. Bh6 Rh8 23. Qxh8 Rc2 24. Rc1 Rxg2+ 25. Kf1 Qb3 26. Ke1 Qf3 0-1
 
@@ -535,6 +539,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "59"]
+[Truncated "suspected"]
 
 1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. f4 Bg7 5. Nf3 O-O 6. e5 Nfd7 7. h4 c5 8. h5 cxd4 9. Qxd4 dxe5 10. Qf2 exf4 11. hxg6 hxg6 12. Bxf4 Nf6 13. Qh4 Qa5 14. Ng5 1-0
 
@@ -547,6 +552,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "60"]
+[Truncated "suspected"]
 
 1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. c4 Nb6 5. f4 dxe5 6. fxe5 c5 7. d5 e6 8. Nc3 exd5 9. cxd5 c4 10. Nf3 Bg4 11. Qd4 Bxf3 12. gxf3 Bb4 13. Bxc4 O-O 14. Rg1 g6 15. Bg5 Qc7 16. Bb3 Bc5 17. Qf4 Bxg1 18. d6 Qc8 19. Ke2 Bc5 20. Ne4 N8d7 21. Rc1 Qc6 22. Rxc5 Nxc5 23. Nf6+ Kh8 24. Qh4 Qb5+ 25. Ke3 h5 26. Nxh5 Qxb3+ 27. axb3 Nd5+ 28. Kd4 Ne6+ 29. Kxd5 Nxg5 30. Nf6+ Kg7 31. Qxg5 Rfd8 32. e6 fxe6+ 33. Kxe6 Rf8 34. d7 a5 35. Ng4 Ra6+ 36. Ke5 Rf5+ 37. Qxf5 gxf5 1-0
 
@@ -559,6 +565,7 @@
 [Result "0-1"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "62"]
+[Truncated "suspected"]
 
 1. d4 e6 2. Nf3 Nf6 3. c4 b6 4. g3 Bb7 5. Bg2 Be7 6. O-O O-O 7. b3 d5 8. cxd5 exd5 9. Bb2 Nbd7 10. Nc3 Re8 11. Ne5 Bf8 12. Rc1 Nxe5 13. dxe5 Rxe5 14. Nb5 Re7 15. Bxf6 gxf6 16. e4 dxe4 17. Qg4+ Bg7 18. Rfd1 Qf8 19. Nd4 Bc8 20. Qh4 f5 21. Nc6 Re8 22. Bh3 Bh6 23. Rc2 e3 24. fxe3 Bxe3+ 25. Kh1 Be6 26. Bg2 a5 27. Bf3 Kh8 28. Nd4 Rad8 29. Rxc7 Bd5 30. Re1 Qd6 31. Rc2 Re4 32. Bxe4 Bxe4+ 33. Qxe4 fxe4 34. Nf5 Qb4 35. Rxe3 Rd1+ 36. Kg2 Rd2+ 37. Rxd2 Qxd2+ 38. Kh3 Qf2 39. Kg4 f6 0-1
 
@@ -571,6 +578,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "64"]
+[Truncated "suspected"]
 
 1. d4 Nf6 2. c4 g6 3. g3 Bg7 4. Bg2 d5 5. cxd5 Nxd5 6. Nf3 O-O 7. O-O c5 8. e4 Nf6 9. e5 Nd5 10. dxc5 Nb4 11. Nc3 N8c6 12. a3 Nd3 13. Be3 Bg4 14. h3 Bxf3 15. Qxf3 Ndxe5 16. Qe4 Qd3 17. Qa4 Qc4 18. Rad1 Rad8 19. Bd5 Qxa4 20. Nxa4 e6 21. Ba2 Nf3+ 22. Kg2 Nfd4 23. g4 h6 24. Rd2 Kh7 25. f4 f5 26. Nc3 e5 27. fxe5 Bxe5 28. Nd5 fxg4 29. hxg4 Rxf1 30. Kxf1 Rf8+ 31. Rf2 Rxf2+ 32. Bxf2 a6 33. Kg2 Kg7 34. Bc4 Ne6 35. b4 Bb2 36. a4 Ne5 37. Be2 Bd4 38. Bg3 a5 39. bxa5 Nxc5 40. Nc7 Nc6 41. a6 bxa6 42. Nxa6 Ne4 43. Bc7 Nc3 44. Bf3 Ne5 45. a5 h5 46. g5 Nc4 47. Nb4 Nb5 48. Bd8 Kf8 49. Nc6 Bc5 50. Be2 Ne3+ 51. Kf3 Nd4+ 52. Nxd4 Bxd4 53. Bd3 Ng4 54. Bxg6 Ne5+ 55. Ke4 Nc6 56. Bb6 Bxb6 57. axb6 h4 58. Bf5 Ke7 59. Kf4 Kd6 60. Be4 1-0
 
@@ -595,6 +603,7 @@
 [Result "*"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "67"]
+[Truncated "suspected"]
 
 1. d4 d5 2. c4 c6 3. Nc3 Nf6 4. Nf3 e6 5. Bg5 dxc4 6. a4 Bb4 7. e4 c5 8. Bxc4 cxd4 9. Nxd4 h6 10. Be3 Nxe4 11. O-O Nf6 12. Qf3 O-O 13. Rad1 Qe7 14. Rfe1 Nc6 15. Qg3 Kh8 16. Nxc6 bxc6 17. Bd4 Rd8 18. Rd3 Bb7 19. Ree3 Rxd4 20. Rxd4 Bc5 21. Rd1 Bxe3 22. Qxe3 *
 
@@ -655,6 +664,7 @@
 [Result "*"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "72"]
+[Truncated "suspected"]
 
 1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 4. h3 Bxf3 5. Qxf3 Nf6 6. d3 e6 7. Be2 Nbd7 8. Qg3 g6 9. O-O Bg7 10. Bf4 Qb6 11. Rab1 O-O 12. Bc7 Qd4 13. Bf3 e5 14. Bd6 Rfe8 15. Ba3 dxe4 16. dxe4 b5 17. Rfd1 Qb6 18. b3 Nc5 19. Bc1 Qc7 20. Be3 Ne6 21. a4 a6 22. b4 Rad8 23. Be2 Qe7 24. axb5 *
 
@@ -679,6 +689,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "74"]
+[Truncated "suspected"]
 
 1. c4 Nf6 2. Nc3 e6 3. d4 Bb4 4. a3 Bxc3+ 5. bxc3 b6 6. f3 Ba6 7. e4 d5 8. cxd5 Bxf1 9. Kxf1 exd5 10. Bg5 h6 11. Qa4+ c6 12. Bh4 dxe4 13. Re1 g5 14. Bf2 Qe7 15. Ne2 b5 16. Qc2 Qxa3 17. h4 gxh4 18. Bxh4 Nbd7 19. Ng3 O-O-O 20. Nxe4 Rhe8 21. Kf2 Nxe4+ 22. fxe4 f6 23. Ra1 Qe7 24. Rxa7 Qxe4 25. Qxe4 Rxe4 26. Ra8+ Nb8 27. Bg3 Kb7 28. Rha1 Rc8 29. R8a7+ Kb6 30. Bxb8 b4 31. Bd6 bxc3 32. Bc5+ Kb5 33. R1a4 1-0
 
@@ -811,6 +822,7 @@
 [Result "0-1"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "91"]
+[Truncated "suspected"]
 
 1. d4 Nf6 2. c4 g6 3. Nc3 d5 4. cxd5 Nxd5 5. e4 Nxc3 6. bxc3 Bg7 7. Bc4 c5 8. Ne2 O-O 9. O-O Nc6 10. Be3 Qc7 11. Rc1 Rd8 12. h3 b6 13. f4 e6 14. Qe1 Bb7 15. Qf2 Na5 16. Bd3 f5 17. e5 c4 18. Bc2 Nc6 19. g4 Ne7 20. Kh2 Qc6 21. Ng3 b5 22. a4 a6 23. Rb1 Rab8 24. Bd2 bxa4 25. Ra1 Ba8 26. Bxa4 Qc7 27. Ra2 Rb6 28. gxf5 exf5 29. Bc1 Nd5 30. Ne2 a5 31. Bc2 Rb3 32. Bxb3 cxb3 33. Ra4 Bf8 34. Bb2 Ne3 35. Rfa1 Nc4 36. Ng3 Be7 37. Nf1 Qc6 38. Rxc4 Qh1+ 39. Kg3 h5 0-1
 
@@ -943,6 +955,7 @@
 [Result "*"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "102"]
+[Truncated "suspected"]
 
 1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 Qd7 5. Nf3 b6 6. Bd2 Ba6 7. Bxa6 Nxa6 8. O-O Nb8 9. Ne2 Be7 10. Rc1 b5 11. Nf4 h5 12. b3 Ba3 13. Rb1 a5 14. c4 c6 15. c5 Bb4 16. Bc1 a4 17. Nd3 Ba5 18. bxa4 bxa4 19. Qxa4 Qa7 20. Bg5 Bc7 21. Rxb8+ Qxb8 22. Qxc6+ Kf8 23. Nf4 Ra7 24. Nh4 Qe8 25. Qxe6 fxe6 26. Nhg6+ Qxg6 27. Nxg6+ Ke8 28. Nxh8 Ra4 29. Rd1 Ne7 30. Bxe7 Kxe7 31. Ng6+ Kf7 32. Nf4 Bxe5 33. dxe5 Rxf4 34. Rc1 Ke8 35. c6 Kd8 36. c7+ Kc8 37. g3 Ra4 38. Rc6 Rxa2 39. Rxe6 g5 40. Rd6 Rd2 41. e6 Kxc7 42. e7 *
 
@@ -979,6 +992,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "105"]
+[Truncated "suspected"]
 
 1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Ba5 6. b4 cxd4 7. Qg4 Ne7 8. bxa5 dxc3 9. Qxg7 Rg8 10. Qxh7 Nd7 11. Nf3 Nf8 12. Qd3 Qxa5 13. h4 Bd7 14. Bg5 Rc8 15. Nd4 1-0
 
@@ -1003,6 +1017,7 @@
 [Result "0-1"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "107"]
+[Truncated "suspected"]
 
 1. d4 Nf6 2. c4 g6 3. g3 Bg7 4. Bg2 O-O 5. Nc3 d6 6. Nf3 Nbd7 7. O-O e5 8. e4 c6 9. Be3 Ng4 10. Bg5 Qb6 11. h3 exd4 12. Na4 Qa6 13. hxg4 b5 14. Nxd4 bxa4 15. Nxc6 Qxc6 16. e5 Qxc4 17. Bxa8 Nxe5 18. Rc1 Qb4 19. a3 Qxb2 20. Qxa4 Bb7 21. Rb1 Nf3+ 22. Kh1 Bxa8 23. Rxb2 Nxg5+ 24. Kh2 Nf3+ 25. Kh3 Bxb2 26. Qxa7 Be4 27. a4 Kg7 28. Rd1 Be5 29. Qe7 Rc8 30. a5 Rc2 31. Kg2 Nd4+ 32. Kf1 Bf3 33. Rb1 Nc6 0-1
 
@@ -1087,6 +1102,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "117"]
+[Truncated "suspected"]
 
 1. c4 c5 2. Nf3 Nf6 3. Nc3 d5 4. cxd5 Nxd5 5. e3 e6 6. d4 cxd4 7. exd4 Be7 8. Bd3 O-O 9. O-O Nc6 10. Re1 Nf6 11. a3 b6 12. Bc2 Bb7 13. Qd3 Rc8 14. Bg5 g6 15. Rad1 Nd5 16. Bh6 Re8 17. Ba4 a6 18. Nxd5 Qxd5 19. Qe3 Bf6 20. Bb3 Qh5 21. d5 Nd8 22. d6 Rc5 23. d7 Re7 24. Qf4 Bg7 25. Qb8 Qxh6 26. Qxd8+ Bf8 27. Re3 Bc6 28. Qxf8+ Qxf8 1-0
 
@@ -1099,6 +1115,7 @@
 [Result "1/2-1/2"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "118"]
+[Truncated "suspected"]
 
 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Nxe4 6. d4 b5 7. Bb3 d5 8. dxe5 Be6 9. Nbd2 Nc5 10. c3 d4 11. Ng5 Qxg5 12. Qf3 O-O-O 13. Bxe6+ fxe6 14. Qxc6 Qxe5 15. b4 Qd5 16. Qxd5 exd5 17. bxc5 dxc3 18. Nb3 d4 19. Ba3 Be7 20. Bb4 Bf6 21. a4 Kd7 22. axb5 axb5 23. Ra6 c6 24. Rd1 Ke6 25. Rxc6+ Kd5 26. Rxf6 Kc4 27. Rf4 Kxb3 28. Rdxd4 Rxd4 29. Rxd4 Ra8 30. f4 Ra1+ 31. Kf2 c2 32. Bd2 1/2-1/2
 
@@ -1159,6 +1176,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "123"]
+[Truncated "suspected"]
 
 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nd7 10. d4 Nb6 11. Be3 exd4 12. cxd4 Na5 13. Bc2 c5 14. e5 dxe5 15. Nxe5 Nbc4 16. Qd3 f5 17. Bb3 f4 18. Bd2 Nxb3 19. Nc6 Nxa1 20. Nxd8 Bf5 21. Qf3 Raxd8 22. Rxe7 Bxb1 23. Bxf4 Rxd4 24. Qg4 Bg6 25. Qe6+ Bf7 26. Qf5 Nc2 27. b3 Bg6 28. Rxg7+ Kxg7 29. Bh6+ Kxh6 30. Qxf8+ Kg5 31. bxc4 bxc4 32. g3 1-0
 
@@ -1171,6 +1189,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "124"]
+[Truncated "suspected"]
 
 1. Nf3 Nf6 2. c4 e6 3. Nc3 d5 4. d4 c6 5. Bg5 dxc4 6. e4 b5 7. a4 Qb6 8. Bxf6 gxf6 9. Be2 a6 10. O-O Bb7 11. d5 cxd5 12. exd5 b4 13. a5 Qc7 14. dxe6 bxc3 15. Nd4 Rg8 16. Qa4+ Kd8 17. g3 Bd5 18. Rfd1 Kc8 19. bxc3 Bc5 20. e7 Nc6 21. Bg4+ Kb7 22. Nb5 Qe5 23. Re1 Be4 24. Rab1 Rxg4 25. Rxe4 Qxe4 26. Nd6+ Kc7 27. Nxe4 Rxe4 28. Qd1 Re5 29. Rb7+ Kxb7 30. Qd7+ Kb8 1-0
 
@@ -1195,6 +1214,7 @@
 [Result "0-1"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "126"]
+[Truncated "suspected"]
 
 1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Bc4 e6 7. Bb3 b5 8. f4 b4 9. Na4 Nxe4 10. O-O g6 11. f5 gxf5 12. Nxf5 Rg8 13. Bd5 Ra7 14. Bxe4 exf5 15. Bxf5 Re7 16. Bxc8 Qxc8 17. Bf4 Qc6 18. Qf3 Qxa4 19. Bxd6 Qc6 20. Bxb8 Qb6+ 21. Kh1 Qxb8 22. Qc6+ Rd7 23. Rae1+ Be7 24. Rxf7 Kxf7 25. Qe6+ Kf8 26. Qxd7 Qd6 27. Qb7 Rg6 28. c3 a5 29. Qc8+ Kg7 30. Qc4 Bd8 31. cxb4 axb4 32. g3 Qc6+ 33. Re4 Qxc4 34. Rxc4 0-1
 
@@ -1267,6 +1287,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "136"]
+[Truncated "suspected"]
 
 1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 e6 6. Be2 Be7 7. O-O O-O 8. f4 Nc6 9. Be3 Bd7 10. Qe1 Nxd4 11. Bxd4 Bc6 12. Bd3 g6 13. Rd1 a6 14. Kh1 Rc8 15. Qg3 b5 16. e5 dxe5 17. fxe5 Nh5 18. Qg4 Qc7 19. Qh3 Ng7 20. Qh6 Qb7 21. Rd2 Rcd8 22. Rf4 Nf5 23. Bxf5 exf5 24. e6 f6 25. Rh4 Bd6 26. Bb6 Bf4 27. Qxf4 Rxd2 28. Qxd2 Qxb6 29. e7 Re8 30. Nd5 Bxd5 31. Qxd5+ Kg7 32. Rxh7+ Kxh7 33. Qf7+ Kh6 34. Qxe8 Qf2 35. Qh8+ Kg5 36. h4+ Kg4 1-0
 
@@ -1303,6 +1324,7 @@
 [Result "1-0"]
 [Source "8b551ec2-Garry_Kasparov_-_Garry_Kasparov_on_My_Great_Predecessors_Part_2_2011_Everyman_Chess_-_libgen.li.epub"]
 [SourceGame "139"]
+[Truncated "suspected"]
 
 1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 Nbd7 6. Bc4 Qc7 7. Qe2 a6 8. Bg5 b5 9. Bd5 Nxd5 10. Nxd5 Qb7 11. O-O-O e6 12. f4 Nc5 13. Rhe1 Ra7 14. Nf5 f6 15. Bxf6 gxf6 16. Nxf6+ Kd8 17. Nxd6 Bxd6 18. e5 Nd7 19. Rxd6 Kc7 20. Red1 Nxf6 21. exf6 Kb8 22. Qe5 Ka8 23. g4 Rf8 24. g5 Rf7 25. h4 Rc7 26. Rd8 Qc6 27. Qe2 Qc5 28. Qe4+ Kb8 29. h5 e5 30. g6 hxg6 31. hxg6 exf4 32. g7 Rxg7 33. fxg7 Rxg7 34. Qxf4+ 1-0
 
