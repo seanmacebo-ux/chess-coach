@@ -41,6 +41,8 @@ import {
   BACKGROUNDS,
   BOARD_GROUPS,
   PIECE_GROUPS,
+  PRESETS,
+  presetOf,
   boardBackground,
   pieceSrc,
   resolveTheme,
@@ -196,6 +198,8 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
   }, [])
 
   const resolved = resolveTheme(theme)
+  /** The preset the current combination IS, when it is exactly one of them. */
+  const current = presetOf(theme)
 
   return (
     <div className="stack">
@@ -512,6 +516,52 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
 
         {/* The example, before any of the pickers. */}
         <ThemePreview board={resolved.board} pieces={resolved.pieces} />
+
+        {/*
+          PRESETS FIRST, because three blind decisions in a row is not really
+          a choice. 18 boards x 18 sets x 18 backgrounds is 5,832 results and
+          most of them look like an accident, because most of them are one.
+          These were looked at together. The individual pickers stay below for
+          anyone who wants to build their own — a preset writes three ids and
+          then gets out of the way, so changing one afterwards just means you
+          have left it, with nothing snapping back.
+        */}
+        <div>
+          <div className="small" style={{ marginBottom: 6 }}>
+            Looks
+          </div>
+          <div className="presets">
+            {PRESETS.map((p) => {
+              const r = resolveTheme(p.choice)
+              return (
+                <button
+                  key={p.id}
+                  className="preset"
+                  aria-pressed={current?.id === p.id}
+                  title={p.blurb}
+                  onClick={() => onTheme(p.choice)}
+                >
+                  <span
+                    className="preset-board"
+                    style={{ backgroundImage: boardBackground(r.board, 2) }}
+                  >
+                    <img src={pieceSrc(r.pieces, 'wN')} alt="" aria-hidden="true" />
+                  </span>
+                  <span className="preset-name">{p.name}</span>
+                </button>
+              )
+            })}
+          </div>
+          <div className="small muted">
+            {current ? (
+              <>
+                <strong style={{ color: 'var(--text)' }}>{current.name}</strong> — {current.blurb}
+              </>
+            ) : (
+              'Your own combination. Pick a look to start from, or keep building below.'
+            )}
+          </div>
+        </div>
 
         <div>
           <div className="small" style={{ marginBottom: 6 }}>

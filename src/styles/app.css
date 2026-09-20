@@ -5378,3 +5378,64 @@ button.alt.open .alt-san {
   flex-wrap: wrap;
   row-gap: 2px;
 }
+
+/* ==================================================================
+ * LOOKS — presets
+ *
+ * A short list at the top of Appearance, because 5,832 combinations built
+ * from three blind decisions is not a choice. Each tile is the real board
+ * gradient with the real knight on it, so what you tap is what you get.
+ * ================================================================== */
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: var(--s2);
+  margin-bottom: 8px;
+}
+
+.preset {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 5px;
+  min-height: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.preset[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* The tile is a 2x2 of the board, with a knight standing on it — the same
+   two things the separate pickers show, shown together, which is the whole
+   point of a preset. */
+.preset-board {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: calc(var(--radius) - 3px);
+  background-size: 100% 100%;
+}
+
+.preset-board img {
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+}
+
+.preset-name {
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.preset[aria-pressed='true'] .preset-name {
+  color: var(--text);
+  font-weight: 600;
+}

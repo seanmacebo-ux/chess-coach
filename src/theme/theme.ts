@@ -723,6 +723,95 @@ export interface ThemeChoice {
   background: string
 }
 
+/**
+ * A handful of looks that were put together on purpose.
+ *
+ * Eighteen boards, eighteen piece sets and eighteen backgrounds is 5,832
+ * combinations and no guidance, which is not really a choice — it is three
+ * separate decisions in a row, made blind, and most of the results look like
+ * an accident because most of them are. Sean picked the range and then could
+ * not find anything in it.
+ *
+ * These are combinations that were actually looked at together. Each one
+ * names what it is FOR rather than what it contains, because "Walnut +
+ * Chessnut + Paper" is the thing you were trying to avoid reading.
+ *
+ * A preset is not a mode. It writes the three ids and then gets out of the
+ * way — change any one of them afterwards and nothing snaps back or nags,
+ * you have simply left the preset. The picker shows which one you are on by
+ * comparing all three, so returning to a combination shows it selected again.
+ */
+export interface Preset {
+  id: string
+  name: string
+  /** What it is for, in a few words. */
+  blurb: string
+  choice: ThemeChoice
+}
+
+export const PRESETS: Preset[] = [
+  {
+    id: 'tournament',
+    name: 'Tournament hall',
+    blurb: 'What a real board looks like. Nothing to distract you.',
+    choice: { board: 'green', pieces: 'cburnett', background: 'plain' },
+  },
+  {
+    id: 'club',
+    name: 'Club night',
+    blurb: 'Warm wood and heavy pieces, under a lamp.',
+    choice: { board: 'wood', pieces: 'chessnut', background: 'vignette' },
+  },
+  {
+    id: 'study',
+    name: 'The study',
+    blurb: 'Paper and ink. Quiet enough to read a position on.',
+    choice: { board: 'ink', pieces: 'merida', background: 'paper' },
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight',
+    blurb: 'Low contrast and dark. Easiest on the eyes at night.',
+    choice: { board: 'night', pieces: 'maestro', background: 'dusk' },
+  },
+  {
+    id: 'museum',
+    name: 'Museum',
+    blurb: 'Marble and carved pieces. Slow games only.',
+    choice: { board: 'marble', pieces: 'fantasy', background: 'stone' },
+  },
+  {
+    id: 'blitz',
+    name: 'Blitz',
+    blurb: 'Flat, high contrast, unmistakable at speed.',
+    choice: { board: 'blue', pieces: 'kiwen-suwi', background: 'plain' },
+  },
+  {
+    id: 'garden',
+    name: 'Garden',
+    blurb: 'Canvas and green, with something growing behind it.',
+    choice: { board: 'moss', pieces: 'gioco', background: 'canopy' },
+  },
+  {
+    id: 'arcade',
+    name: 'Arcade',
+    blurb: 'Hand-drawn and loud. Chess should be fun sometimes.',
+    choice: { board: 'rosewood', pieces: 'anarcandy', background: 'ember' },
+  },
+]
+
+/** Which preset the current choice IS, if it is exactly one of them. */
+export function presetOf(choice: ThemeChoice): Preset | null {
+  return (
+    PRESETS.find(
+      (p) =>
+        p.choice.board === choice.board &&
+        p.choice.pieces === choice.pieces &&
+        p.choice.background === choice.background,
+    ) ?? null
+  )
+}
+
 const KEY = 'cc.theme'
 const DEFAULT: ThemeChoice = { board: 'green', pieces: 'cburnett', background: 'vignette' }
 
