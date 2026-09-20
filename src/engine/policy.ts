@@ -14,12 +14,35 @@
  * point — you can face an aggressive 1400 and a solid 1400 and lose to both
  * for completely different reasons.
  *
- * CALIBRATION HONESTY: the ACPL targets below are drawn from published
- * rating-band averages and the temperature≈ACPL mapping is a first-order
- * approximation, not a fitted model. The numbers in PROFILES are the day-one
- * guess and they are known to be wrong — scripts/calibrate.ts measured every
- * band playing far stronger than its label (800 shedding 70cp against a 150
- * target, 1400 shedding 43 against 75).
+ * WHY THE POOL IS SO WIDE AT THE BOTTOM, which is the whole story.
+ *
+ * The first version sampled among the engine's top 8-10 moves at every band
+ * and raised the temperature to weaken play. Calibration said every band was
+ * far stronger than its label — 800 shedding 70cp against a 150 target — and
+ * the reason turned out to be arithmetic rather than tuning:
+ * scripts/tune-bands.ts computes the expected loss of this policy in closed
+ * form, and reported the target as UNREACHABLE for seven of the eight bands.
+ * Even sampling UNIFORMLY over a strong engine's top ten moves is too strong,
+ * because all ten are decent. No temperature fixes a pool with no bad moves
+ * in it.
+ *
+ * So weak bands now choose from a much wider list — 800 sees twenty-eight
+ * candidates — which is also the more honest description of the thing being
+ * modelled: a weak player has not discarded the bad moves yet and a strong
+ * one has. Temperature then decides how far down that list they reach.
+ *
+ * And blunderChance is cut to roughly a third across the board. The blunder
+ * path plays a move the engine never shortlisted at all — a genuinely random
+ * legal move — so at 0.18 the 800 bot threw a piece away every fifth or sixth
+ * move while playing well above its rating in between. Strong, then abruptly
+ * absurd. Sean's words were "too easy and simple", and that one shape
+ * produces both halves of it. The loss should come from playing consistently
+ * loose, which is what humans at that rating actually do.
+ *
+ * CALIBRATION HONESTY: the targets are drawn from published rating-band
+ * averages. The numbers below are solved analytically against this policy's
+ * own maths, and an analytic solution is a model — scripts/calibrate.ts plays
+ * real games and is the measurement that decides.
  *
  * That guess is no longer the last word. `bandProfile` applies whatever
  * calibration.ts has measured from games actually played, so the table below
@@ -53,14 +76,14 @@ export interface BandProfile {
  * mistakes, they make bigger ones, so both knobs move together.
  */
 const PROFILES: Record<Band, Omit<BandProfile, 'band'>> = {
-  800: { targetAcpl: 150, temperature: 150, blunderChance: 0.18, depth: 6, multipv: 10 },
-  1000: { targetAcpl: 120, temperature: 120, blunderChance: 0.14, depth: 7, multipv: 10 },
-  1200: { targetAcpl: 95, temperature: 95, blunderChance: 0.11, depth: 8, multipv: 9 },
-  1400: { targetAcpl: 75, temperature: 75, blunderChance: 0.08, depth: 9, multipv: 8 },
-  1600: { targetAcpl: 60, temperature: 60, blunderChance: 0.055, depth: 10, multipv: 8 },
-  1800: { targetAcpl: 48, temperature: 48, blunderChance: 0.035, depth: 11, multipv: 7 },
-  2000: { targetAcpl: 38, temperature: 38, blunderChance: 0.02, depth: 12, multipv: 6 },
-  2200: { targetAcpl: 30, temperature: 30, blunderChance: 0.012, depth: 13, multipv: 5 },
+  800: { targetAcpl: 150, temperature: 766, blunderChance: 0.063, depth: 6, multipv: 28 },
+  1000: { targetAcpl: 120, temperature: 979, blunderChance: 0.049, depth: 7, multipv: 24 },
+  1200: { targetAcpl: 95, temperature: 607, blunderChance: 0.039, depth: 8, multipv: 20 },
+  1400: { targetAcpl: 75, temperature: 271, blunderChance: 0.022, depth: 9, multipv: 16 },
+  1600: { targetAcpl: 60, temperature: 199, blunderChance: 0.019, depth: 10, multipv: 12 },
+  1800: { targetAcpl: 48, temperature: 201, blunderChance: 0.012, depth: 11, multipv: 9 },
+  2000: { targetAcpl: 38, temperature: 164, blunderChance: 0.007, depth: 12, multipv: 7 },
+  2200: { targetAcpl: 30, temperature: 172, blunderChance: 0.004, depth: 13, multipv: 5 },
 }
 
 /*
