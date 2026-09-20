@@ -63,10 +63,21 @@ const WANT = arg('positions', 24)
  * on itself and a per-position expectation cannot see it.
  *
  * So the solver aims at target/REALISM and the measurement decides whether
- * that was right. This number is empirical — two bands, one run — and it is
- * meant to be re-derived whenever calibrate.ts disagrees with it again.
+ * that was right. It is empirical, and it has already been re-derived once:
+ *
+ *   1.6   from the run where the solver's first answer overshot — but that
+ *         run measured a bot at temperature 766 sampling almost flat across
+ *         twenty-eight candidates, so it spent the game in ruined positions
+ *         where compounding is at its most violent.
+ *   1.12  from the run after, at temperature 142. Four bands landed at 0.70
+ *         of target having aimed at target/1.6, which puts the real factor
+ *         at 1.6 x 0.70.
+ *
+ * The factor is not a constant, and that is the lesson rather than a defect
+ * in it: compounding scales with how bad the positions get, so a looser bot
+ * has a bigger one. Re-derive it whenever the bands move a long way.
  */
-const REALISM = arg('realism', 1.6)
+const REALISM = arg('realism', 1.12)
 
 /**
  * Enough of the move list that the "wild" tail is real.

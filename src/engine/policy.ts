@@ -60,10 +60,27 @@
  * reaches further down a long list — which is what a weak human looks like —
  * rather than alternating between engine moves and random ones.
  *
+ * THE TEMPERATURES BELOW COME FROM MEASUREMENT, NOT FROM THE MODEL.
+ *
+ * The analytic solver takes a correction factor for compounding, and the
+ * factor turned out to depend on the very setting it is correcting towards:
+ * 1.6 measured at temperature 766, 1.12 at temperature 142. A looser bot
+ * spends the game in worse positions, where the gap between best and
+ * tenth-best is wider, so its errors compound harder. One constant cannot
+ * extrapolate across that.
+ *
+ * So the last step is a fit to real games instead. Two calibration runs at
+ * band 800 with the same pool give two points — temperature 142 measured
+ * 105.4 ACPL, temperature 766 measured 246.9 — and ACPL goes as temperature
+ * to the power 0.505 between them, near enough a square root. Solving that
+ * for 150 gives 286, almost exactly double the current setting, and the
+ * same doubling is applied across the ladder.
+ *
  * CALIBRATION HONESTY: the targets are drawn from published rating-band
- * averages. Everything below is solved against this policy's own maths and
- * then corrected by measurement, and scripts/calibrate.ts is the thing that
- * decides. It has now overruled this table twice.
+ * averages. scripts/calibrate.ts plays real games and is the thing that
+ * decides. It has overruled this table twice already, and the numbers here
+ * are its own two measurements extrapolated — which is a better guess than
+ * the model made, and still a guess until it has been run again.
  *
  * That guess is no longer the last word. `bandProfile` applies whatever
  * calibration.ts has measured from games actually played, so the table below
@@ -97,14 +114,14 @@ export interface BandProfile {
  * mistakes, they make bigger ones, so both knobs move together.
  */
 const PROFILES: Record<Band, Omit<BandProfile, 'band'>> = {
-  800: { targetAcpl: 150, temperature: 142, blunderChance: 0.022, depth: 6, multipv: 28 },
-  1000: { targetAcpl: 120, temperature: 113, blunderChance: 0.022, depth: 7, multipv: 24 },
-  1200: { targetAcpl: 95, temperature: 90, blunderChance: 0.022, depth: 8, multipv: 20 },
-  1400: { targetAcpl: 75, temperature: 78, blunderChance: 0.022, depth: 9, multipv: 16 },
-  1600: { targetAcpl: 60, temperature: 76, blunderChance: 0.019, depth: 10, multipv: 12 },
-  1800: { targetAcpl: 48, temperature: 82, blunderChance: 0.012, depth: 11, multipv: 9 },
-  2000: { targetAcpl: 38, temperature: 78, blunderChance: 0.007, depth: 12, multipv: 7 },
-  2200: { targetAcpl: 30, temperature: 74, blunderChance: 0.004, depth: 13, multipv: 5 },
+  800: { targetAcpl: 150, temperature: 286, blunderChance: 0.022, depth: 6, multipv: 28 },
+  1000: { targetAcpl: 120, temperature: 227, blunderChance: 0.022, depth: 7, multipv: 24 },
+  1200: { targetAcpl: 95, temperature: 181, blunderChance: 0.022, depth: 8, multipv: 20 },
+  1400: { targetAcpl: 75, temperature: 157, blunderChance: 0.022, depth: 9, multipv: 16 },
+  1600: { targetAcpl: 60, temperature: 153, blunderChance: 0.019, depth: 10, multipv: 12 },
+  1800: { targetAcpl: 48, temperature: 165, blunderChance: 0.012, depth: 11, multipv: 9 },
+  2000: { targetAcpl: 38, temperature: 157, blunderChance: 0.007, depth: 12, multipv: 7 },
+  2200: { targetAcpl: 30, temperature: 149, blunderChance: 0.004, depth: 13, multipv: 5 },
 }
 
 /*
