@@ -540,6 +540,41 @@ body {
   color: var(--text-muted);
 }
 
+/*
+ * A rank of squares after every section label.
+ *
+ * Sean: "I don't want it blocky, I want it chess-like." Today and the result
+ * screen got that treatment by hand; the other four screens are built almost
+ * entirely from these cards, and editing twenty-five of them by hand would
+ * be churn that drifts apart the first time one is copied. One ornament on
+ * the label they all already have reaches every screen at once and cannot
+ * get out of step with itself.
+ *
+ * Four squares, in the BOARD's own two colours, so it re-themes with the
+ * board and sits at the same weight as the dividers on Today. Inline rather
+ * than an underline because half these labels live in a flex row opposite a
+ * counter, where a block-level rule would either stretch across the counter
+ * or collapse to nothing.
+ */
+.card > .small.muted:first-child::after,
+.card > .stack > .small.muted:first-child::after,
+.card > .row.spread > .small.muted:first-child::after,
+.card > .stack > .row.spread > .small.muted:first-child::after {
+  content: '';
+  display: inline-block;
+  width: 22px;
+  height: 5px;
+  margin-left: 9px;
+  vertical-align: 1px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--sq-dark, var(--border)) 0 5.5px,
+    var(--sq-light, var(--surface-hi)) 5.5px 11px
+  );
+  opacity: 0.4;
+}
+
 /* ---------------------------------------------------------------- controls */
 
 button {
