@@ -87,7 +87,45 @@ export async function downloadBackup(): Promise<Record<string, number>> {
   return counts
 }
 
+/**
+ * A backup file is UNTRUSTED INPUT, and it did not used to be treated as any.
+ *
+ * It arrives from a file picker, so it can be anything: a corrupted download,
+ * a truncated sync from a cloud drive, or a file somebody handed over. Three
+ * things were missing.
+ *
+ *   NO SIZE LIMIT. `await file.text()` on a multi-gigabyte file hangs the tab
+ *   with no way back.
+ *
+ *   NO ROW VALIDATION. Rows went into Dexie exactly as they were parsed, so a
+ *   backup could plant a `mistakes` row whose fen is a number — which is the
+ *   precise shape of the bug that took the Today screen down. The restore path
+ *   could manufacture that state deliberately.
+ *
+ *   IDS WERE HONOURED. bulkPut is upsert-by-primary-key, and the keys came
+ *   from the file. A crafted or simply mismatched backup could overwrite the
+ *   rows it names — a different game landing on the id of one already there.
+ *   The module comment promises "importing cannot destroy". It could.
+ */
+const MAX_BACKUP_BYTES = 64 * 1024 * 1024
+
+/** Every row must at least be a plain object before Dexie ever sees it. */
+function usableRows(rows: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(rows)) return []
+  return rows.filter(
+    (r): r is Record<string, unknown> =>
+      typeof r === 'object' && r !== null && !Array.isArray(r),
+  )
+}
+
 export async function restoreBackup(file: File): Promise<Record<string, number>> {
+  if (file.size > MAX_BACKUP_BYTES) {
+    throw new Error(
+      `That file is ${Math.round(file.size / 1e6)}MB. A chess-coach backup is a few megabytes — ` +
+      'this is not one.',
+    )
+  }
+
   let parsed: Backup
   try {
     parsed = JSON.parse(await file.text()) as Backup
@@ -100,17 +138,51 @@ export async function restoreBackup(file: File): Promise<Record<string, number>>
 
   const counts: Record<string, number> = {}
   for (const table of db.tables) {
-    const rows = parsed.tables[table.name]
-    if (!Array.isArray(rows) || rows.length === 0) continue
-    // bulkPut: update-by-key, never delete. See the module comment — restore
-    // must not be able to destroy anything.
-    await table.bulkPut(rows)
-    counts[table.name] = rows.length
+    const rows = usableRows(parsed.tables[table.name])
+    if (rows.length === 0) continue
+
+    /*
+     * Auto-keyed tables get their ids DROPPED and are added fresh.
+     *
+     * The alternative is letting the file choose primary keys, which is how
+     * a restore overwrites rows it has no business touching. Appending costs
+     * duplicates when you restore the same file twice — annoying, and
+     * recoverable. Overwriting is not recoverable, and this module's whole
+     * promise is that importing cannot destroy anything.
+     *
+     * Tables with a natural key (tierProgress by id, profile by id,
+     * sectionRatings by section) are genuinely merge-shaped and keep theirs.
+     */
+    const autoKeyed = table.schema.primKey.auto
+    try {
+      if (autoKeyed) {
+        await table.bulkAdd(rows.map(({ id: _id, ...rest }) => rest) as unknown[])
+      } else {
+        await table.bulkPut(rows as unknown[])
+      }
+      counts[table.name] = rows.length
+    } catch (err) {
+      /*
+       * Dexie throws BulkError when SOME rows fail, after writing the rest.
+       * Letting that escape would abandon the restore half-done with no
+       * report — the worst possible outcome for the one feature whose entire
+       * job is getting your history back. A table that partly fails is
+       * counted for what landed and the rest of the restore continues.
+       */
+      const failures =
+        typeof err === 'object' && err !== null && 'failures' in err
+          ? (err as { failures: unknown[] }).failures.length
+          : rows.length
+      counts[table.name] = Math.max(0, rows.length - failures)
+    }
   }
 
   for (const key of LOCAL_KEYS) {
     const v = parsed.local?.[key]
-    if (typeof v === 'string') writeLocal(key, v)
+    // The key list is an allowlist, so a file cannot write anywhere else —
+    // and the value must be a string, because localStorage stores nothing
+    // else and a non-string would be coerced into one that parses oddly.
+    if (typeof v === 'string' && v.length <= 1_000_000) writeLocal(key, v)
   }
 
   return counts

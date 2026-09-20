@@ -7,6 +7,37 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
     />
+    <!--
+      Content Security Policy.
+
+      GitHub Pages serves static files and cannot set response headers, so the
+      policy goes in a meta tag. That means frame-ancestors is unavailable
+      here — it is header-only and silently ignored in meta — so this cannot
+      stop the page being framed. Everything else it can do, it does.
+
+      The awkward entries are all real requirements, not laziness:
+        wasm-unsafe-eval  Stockfish is a WebAssembly build and will not
+                          instantiate without it.
+        style-src inline  the theme writes a <style> element at runtime and
+                          React sets element styles; both are inline styles.
+        connect-src       api.chess.com for the rating import, supabase for
+                          sync. Nothing else may be contacted.
+        object-src none   there is no plugin content and never will be.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' 'wasm-unsafe-eval';
+               worker-src 'self' blob:;
+               style-src 'self' 'unsafe-inline';
+               img-src 'self' data: blob:;
+               font-src 'self';
+               connect-src 'self' https://api.chess.com https://*.supabase.co wss://*.supabase.co;
+               manifest-src 'self';
+               object-src 'none';
+               base-uri 'self';
+               form-action 'none'"
+    />
     <meta name="theme-color" content="#1c1a17" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

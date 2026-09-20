@@ -98,8 +98,19 @@ export async function fetchChessComProfile(username: string): Promise<ChessComIm
 
   for (const tc of PREFERENCE) {
     const block = data[KEY_OF[tc]]
-    const rating = block?.last?.rating
-    if (typeof rating !== 'number') continue
+    const raw = block?.last?.rating
+    /*
+     * Bounds-checked, not merely type-checked.
+     *
+     * This number comes off the public internet and is written straight into
+     * the profile that every piece of coaching downstream is derived from —
+     * which bots you face, which puzzles you get, what the ladder unlocks. A
+     * NaN, an Infinity or a mangled 99999 from a bad response would not throw
+     * anywhere; it would quietly reconfigure the whole app. No chess rating
+     * has ever been outside this range.
+     */
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 100 || raw > 3500) continue
+    const rating = Math.round(raw)
     ratings[tc] = rating
 
     const rec = block?.record
