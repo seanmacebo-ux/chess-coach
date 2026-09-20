@@ -51,7 +51,7 @@ import type { Square } from 'chess.js'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import { Board } from '../Board'
-import { TAG_LABEL, type MoveAssessment } from '../../coach/analysis'
+import { TAG_LABEL, type MoveAssessment, type Phase } from '../../coach/analysis'
 import { loosePieces } from '../../coach/exercises'
 import { readPosition, weighMove } from '../../coach/position'
 import {
@@ -229,7 +229,24 @@ export function GameReview({
    */
   const [order, setOrder] = useState<ProblemOrder>(startPly === null ? 'severity' : 'all')
 
-  const problems = useMemo(() => orderProblems(moves, order), [moves, order])
+  /*
+   * THE NUMBERS ARE CONTROLS.
+   *
+   * Sean: "a lot of the app's design work is not interactive." He is right,
+   * and this screen was the clearest case: it prints a mix of ten ratings and
+   * a breakdown of three phases, and until now the only way to act on either
+   * was to scroll the whole list hoping to recognise a move. "Show me my two
+   * blunders" and "show me the endgame" are the obvious next questions after
+   * reading those numbers, and the numbers themselves are where anyone would
+   * reach to ask them.
+   *
+   * A focus is a filter on top of the ordering rather than a fourth ordering.
+   * Tapping the same one again clears it, so it can never strand you in a
+   * view you cannot get out of.
+   */
+  const [focus, setFocus] = useState<
+    { kind: 'rating'; rating: MoveRating } | { kind: 'phase'; phase: Phase } | null
+  >(null)
 
   /*
    * Every move rated, and the game's turning points, from the numbers the
@@ -251,6 +268,20 @@ export function GameReview({
    */
   const phases = useMemo(() => byPhase(moves), [moves])
   const them = useMemo(() => readOpponent(moves, opponentName ?? 'They'), [moves, opponentName])
+
+  /*
+   * Focusing shows EVERY move of that kind, in game order — including the
+   * good ones. A rating filter that only searched the "problems" list would
+   * silently return nothing for Best or Brilliant, which are exactly the two
+   * anyone taps first.
+   */
+  const problems = useMemo(() => {
+    if (!focus) return orderProblems(moves, order)
+    const all = orderProblems(moves, 'all')
+    return focus.kind === 'rating'
+      ? all.filter((m) => report.ratings.get(m.ply) === focus.rating)
+      : all.filter((m) => m.phase === focus.phase)
+  }, [moves, order, focus, report])
 
   const [index, setIndex] = useState(() => {
     if (startPly === null) return 0
@@ -313,7 +344,18 @@ export function GameReview({
         </button>
       )}
 
-      <RatingStrip counts={report.counts} total={moves.length} />
+      <RatingStrip
+        counts={report.counts}
+        total={moves.length}
+        active={focus?.kind === 'rating' ? focus.rating : null}
+        onPick={(rating) => {
+          setFocus((f) =>
+            f?.kind === 'rating' && f.rating === rating ? null : { kind: 'rating', rating },
+          )
+          setIndex(0)
+          setShowing('yours')
+        }}
+      />
 
       {/*
         The game itself, as a shape — above the conditional, because the shape
@@ -335,7 +377,18 @@ export function GameReview({
         <div className="phases">
           <span className="brief-key">How each part went</span>
           {phases.map((p) => (
-            <div key={p.phase} className="phase-row">
+            <button
+              key={p.phase}
+              className={'phase-row' + (focus?.kind === 'phase' && focus.phase === p.phase ? ' on' : '')}
+              aria-pressed={focus?.kind === 'phase' && focus.phase === p.phase}
+              onClick={() => {
+                setFocus((f) =>
+                  f?.kind === 'phase' && f.phase === p.phase ? null : { kind: 'phase', phase: p.phase },
+                )
+                setIndex(0)
+                setShowing('yours')
+              }}
+            >
               <span className="phase-name">{p.phase}</span>
               <span className="phase-bar">
                 {/* Winning chances given away, as a share of the whole game's
@@ -358,7 +411,7 @@ export function GameReview({
                   worst {p.worst.moveNo}. {p.worst.san} (−{p.worst.cost})
                 </span>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -402,21 +455,42 @@ export function GameReview({
         </div>
       ) : (
         <>
-          <p className="lede">
-            {problems.length}{' '}
-            {order === 'all'
-              ? `move${problems.length === 1 ? '' : 's'}`
-              : `position${problems.length === 1 ? '' : 's'} worth looking at`}
-            {order === 'severity'
-              ? ', worst first'
-              : order === 'all'
-                ? ' — every move you played, in order'
-                : ', in the order they happened'}. The board
-            shows what you were looking at — tap between your move and the better one to see the
-            difference.
-          </p>
+          {focus ? (
+            /*
+              A filter has to announce itself and be escapable from where you
+              are looking. Tapping the same number again clears it too, but
+              that means remembering which number you pressed — and a filter
+              you cannot find your way out of is worse than no filter.
+            */
+            <div className="focused">
+              <span>
+                {problems.length}{' '}
+                {focus.kind === 'rating'
+                  ? `${RATING_LABEL[focus.rating].toLowerCase()} move${problems.length === 1 ? '' : 's'}`
+                  : `${focus.phase} move${problems.length === 1 ? '' : 's'}`}
+                , in game order
+              </span>
+              <button className="chip" onClick={() => { setFocus(null); setIndex(0) }}>
+                Show all
+              </button>
+            </div>
+          ) : (
+            <p className="lede">
+              {problems.length}{' '}
+              {order === 'all'
+                ? `move${problems.length === 1 ? '' : 's'}`
+                : `position${problems.length === 1 ? '' : 's'} worth looking at`}
+              {order === 'severity'
+                ? ', worst first'
+                : order === 'all'
+                  ? ' — every move you played, in order'
+                  : ', in the order they happened'}. The board
+              shows what you were looking at — tap between your move and the better one to see the
+              difference.
+            </p>
+          )}
 
-          <div className="rev-order">
+          <div className="rev-order" hidden={Boolean(focus)}>
             {(
               [
                 ['severity', 'Worst first'],
@@ -510,9 +584,15 @@ export function GameReview({
 export function RatingStrip({
   counts,
   total,
+  active = null,
+  onPick,
 }: {
   counts: Record<MoveRating, number>
   total: number
+  /** The rating currently being filtered to, if any. */
+  active?: MoveRating | null
+  /** Omit and the strip stays a read-only summary — the result screen wants that. */
+  onPick?: (rating: MoveRating) => void
 }) {
   if (total === 0) return null
   const shown = RATING_ORDER.filter((r) => counts[r] > 0)
@@ -526,13 +606,27 @@ export function RatingStrip({
         ))}
       </div>
       <div className="rat-legend">
-        {shown.map((r) => (
-          <span key={r} className="rat-item" title={RATING_MEANING[r]}>
-            <span className={`rat-dot rat-${r}`} />
-            <span className="rat-n">{counts[r]}</span>
-            <span className="rat-l">{RATING_LABEL[r]}</span>
-          </span>
-        ))}
+        {shown.map((r) =>
+          onPick ? (
+            <button
+              key={r}
+              className={`rat-item rat-${r}` + (active === r ? ' on' : '')}
+              aria-pressed={active === r}
+              title={`${RATING_MEANING[r]} — tap to see them`}
+              onClick={() => onPick(r)}
+            >
+              <span className={`rat-dot rat-${r}`} />
+              <span className="rat-n">{counts[r]}</span>
+              <span className="rat-l">{RATING_LABEL[r]}</span>
+            </button>
+          ) : (
+            <span key={r} className={`rat-item rat-${r}`} title={RATING_MEANING[r]}>
+              <span className={`rat-dot rat-${r}`} />
+              <span className="rat-n">{counts[r]}</span>
+              <span className="rat-l">{RATING_LABEL[r]}</span>
+            </span>
+          ),
+        )}
       </div>
     </div>
   )

@@ -5590,3 +5590,165 @@ button.alt.open .alt-san {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+
+/* ==================================================================
+ * THE NUMBERS ARE CONTROLS
+ *
+ * Sean: "a lot of the app's design work is not interactive." The rating
+ * strip and the phase breakdown print the two questions anyone asks next —
+ * "show me my blunders", "show me the endgame" — and were read-only. They
+ * are buttons now, and they have to LOOK like buttons without turning a
+ * quiet summary into a row of chunky controls.
+ *
+ * The answer is restraint: no borders until touched, a hairline underline
+ * to say tappable, and the rating's own colour when it is on.
+ * ================================================================== */
+
+button.rat-item {
+  min-height: 0;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 999px;
+  /* Dotted, so it reads as "there is more here" rather than as a link. */
+  border-bottom-color: color-mix(in srgb, var(--text-muted) 35%, transparent);
+}
+
+button.rat-item:hover:not(:disabled) {
+  background: var(--surface-hi);
+  border-color: var(--border);
+}
+
+button.rat-item.on {
+  background: color-mix(in srgb, var(--rat) 18%, transparent);
+  border-color: var(--rat);
+}
+
+button.rat-item.on .rat-l {
+  color: var(--text);
+}
+
+/* The phase row keeps its grid; only its affordances change. */
+button.phase-row {
+  width: 100%;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  text-align: left;
+  padding: 7px 4px;
+}
+
+button.phase-row:hover:not(:disabled) {
+  background: var(--surface-hi);
+}
+
+button.phase-row.on {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+button.phase-row.on .phase-name {
+  color: var(--accent);
+  font-weight: 650;
+}
+
+/*
+ * The filter, announced and escapable. A filter you cannot find your way
+ * out of is worse than no filter — and "tap the same number again" asks
+ * you to remember which number you pressed.
+ */
+.focused {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  font-size: var(--t-small);
+}
+
+.focused .chip {
+  min-height: 0;
+  padding: 5px 11px;
+  font-size: var(--t-caption);
+}
+
+/* ---------------------------------------- progression, made tappable */
+
+/*
+ * A TOOLTIP IS NOT AN ANSWER ON A PHONE.
+ *
+ * The calendar squares were spans with a title attribute, which on the
+ * device this app is actually used on means the information was simply
+ * unreachable: you could see that Tuesday was dark and had no way to ask
+ * what you did. They are buttons now, and the answer appears under the grid
+ * where there is room for a sentence.
+ */
+button.act-cell {
+  min-height: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+button.act-cell:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  background: var(--surface-hi);
+}
+
+/* Hover must not repaint the level, so the shades are restated. */
+button.act-cell.l1:hover { background: color-mix(in srgb, var(--sq-dark, var(--accent)) 32%, var(--surface-hi)); }
+button.act-cell.l2:hover { background: color-mix(in srgb, var(--sq-dark, var(--accent)) 56%, var(--surface-hi)); }
+button.act-cell.l3:hover { background: color-mix(in srgb, var(--sq-dark, var(--accent)) 80%, var(--surface-hi)); }
+button.act-cell.l4:hover { background: var(--sq-dark, var(--accent)); }
+
+button.act-cell.on {
+  border-color: var(--text);
+  box-shadow: 0 0 0 1px var(--text);
+}
+
+/* Reserved height: tapping around the grid must not shove the card about. */
+.act-day {
+  min-height: 2.2em;
+  font-size: var(--t-small);
+  line-height: 1.4;
+  color: var(--text);
+}
+
+/*
+ * One hit target per week on a trend line, invisible until touched. Twelve
+ * visible dots on a 44px chart is a row of buttons rather than a trend — but
+ * a line you can question is worth much more than one you can only look at.
+ */
+.trend-hit {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  margin: -13px 0 0 -13px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.trend-hit:hover:not(:disabled),
+.trend-hit:focus-visible {
+  background: color-mix(in srgb, var(--text-muted) 22%, transparent);
+}
+
+.trend-hit.on {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+.trend-picked {
+  margin-top: 4px;
+  font-size: var(--t-caption);
+  font-family: var(--font-num);
+  color: var(--text-muted);
+}

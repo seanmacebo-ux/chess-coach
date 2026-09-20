@@ -29,7 +29,7 @@
  * away is a graph telling you that you got worse on holiday.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Activity, WeekPoint } from '../coach/history'
 
 /* ------------------------------------------------------------------ */
@@ -45,7 +45,15 @@ const WEEKDAY = ['M', '', 'W', '', 'F', '', 'S']
  * part of a chess app rather than as a widget borrowed from somewhere else,
  * and so it re-colours when the board theme does.
  */
-export function ActivityGrid({ activity }: { activity: Activity }) {
+export function ActivityGrid({
+  activity,
+  picked,
+  onPick,
+}: {
+  activity: Activity
+  picked: string | null
+  onPick: (date: string) => void
+}) {
   const { days } = activity
 
   /*
@@ -71,16 +79,18 @@ export function ActivityGrid({ activity }: { activity: Activity }) {
         {columns.map((col, ci) => (
           <div className="act-col" key={ci}>
             {col.map((d) => (
-              <span
+              /*
+                A tooltip is not an answer on a phone. These were spans with a
+                title attribute, which on the device this app is actually used
+                on means the information was simply not reachable — you could
+                see that Tuesday was dark and had no way to ask what you did.
+              */
+              <button
                 key={d.date}
-                className={`act-cell l${level(d.total)}`}
-                title={
-                  d.total === 0
-                    ? `${d.date} — nothing`
-                    : `${d.date} — ${d.puzzles} puzzle${d.puzzles === 1 ? '' : 's'}` +
-                      (d.puzzles ? ` (${d.solved} solved)` : '') +
-                      (d.games ? `, ${d.games} game${d.games === 1 ? '' : 's'}` : '')
-                }
+                className={`act-cell l${level(d.total)}` + (picked === d.date ? ' on' : '')}
+                aria-pressed={picked === d.date}
+                aria-label={`${d.date}, ${d.total === 0 ? 'nothing' : `${d.puzzles} puzzles, ${d.games} games`}`}
+                onClick={() => onPick(d.date)}
               />
             ))}
           </div>
@@ -112,7 +122,14 @@ export interface TrendProps {
  * props it grows a configuration language and stops being readable at this
  * size.
  */
-export function Trend({ label, points, goodWhen, unit = '' }: TrendProps) {
+export function Trend({
+  label, points, goodWhen, unit = '', weeks, picked, onPick,
+}: TrendProps & {
+  /** Week start dates, so a tapped point can say WHICH week it is. */
+  weeks?: string[]
+  picked?: number | null
+  onPick?: (i: number) => void
+}) {
   const real = points.filter((p): p is number => p !== null)
   if (real.length < 2) {
     return (
@@ -185,7 +202,30 @@ export function Trend({ label, points, goodWhen, unit = '' }: TrendProps) {
           className={`trend-dot ${tone}`}
           style={{ left: `${x(lastIndex)}%`, top: `${y(lastReal)}%` }}
         />
+        {/*
+          One hit target per week that has a value. Invisible until touched —
+          twelve visible dots on a 44px-tall chart is a row of buttons, not a
+          trend — but a line you can question is worth far more than one you
+          can only look at.
+        */}
+        {onPick &&
+          points.map((v, i) =>
+            v === null ? null : (
+              <button
+                key={i}
+                className={'trend-hit' + (picked === i ? ' on' : '')}
+                style={{ left: `${x(i)}%`, top: `${y(v)}%` }}
+                aria-label={`${label}, week of ${weeks?.[i] ?? i + 1}: ${v}${unit}`}
+                onClick={() => onPick(i)}
+              />
+            ),
+          )}
       </div>
+      {picked !== null && picked !== undefined && points[picked] !== null && (
+        <div className="trend-picked">
+          week of {weeks?.[picked] ?? '—'} · <strong>{points[picked]}{unit}</strong>
+        </div>
+      )}
       <div className="trend-foot small muted">
         12 weeks · {real.length} with enough data
       </div>
@@ -199,6 +239,11 @@ export function Trend({ label, points, goodWhen, unit = '' }: TrendProps) {
 
 export function Progression({ activity }: { activity: Activity }) {
   const weeks: WeekPoint[] = activity.weeks
+  const [day, setDay] = useState<string | null>(null)
+  const [week, setWeek] = useState<number | null>(null)
+  const starts = weeks.map((w) => w.start)
+  const shown = day ? activity.days.find((d) => d.date === day) : null
+
   return (
     <div className="card stack">
       <div className="row spread" style={{ alignItems: 'baseline' }}>
@@ -206,7 +251,40 @@ export function Progression({ activity }: { activity: Activity }) {
         <div className="small muted">last 12 weeks</div>
       </div>
 
-      <ActivityGrid activity={activity} />
+      <ActivityGrid
+        activity={activity}
+        picked={day}
+        onPick={(d) => setDay((cur) => (cur === d ? null : d))}
+      />
+
+      {/* What that square actually was. Reserved height, so tapping around
+          the calendar does not shove the rest of the card up and down. */}
+      <div className="act-day">
+        {shown ? (
+          shown.total === 0 ? (
+            <>
+              <strong>{shown.date}</strong> — nothing that day.
+            </>
+          ) : (
+            <>
+              <strong>{shown.date}</strong> —{' '}
+              {shown.puzzles > 0 && (
+                <>
+                  {shown.puzzles} puzzle{shown.puzzles === 1 ? '' : 's'} ({shown.solved} solved)
+                </>
+              )}
+              {shown.puzzles > 0 && shown.games > 0 && ', '}
+              {shown.games > 0 && (
+                <>
+                  {shown.games} game{shown.games === 1 ? '' : 's'}
+                </>
+              )}
+            </>
+          )
+        ) : (
+          <span className="muted">Tap a square to see that day.</span>
+        )}
+      </div>
 
       <div className="act-stats">
         <Stat n={activity.currentRun} label="day run" />
@@ -226,17 +304,26 @@ export function Progression({ activity }: { activity: Activity }) {
       */}
       <Trend
         label="Puzzle accuracy"
+        weeks={starts}
+        picked={week}
+        onPick={(i) => setWeek((cur) => (cur === i ? null : i))}
         points={weeks.map((w) => w.accuracy)}
         goodWhen="up"
         unit="%"
       />
       <Trend
         label="Playing strength"
+        weeks={starts}
+        picked={week}
+        onPick={(i) => setWeek((cur) => (cur === i ? null : i))}
         points={weeks.map((w) => w.perf)}
         goodWhen="up"
       />
       <Trend
         label="Mistakes per game"
+        weeks={starts}
+        picked={week}
+        onPick={(i) => setWeek((cur) => (cur === i ? null : i))}
         points={weeks.map((w) => w.mistakesPerGame)}
         goodWhen="down"
       />
