@@ -5309,3 +5309,72 @@ button.alt.open .alt-san {
   gap: 2px;
   padding-bottom: var(--s2);
 }
+
+/* ==================================================================
+ * CAPTURED PIECES
+ *
+ * Beside each name, in the piece set chosen for the board. The single
+ * most-checked fact in a game — am I up or down material — used to be
+ * available only by counting the board yourself.
+ * ================================================================== */
+
+/*
+ * Visually hidden, still read aloud. This class did not exist, so every
+ * caption meant for a screen reader was rendered on screen — the tray showed
+ * its own alt text next to the pieces.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.taken {
+  display: inline-flex;
+  align-items: center;
+  /* Overlapped, the way they sit in a real captured pile, so eight pawns
+     take the width of four and the row never pushes the clock off. */
+  margin-left: 7px;
+  /*
+   * On a LIGHT SQUARE, always.
+   *
+   * Black pieces at 15px on a dark background are a smudge — the set's thin
+   * light outline is all that shows, and half the tray is invisible in dark
+   * mode. Standing them on the board's own light square is the fix chess has
+   * used for centuries: both colours are designed to read against it.
+   */
+  padding: 2px 7px 2px 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sq-light, #fff) 30%, transparent);
+}
+
+.taken .pc {
+  width: 15px;
+  height: 15px;
+  margin-right: -5px;
+  opacity: 0.75;
+}
+
+.taken-edge {
+  margin-left: 9px;
+  font-family: var(--font-num);
+  font-size: var(--t-caption);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+/* The name row now holds a tray, so it has to be able to wrap. */
+.side-who {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 2px;
+}

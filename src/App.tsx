@@ -49,6 +49,7 @@ import { STYLES, type Style } from './engine/types'
 import { acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
 import { GameOver } from './ui/screens/GameOver'
+import { Captured } from './ui/Captured'
 import { openingOfPgn, type OpeningName } from './coach/eco'
 import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
@@ -1114,17 +1115,25 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         player already reads, rather than both clocks stacked on one side. The
         calm register: no boxes, the figure carries it.
       */}
-      {activeClockMin.current > 0 && (
-        <div className="side-strip">
-          <span className="side-who">
-            <i className={'dot-sm' + (!gameEnded && turn !== humanColour ? ' live' : '')} />
-            {opponent.name}
-          </span>
+      {/*
+        The strip is no longer gated on the clock.
+        It carries the CAPTURED PIECES now, which matter in every game, and
+        hiding the whole row when clocks are off meant the one fact players
+        check constantly — am I up or down material — was only available by
+        counting the board yourself. The clock is the part that is optional.
+      */}
+      <div className="side-strip">
+        <span className="side-who">
+          <i className={'dot-sm' + (!gameEnded && turn !== humanColour ? ' live' : '')} />
+          {opponent.name}
+          <Captured fen={fen} side={humanColour === 'white' ? 'black' : 'white'} />
+        </span>
+        {activeClockMin.current > 0 && (
           <span className={'side-clock' + (remain[botIs] < 30_000 ? ' low' : '')}>
             {fmtClock(remain[botIs])}
           </span>
-        </div>
-      )}
+        )}
+      </div>
 
       <Board
         fen={fen}
@@ -1137,12 +1146,13 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         onMove={onMove}
       />
 
-      {activeClockMin.current > 0 && (
-        <div className="side-strip">
-          <span className="side-who">
-            <i className={'dot-sm' + (!gameEnded && turn === humanColour ? ' live' : '')} />
-            You
-          </span>
+      <div className="side-strip">
+        <span className="side-who">
+          <i className={'dot-sm' + (!gameEnded && turn === humanColour ? ' live' : '')} />
+          You
+          <Captured fen={fen} side={humanColour} />
+        </span>
+        {activeClockMin.current > 0 && (
           <span
             className={
               'side-clock yours' + (remain[humanIs] < 30_000 ? ' low' : '')
@@ -1150,8 +1160,8 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           >
             {fmtClock(remain[humanIs])}
           </span>
-        </div>
-      )}
+        )}
+      </div>
 
       {/*
         THE POSITION, LIVE.
