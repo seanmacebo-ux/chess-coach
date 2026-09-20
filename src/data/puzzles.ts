@@ -43,6 +43,23 @@ export interface Puzzle {
   opening: string
   /** Side the solver plays. */
   colour: 'white' | 'black'
+  /**
+   * The move that produced this position — the opponent's, in UCI.
+   *
+   * Sean: "the puzzles are good and from my game, but they're losing the
+   * shape." This is the shape. Every puzzle site highlights the move that
+   * just happened, because that is how you orient in a position you have
+   * never seen: the arrow tells you what changed, and a tactic is almost
+   * always an answer to what changed. Without it you are handed thirty-two
+   * pieces and asked to work out the whole story before you can start.
+   *
+   * hydrate() has always PLAYED this move to reach the position and then
+   * thrown the notation away, so the information was there all along and
+   * never reached the board.
+   */
+  setup?: string
+  /** Where this came from, when it is worth saying. Own-game positions. */
+  from?: string
 }
 
 const BAND_SIZE = 200
@@ -80,6 +97,7 @@ export function hydrate(raw: RawPuzzle): Puzzle | null {
     themes: raw.t.split(' ').filter(Boolean),
     opening: raw.o,
     colour: board.turn() === 'w' ? 'white' : 'black',
+    setup,
   }
 }
 

@@ -5474,3 +5474,15 @@ button.alt.open .alt-san {
   color: var(--text);
   font-weight: 600;
 }
+
+/*
+ * A position out of your own game, said so. The one puzzle on the screen
+ * that is not a stranger's, marked with the board's own accent rather than
+ * another grey line that reads as more instructions.
+ */
+.from-game {
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--accent);
+  color: var(--text);
+}

@@ -232,12 +232,34 @@ export function styleWeight(f: MoveFeatures, style: Style): number {
     case 'human':
       return 1
 
+    /*
+     * AGGRESSIVE IS ABOUT THE KING, NOT ABOUT CAPTURING.
+     *
+     * Measured, not guessed: scripts/verify-style.ts found this style and
+     * `tactical` choosing the same move 88% of the time, with identical
+     * character (53% forcing, 47% quiet). Both tables boosted checks by ~1.85
+     * and captures by ~1.5 and penalised quiet moves by ~0.68; the only
+     * differences were king-proximity here and promotion/sacrifice there, and
+     * promotions and sacrifices barely occur in a middlegame. Five styles,
+     * two of them the same bot with two names — which is exactly what "our
+     * bots are too simple" feels like from the other side of the board.
+     *
+     * So the two are separated by WHAT THEY WANT rather than by how hard they
+     * want it. This one wants to get at the king: proximity dominates, and a
+     * capture is only interesting if it happens near the king. A rook taking
+     * a pawn on the queenside is not an attack.
+     */
     case 'aggressive':
-      if (f.givesCheck) w *= 1.9
-      if (f.isCapture) w *= 1.45
-      if (f.approachesKing) w *= 1.4
-      if (f.distToEnemyKing <= 2) w *= 1.25
-      if (f.isQuiet) w *= 0.7
+      if (f.distToEnemyKing <= 2) w *= 2.2
+      else if (f.distToEnemyKing <= 3) w *= 1.5
+      if (f.approachesKing) w *= 1.7
+      if (f.givesCheck) w *= 1.5
+      // Captures on their own are not the point, and the far side of the
+      // board is the opposite of the point.
+      if (f.isCapture && f.distToEnemyKing <= 3) w *= 1.3
+      if (f.isCapture && f.distToEnemyKing >= 5) w *= 0.8
+      if (f.isPawnMove && f.approachesKing) w *= 1.4
+      if (f.isQuiet && f.distToEnemyKing >= 4) w *= 0.6
       break
 
     case 'solid':
@@ -257,12 +279,23 @@ export function styleWeight(f: MoveFeatures, style: Style): number {
       if (f.isSacrificial) w *= 0.7
       break
 
+    /*
+     * TACTICAL IS ABOUT COMPLICATION, ANYWHERE ON THE BOARD.
+     *
+     * The other half of the split above. This one will take on any square,
+     * offer material, and push a pawn through — it does not care where the
+     * king is, which is precisely what separates it from `aggressive`. Trading
+     * heavy pieces off is the one thing it will not do, because a queenless
+     * position has nothing left to calculate.
+     */
     case 'tactical':
-      if (f.givesCheck) w *= 1.8
-      if (f.isCapture) w *= 1.55
-      if (f.isPromotion) w *= 1.6
-      if (f.isSacrificial) w *= 1.4
-      if (f.isQuiet) w *= 0.65
+      if (f.isSacrificial) w *= 2.1
+      if (f.isCapture) w *= 1.7
+      if (f.isPromotion) w *= 1.9
+      if (f.givesCheck) w *= 1.35
+      // An even trade of big pieces kills the position it wants to live in.
+      if (f.isCapture && f.movedValue >= 5 && f.capturedValue >= 5) w *= 0.6
+      if (f.isQuiet) w *= 0.6
       break
   }
 

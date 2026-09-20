@@ -30,6 +30,8 @@
     "verify:eco": "tsx scripts/verify-eco.ts",
     "verify:history": "tsx scripts/verify-history.ts",
     "verify:material": "tsx scripts/verify-material.ts",
+    "verify:redo": "tsx scripts/verify-redo.ts",
+    "verify:style": "tsx scripts/verify-style.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "verify:tree": "tsx scripts/verify-tree.ts",
     "verify:report": "tsx scripts/verify-report.ts",

@@ -129,7 +129,20 @@ export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }
     if (!puzzle) return
     chess.current = new Chess(puzzle.fen)
     setFen(puzzle.fen)
-    setLastMove(undefined)
+    /*
+     * Show the move that was played INTO this position.
+     *
+     * Every puzzle opened with a bare board and no highlight — corpus and
+     * own-game alike — so you were handed a position with no clue what had
+     * just changed. A tactic is almost always the answer to the opponent's
+     * last move, and hiding it turns a puzzle into a reconstruction exercise
+     * first and a puzzle second. Sean's words: "they're losing the shape."
+     */
+    setLastMove(
+      puzzle.setup
+        ? [puzzle.setup.slice(0, 2) as Key, puzzle.setup.slice(2, 4) as Key]
+        : undefined,
+    )
     setStep(0)
     setPhase('solving')
     setAnswerSan(null)
@@ -452,6 +465,13 @@ export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }
           </span>
         </div>
         <div className="small muted">{category.teaches}</div>
+        {/*
+          Where it came from, when that is the point. A position out of your
+          own game is the one thing here that is not a stranger's puzzle, and
+          saying so is what connects "I keep hanging pieces" to the board in
+          front of you.
+        */}
+        {puzzle.from && <div className="small from-game">{puzzle.from}</div>}
       </div>
 
       <Board
