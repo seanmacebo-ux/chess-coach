@@ -1,3 +1,4 @@
+import { readLocal, writeLocal } from './local'
 /**
  * Training preferences.
  *
@@ -61,7 +62,7 @@ function clampCount(n: unknown): number {
 
 export function loadPrefs(): Prefs {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = readLocal(KEY)
     if (!raw) return DEFAULT
     const p = JSON.parse(raw) as Partial<Prefs>
     return {
@@ -79,7 +80,7 @@ export function loadPrefs(): Prefs {
 
 export function savePrefs(p: Prefs): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(p))
+    writeLocal(KEY, JSON.stringify(p))
   } catch {
     /* private browsing — preferences just won't persist */
   }

@@ -27,9 +27,32 @@ export async function buildRedoSet(limit: number): Promise<Puzzle[]> {
     if (r.source === 'puzzle' || !r.bestSan || !r.fen) continue
     if (r.severity !== 'blunder' && r.severity !== 'mistake') continue
     if (seen.has(r.fen)) continue
-    const probe = new Chess(r.fen)
+
+    /*
+     * THE CONSTRUCTOR GOES INSIDE THE TRY.
+     *
+     * It used to sit one line above it, which reads as a detail and is not.
+     * new Chess(fen) THROWS on a position it cannot load, so a single
+     * unusable row in the mistakes table did not get skipped here — it threw
+     * out of this loop, out of buildDailySession, and Today rendered "Could
+     * not build today's session. Invalid FEN: missing white king" instead of
+     * the app. One bad row, and the home screen was gone; the drill and the
+     * puzzle runner downstream of this function went with it.
+     *
+     * The catch was always meant to cover this — it sets uci to null so the
+     * row is skipped — it was simply on the wrong side of the brace.
+     *
+     * Rows written by analyseGame always hold a legal position, so this is
+     * defence rather than a fix for something currently happening. That is
+     * the point: this data is long-lived, chess.js has tightened FEN
+     * validation between versions before, and a screen that cannot open is
+     * far worse than a puzzle that is quietly missing.
+     */
     let uci: string | null = null
+    let turn: 'w' | 'b' = 'w'
     try {
+      const probe = new Chess(r.fen)
+      turn = probe.turn()
       const m = probe.move(r.bestSan)
       if (m) uci = `${m.from}${m.to}${m.promotion ?? ''}`
     } catch {
@@ -47,7 +70,9 @@ export async function buildRedoSet(limit: number): Promise<Puzzle[]> {
       rating: 0,
       themes: r.tag ? TAG_THEMES[r.tag] : [],
       opening: '',
-      colour: new Chess(r.fen).turn() === 'w' ? 'white' : 'black',
+      // Read from the probe above rather than loading the position a second
+      // time — which was both wasted work and a second unguarded throw.
+      colour: turn === 'w' ? 'white' : 'black',
     })
     if (out.length >= limit) break
   }

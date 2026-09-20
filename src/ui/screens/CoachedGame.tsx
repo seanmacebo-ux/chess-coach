@@ -60,6 +60,7 @@ import { BOTS, suggestedBot, type Bot } from '../../engine/roster'
 import { openingsFor, mainLine } from '../../content/openings'
 import { loadTree, lookup, type TreeNode } from '../../content/tree'
 import { toDests } from '../../chess/game'
+import { readLocal, writeLocal } from '../../data/local'
 
 /** Same thresholds as the opening trainer's live support, for the same feel. */
 const SUPPORT_DEPTH = 11
@@ -97,7 +98,7 @@ const BOT_KEY = 'cc.coachedBot'
 
 function loadPrevReceipt(): Receipt | null {
   try {
-    const raw = localStorage.getItem(RECEIPT_KEY)
+    const raw = readLocal(RECEIPT_KEY)
     if (!raw) return null
     const r = JSON.parse(raw) as Receipt
     return Array.isArray(r.hung) ? r : null
@@ -155,7 +156,7 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
    */
   const [bot, setBot] = useState<Bot | null>(null)
   const [pickElo, setPickElo] = useState<number>(() => {
-    const saved = Number(localStorage.getItem(BOT_KEY))
+    const saved = Number(readLocal(BOT_KEY))
     return BOTS.some((b) => b.elo === saved) ? saved : suggestedBot(rating).elo
   })
   const opponent = useMemo(
@@ -405,7 +406,7 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
     setPrevReceipt(loadPrevReceipt())
     setReceipt(scored)
     try {
-      localStorage.setItem(RECEIPT_KEY, JSON.stringify(scored))
+      writeLocal(RECEIPT_KEY, JSON.stringify(scored))
     } catch {
       /* storage blocked — the receipt still renders, it just will not carry */
     }
@@ -475,7 +476,7 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
             onClick={() => {
               const b = BOTS.find((x) => x.elo === pickElo) ?? suggested
               try {
-                localStorage.setItem(BOT_KEY, String(b.elo))
+                writeLocal(BOT_KEY, String(b.elo))
               } catch {
                 /* choice just won't be remembered */
               }

@@ -46,6 +46,7 @@
 
 import { BANDS, nearestBand, type Band } from './types'
 import type { MoveAssessment } from '../coach/analysis'
+import { readLocal, writeLocal } from '../data/local'
 
 const KEY = 'cc.calib'
 
@@ -78,7 +79,7 @@ export type Calibration = Partial<Record<Band, BandObservation>>
 
 export function loadCalibration(): Calibration {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = readLocal(KEY)
     if (!raw) return {}
     const parsed = JSON.parse(raw) as Calibration
     return typeof parsed === 'object' && parsed !== null ? parsed : {}
@@ -89,7 +90,7 @@ export function loadCalibration(): Calibration {
 
 function save(c: Calibration): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(c))
+    writeLocal(KEY, JSON.stringify(c))
   } catch {
     /* storage blocked — calibration just will not accumulate */
   }

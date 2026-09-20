@@ -46,6 +46,7 @@ import { pickPuzzles, type Puzzle } from '../../data/puzzles'
 import { db, getProfile } from '../../data/db'
 import { getSectionRatings } from '../../coach/rating'
 import { PuzzleRunner } from './PuzzleRunner'
+import { readLocal, writeLocal } from '../../data/local'
 
 /** How far the next puzzle moves after a solve. */
 const STEP_UP = 40
@@ -76,7 +77,7 @@ const STORE_KEY = 'cc.climb'
 
 function loadStore(): ClimbStore {
   try {
-    const raw = localStorage.getItem(STORE_KEY)
+    const raw = readLocal(STORE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<ClimbStore>
       return {
@@ -93,7 +94,7 @@ function loadStore(): ClimbStore {
 
 function saveStore(store: ClimbStore) {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(store))
+    writeLocal(STORE_KEY, JSON.stringify(store))
   } catch {
     // Storage full or blocked — the run still works, it just will not survive.
   }

@@ -1,3 +1,4 @@
+import { readLocal, writeLocal } from '../data/local'
 /**
  * Board and piece theming.
  *
@@ -817,7 +818,7 @@ const DEFAULT: ThemeChoice = { board: 'green', pieces: 'cburnett', background: '
 
 export function loadTheme(): ThemeChoice {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = readLocal(KEY)
     if (!raw) return DEFAULT
     const parsed = JSON.parse(raw) as Partial<ThemeChoice>
     // Each field validated independently — an unknown id (a set removed for
@@ -836,7 +837,7 @@ export function loadTheme(): ThemeChoice {
 
 export function saveTheme(choice: ThemeChoice): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(choice))
+    writeLocal(KEY, JSON.stringify(choice))
   } catch {
     /* private browsing — theme just won't persist */
   }

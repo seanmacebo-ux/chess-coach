@@ -26,6 +26,7 @@
  */
 
 import { db } from './db'
+import { readLocal, writeLocal } from './local'
 
 const LOCAL_KEYS = [
   'cc.theme',
@@ -59,7 +60,7 @@ export async function buildBackup(): Promise<{ json: string; counts: Record<stri
 
   const local: Record<string, string> = {}
   for (const key of LOCAL_KEYS) {
-    const v = localStorage.getItem(key)
+    const v = readLocal(key)
     if (v !== null) local[key] = v
   }
 
@@ -109,7 +110,7 @@ export async function restoreBackup(file: File): Promise<Record<string, number>>
 
   for (const key of LOCAL_KEYS) {
     const v = parsed.local?.[key]
-    if (typeof v === 'string') localStorage.setItem(key, v)
+    if (typeof v === 'string') writeLocal(key, v)
   }
 
   return counts

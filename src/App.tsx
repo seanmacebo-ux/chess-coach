@@ -61,6 +61,7 @@ import { loadPrefs } from './data/settings'
 import { loosePieces } from './coach/exercises'
 import { readPosition } from './coach/position'
 import { applyTheme, loadTheme, resolveTheme, saveTheme, type ThemeChoice } from './theme/theme'
+import { readLocal, writeLocal } from './data/local'
 
 type Tab =
   | 'daily'
@@ -78,7 +79,7 @@ type Tab =
 const COLOUR_KEY = 'cc.colour'
 
 function loadColourMode(): ColourMode {
-  const v = localStorage.getItem(COLOUR_KEY)
+  const v = readLocal(COLOUR_KEY)
   return v === 'light' || v === 'dark' ? v : 'system'
 }
 type EngineState = 'boot' | 'ready' | 'thinking' | 'error'
@@ -161,7 +162,7 @@ export default function App() {
     const root = document.documentElement
     if (colourMode === 'system') root.removeAttribute('data-theme')
     else root.setAttribute('data-theme', colourMode)
-    localStorage.setItem(COLOUR_KEY, colourMode)
+    writeLocal(COLOUR_KEY, colourMode)
   }, [colourMode])
 
   // Sync when the app regains focus — covers "played on my phone, opened the
@@ -641,7 +642,7 @@ const CLOCK_KEY = 'cc.clock'
 const CLOCK_CHOICES = [0, 5, 10, 15] as const
 
 function loadClockMin(): number {
-  const raw = localStorage.getItem(CLOCK_KEY)
+  const raw = readLocal(CLOCK_KEY)
   // No stored choice means the default 10 — Number(null) is 0, which would
   // silently read as "No clock" for everyone who never touched the setting.
   if (raw === null) return 10
@@ -688,7 +689,26 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const [remain, setRemain] = useState(remainRef.current)
   const [flagged, setFlagged] = useState<'w' | 'b' | null>(null)
   const flaggedRef = useRef<'w' | 'b' | null>(null)
-  const lastTickAt = useRef<number | null>(null)
+  /**
+   * Whose clock is running, and since when.
+   *
+   * THE CLOCK USED TO BE SAMPLED. Every 200ms it asked whose turn it was and
+   * charged the whole preceding interval to that side — which is only right
+   * if the turn never changes between two ticks. The bot answers in about a
+   * tenth of a second, so the turn regularly changed TWICE inside one
+   * interval, and the sample landed back on the human every time. Measured
+   * on a real game: the opponent's clock sat at 10:00 for the entire game,
+   * frozen, while the human was charged for the engine's thinking as well as
+   * their own. Over forty moves that is five to ten seconds taken from the
+   * player and given to the bot, and "ran out of time. You win." was
+   * unreachable code.
+   *
+   * Time is now charged on the EVENT that spends it — the move — rather than
+   * sampled by a timer that can miss it. remainRef holds what each side had
+   * when its turn began; the interval only renders what is running down.
+   */
+  const turnSide = useRef<'w' | 'b'>('w')
+  const turnStartedAt = useRef<number>(Date.now())
 
   const [elo, setElo] = useState(props.initialElo)
   const [style, setStyle] = useState<Style>(props.initialStyle)
@@ -779,6 +799,33 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
     flaggedRef.current = flagged
   }, [flagged])
 
+  /**
+   * The turn changed: bank what the side that just moved actually spent.
+   *
+   * Driven by the position rather than by a timer, so no amount of time can
+   * be attributed to the wrong player however fast a move comes back.
+   */
+  useEffect(() => {
+    if (!booted) return
+    const now = Date.now()
+    const spent = now - turnStartedAt.current
+    const was = turnSide.current
+    const nowTurn = chess.current.turn()
+    if (nowTurn === was) {
+      // Same side still to move — a re-render, not a move. Nothing is owed.
+      return
+    }
+    if (activeClockMin.current > 0 && !flaggedRef.current) {
+      remainRef.current = {
+        ...remainRef.current,
+        [was]: Math.max(0, remainRef.current[was] - spent),
+      }
+    }
+    turnSide.current = nowTurn
+    turnStartedAt.current = now
+    setRemain(remainRef.current)
+  }, [fen, booted])
+
   useEffect(() => {
     if (!booted) return
     const id = window.setInterval(() => {
@@ -786,21 +833,20 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       // NEXT game a clock after this one ran without, and vice versa.
       if (activeClockMin.current === 0) return
       if (flaggedRef.current || statusOf(chess.current).over) return
-      const now = Date.now()
-      const dt = lastTickAt.current === null ? 0 : now - lastTickAt.current
-      lastTickAt.current = now
-      const side = chess.current.turn()
-      remainRef.current = {
-        ...remainRef.current,
-        [side]: Math.max(0, remainRef.current[side] - dt),
+      /*
+       * Display only. The banked figure in remainRef is not touched here —
+       * this renders it minus however long the side on move has been
+       * thinking, which is what a running clock is.
+       */
+      const side = turnSide.current
+      const live = Math.max(0, remainRef.current[side] - (Date.now() - turnStartedAt.current))
+      setRemain({ ...remainRef.current, [side]: live })
+      if (live === 0) {
+        remainRef.current = { ...remainRef.current, [side]: 0 }
+        setFlagged(side)
       }
-      setRemain(remainRef.current)
-      if (remainRef.current[side] === 0) setFlagged(side)
     }, 200)
-    return () => {
-      window.clearInterval(id)
-      lastTickAt.current = null
-    }
+    return () => window.clearInterval(id)
   }, [booted])
 
   useEffect(() => {
@@ -1007,7 +1053,8 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       remainRef.current = { w: clockMin * 60_000, b: clockMin * 60_000 }
       setRemain(remainRef.current)
       setFlagged(null)
-      lastTickAt.current = null
+      turnSide.current = 'w'
+      turnStartedAt.current = Date.now()
       void opponent.newGame()
     },
     [opponent, clockMin],
@@ -1340,7 +1387,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
                 onClick={() => {
                   setClockMin(min)
                   try {
-                    localStorage.setItem(CLOCK_KEY, String(min))
+                    writeLocal(CLOCK_KEY, String(min))
                   } catch {
                     /* preference just won't survive a reload */
                   }
