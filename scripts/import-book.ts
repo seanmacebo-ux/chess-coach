@@ -51,11 +51,26 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 /* ----------------------------------------------------------------- args */
 
-const file = process.argv[2]
-if (!file || file.startsWith('--')) {
-  console.error('usage: npm run import-book -- <file.epd|.fen|.pgn> [--depth 14] [--from-move 8]')
-  process.exit(1)
+/*
+ * Read inside a function so the guard actually narrows.
+ *
+ * `const file = process.argv[2]` at module scope is `string | undefined`, and
+ * `process.exit(1)` only narrows within the SAME function — main() re-widens
+ * it, which is why the type checker reported five possibly-undefined
+ * arguments and the read came back as a Buffer. Nothing was wrong at runtime;
+ * the code was simply unprovable, and unprovable code is how the provable
+ * kind hides.
+ */
+function requireFileArg(): string {
+  const f = process.argv[2]
+  if (!f || f.startsWith('--')) {
+    console.error('usage: npm run import-book -- <file.epd|.fen|.pgn> [--depth 14] [--from-move 8]')
+    process.exit(1)
+  }
+  return f
 }
+
+const file = requireFileArg()
 
 function arg(name: string, fallback: number): number {
   const i = process.argv.indexOf(`--${name}`)

@@ -111,7 +111,7 @@ async function main() {
 
   // A fork must be reported as two pieces at once.
   const forkable = 'r1bqkb1r/pppp1ppp/2n2n2/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1'
-  const w6 = weighMove(forkable, 'Nc3')
+  weighMove(forkable, 'Nc3')
   check('an illegal move returns null rather than guessing', weighMove(start, 'Qz9') === null)
 
   // Quiet move honesty.
@@ -129,7 +129,6 @@ async function main() {
   // After 1.e4 the e2 pawn has gone, so a naive "pawns around the king"
   // count drops when d4 follows — and the first version therefore called
   // d4 a king-safety error on move two. It is correct opening play.
-  const afterE4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
   const afterE4E5 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2'
   const wD4 = weighMove(afterE4E5, 'd4')!
   check('a central pawn push is not called a king-safety error',

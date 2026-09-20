@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Daily chess training PWA \u2014 adaptive ladder, human-like opponents, simulation.",
+  "description": "Daily chess training PWA — adaptive ladder, human-like opponents, simulation.",
   "license": "UNLICENSED",
   "scripts": {
     "predev": "node scripts/sync-engine.mjs",
@@ -30,6 +30,7 @@
     "verify:eco": "tsx scripts/verify-eco.ts",
     "verify:history": "tsx scripts/verify-history.ts",
     "verify:material": "tsx scripts/verify-material.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "verify:tree": "tsx scripts/verify-tree.ts",
     "verify:report": "tsx scripts/verify-report.ts",
     "import-epub": "tsx scripts/import-epub.ts",
@@ -47,7 +48,7 @@
     "stockfish": "^18.0.8"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.6.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",

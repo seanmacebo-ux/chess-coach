@@ -1,0 +1,23 @@
+{
+  /*
+   * The build and verifier scripts, type-checked.
+   *
+   * tsconfig.json includes only "src", so all fourteen scripts in this
+   * folder have never been checked by anything. They are run by tsx, which
+   * strips types rather than checking them — so a script can be wrong in
+   * every way TypeScript exists to catch and still appear to work, right up
+   * until the one input that hits the branch.
+   *
+   * @types/node is a devDependency purely so this file means something.
+   * Without it `process.exit(1)` is not known to return `never`, so TypeScript
+   * cannot see that the guard above it narrows — and import-book.ts reported
+   * five possibly-undefined arguments that were all false. A checker that
+   * cries wolf is one nobody runs.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["scripts", "src"]
+}

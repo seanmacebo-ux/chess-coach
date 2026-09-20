@@ -35,7 +35,6 @@ import { fileURLToPath } from 'node:url'
 import { Chess } from 'chess.js'
 
 import { NodeEngine } from './lib/engine-node'
-import { lineScore } from '../src/engine/types'
 import { bandProfile, weighCandidates } from '../src/engine/policy'
 import { OPENINGS } from '../src/content/openings'
 import { weighMove } from '../src/coach/position'
