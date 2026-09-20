@@ -5486,3 +5486,107 @@ button.alt.open .alt-san {
   border-left: 2px solid var(--accent);
   color: var(--text);
 }
+
+/* ==================================================================
+ * BREAKING THE GAME DOWN FURTHER
+ *
+ * Two sections the review never had: how each phase went, and what the
+ * opponent was actually doing. Dense register — these are read, not acted
+ * on, so the numbers carry it and the type stays small.
+ * ================================================================== */
+
+.phases,
+.them {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.phase-row {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  align-items: center;
+  gap: var(--s2);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.phase-row:last-child { border-bottom: none; }
+
+.phase-name {
+  font-size: var(--t-caption);
+  text-transform: capitalize;
+  color: var(--text);
+}
+
+/* The share of the game's lost winning chances that happened here. */
+.phase-bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+
+.phase-bar i {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+  border-radius: 999px;
+}
+
+.phase-n {
+  font-family: var(--font-num);
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Sits under the row it belongs to rather than squeezing the bar. */
+.phase-worst {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-num);
+}
+
+.them-say {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 1.25;
+  max-width: 36ch;
+}
+
+.them-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s2);
+}
+
+.them-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.them-stat-n {
+  font-family: var(--font-display);
+  font-size: 21px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The denominator, quieter than the count but never absent. */
+.them-stat-of {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.them-stat-l {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

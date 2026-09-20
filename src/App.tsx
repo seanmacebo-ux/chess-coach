@@ -1084,6 +1084,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         acpl={review.acpl}
         perf={review.perf}
         opening={opening}
+        opponentName={opponent.name}
         startPly={reviewPly}
         onClose={() => {
           setShowReview(false)

@@ -60,6 +60,7 @@ import {
 } from '../../coach/report'
 import { EvalMeter, oddsSwing, winChance } from '../EvalMeter'
 import { bookPlies, type OpeningName } from '../../coach/eco'
+import { byPhase, readOpponent } from '../../coach/breakdown'
 
 /**
  * The ratings in the order they are shown: best news first, worst last.
@@ -187,6 +188,8 @@ export interface GameReviewProps {
    * scored as though you had worked it out at the board.
    */
   opening?: OpeningName | null
+  /** Who you were playing, so the opponent read can name them. */
+  opponentName?: string
   /**
    * Open on this ply rather than at the top of the list.
    *
@@ -205,6 +208,7 @@ export function GameReview({
   onSwapSide,
   swapping = false,
   opening = null,
+  opponentName,
   startPly = null,
 }: GameReviewProps) {
   /*
@@ -235,6 +239,18 @@ export function GameReview({
    * a game was a list of failures with no shape and no credit.
    */
   const report = useMemo(() => buildReport(moves, bookPlies(opening)), [moves, opening])
+
+  /*
+   * The two things the review never said.
+   *
+   * Sean: "break down the game more — our bots are too simple and we're not
+   * uncovering the big part of them." Phase was on every assessment and
+   * nothing aggregated it, so a game whose opening was fine and whose endgame
+   * collapsed read exactly like one that was uniformly mediocre. And the
+   * opponent was a black box: half the game, never mentioned once.
+   */
+  const phases = useMemo(() => byPhase(moves), [moves])
+  const them = useMemo(() => readOpponent(moves, opponentName ?? 'They'), [moves, opponentName])
 
   const [index, setIndex] = useState(() => {
     if (startPly === null) return 0
@@ -313,6 +329,59 @@ export function GameReview({
       />
 
       <Moments moments={report.moments} colour={colour} onGo={goTo} />
+
+      {/* ------------------------------------------------- by phase */}
+      {phases.length > 1 && (
+        <div className="phases">
+          <span className="brief-key">How each part went</span>
+          {phases.map((p) => (
+            <div key={p.phase} className="phase-row">
+              <span className="phase-name">{p.phase}</span>
+              <span className="phase-bar">
+                {/* Winning chances given away, as a share of the whole game's
+                    — so the widest bar is the phase that actually cost you
+                    the game rather than the phase that lasted longest. */}
+                <i
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (p.given / Math.max(1, phases.reduce((a, q) => a + q.given, 0))) * 100,
+                    )}%`,
+                  }}
+                />
+              </span>
+              <span className="phase-n">
+                {p.moves} moves · {p.acpl} cp
+              </span>
+              {p.worst && (
+                <span className="phase-worst">
+                  worst {p.worst.moveNo}. {p.worst.san} (−{p.worst.cost})
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ------------------------------------------ the other player */}
+      {them && (
+        <div className="them">
+          <span className="brief-key">What they were doing</span>
+          <p className="them-say">{them.verdict}</p>
+          <div className="them-stats">
+            <TraitStat n={them.captures} of={them.moves} label="captures" />
+            <TraitStat n={them.checks} of={them.moves} label="checks" />
+            <TraitStat n={them.atYourKing} of={them.moves} label="at your king" />
+            <TraitStat n={them.quiet} of={them.moves} label="quiet" />
+          </div>
+          {them.gifts > 0 && (
+            <p className="small muted" style={{ margin: 0 }}>
+              They handed you something {them.gifts} time{them.gifts === 1 ? '' : 's'} — the
+              biggest was worth {them.biggestGift} points of winning chances.
+            </p>
+          )}
+        </div>
+      )}
 
       {problems.length === 0 ? (
         <div className="feature">
@@ -943,6 +1012,24 @@ function Weighed({ fen, san }: { fen: string; san: string }) {
           ))}
         </ul>
       </div>
+    </div>
+  )
+}
+
+/**
+ * One counted trait of the opponent's play, as a share of their moves.
+ *
+ * The denominator is shown because "6 captures" means nothing without it:
+ * six out of forty is a quiet game and six out of twelve is a bloodbath.
+ */
+function TraitStat({ n, of, label }: { n: number; of: number; label: string }) {
+  return (
+    <div className="them-stat">
+      <span className="them-stat-n">
+        {n}
+        <span className="them-stat-of">/{of}</span>
+      </span>
+      <span className="them-stat-l">{label}</span>
     </div>
   )
 }

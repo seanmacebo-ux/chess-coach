@@ -83,6 +83,7 @@ function useGameReview() {
     acpl: number
     perf: number
     opening: OpeningName | null
+    opponentName: string
   } | null>(null)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   /** Kept so the side swap can re-analyse the same game. */
@@ -120,7 +121,10 @@ function useGameReview() {
        * one side's moves and could not walk the opening if it wanted to.
        */
       const opening = await openingOfPgn(g.pgn)
-      setOpen({ moves, colour: colour === 'w' ? 'white' : 'black', acpl: avg, perf, opening })
+      setOpen({
+        moves, colour: colour === 'w' ? 'white' : 'black', acpl: avg, perf, opening,
+        opponentName: `the ${g.opponentElo} bot`,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -216,6 +220,7 @@ export function History() {
         acpl={gr.open.acpl}
         perf={gr.open.perf}
         opening={gr.open.opening}
+        opponentName={gr.open.opponentName}
         onClose={gr.close}
         onSwapSide={gr.swapSide}
         swapping={gr.swapping}

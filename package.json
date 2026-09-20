@@ -32,6 +32,7 @@
     "verify:material": "tsx scripts/verify-material.ts",
     "verify:redo": "tsx scripts/verify-redo.ts",
     "verify:style": "tsx scripts/verify-style.ts",
+    "verify:game-breakdown": "tsx scripts/verify-game-breakdown.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "verify:tree": "tsx scripts/verify-tree.ts",
     "verify:report": "tsx scripts/verify-report.ts",
