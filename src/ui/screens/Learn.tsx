@@ -64,6 +64,8 @@ import {
 import { CoachedGame } from './CoachedGame'
 import { FixMistakes } from './FixMistakes'
 import { buildProgress, type ProgressReport, type SectionTrend } from '../../coach/progress'
+import { loadActivity, type Activity } from '../../coach/history'
+import { Progression } from '../Progression'
 
 /**
  * Ideas is a peer section, not a pillar — it has no tier ladder and no rating
@@ -131,6 +133,8 @@ export function Learn({
   const [fixing, setFixing] = useState(false)
 
   const [progress, setProgress] = useState<ProgressReport | null>(null)
+  /** Twelve weeks of what was actually done, and whether it moved anything. */
+  const [activity, setActivity] = useState<Activity | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -139,7 +143,9 @@ export function Learn({
       const s = await tierStatuses(p.rating)
       const r = await getSectionRatings()
       const rep = await buildProgress(p.rating)
+      const act = await loadActivity()
       if (cancelled) return
+      setActivity(act)
       setRating(p.rating)
       setStatuses(s)
       setRatings(r)
@@ -182,6 +188,7 @@ export function Learn({
         onCoached={setCoached}
         onFix={() => setFixing(true)}
         progress={progress}
+        activity={activity}
       />
     )
   }
@@ -264,6 +271,7 @@ function Index({
   onCoached,
   onFix,
   progress,
+  activity,
 }: {
   rating: number
   statuses: TierStatus[]
@@ -274,6 +282,7 @@ function Index({
   onCoached: (colour: 'w' | 'b') => void
   onFix: () => void
   progress: ProgressReport | null
+  activity: Activity | null
 }) {
   const cleared = statuses.filter((s) => s.cleared).length
   const openNow = statuses.filter((s) => s.inBand && !s.cleared).length
@@ -309,6 +318,17 @@ function Index({
         numbered instructions from the ladder, this week measured against last,
         habits counted over 15-day windows. All of it computed from the log.
       */}
+      {/*
+        THE RECORD COMES FIRST.
+        Sean: "recording my progression is difficult, and tracing my usage and
+        training is hard with this." Everything below this point compares two
+        points in time and calls it a trend; this is the twelve weeks those
+        two points were picked out of. "Did I turn up" is also simply the
+        first question anyone asks of a training app, and it was the one
+        thing the screen could not answer at all.
+      */}
+      {activity && <Progression activity={activity} />}
+
       {progress && <ProgressCard p={progress} />}
 
       {/*

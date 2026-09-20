@@ -28,6 +28,7 @@
     "build:tree": "tsx scripts/build-opening-tree.ts",
     "build:eco": "tsx scripts/build-eco.ts",
     "verify:eco": "tsx scripts/verify-eco.ts",
+    "verify:history": "tsx scripts/verify-history.ts",
     "verify:tree": "tsx scripts/verify-tree.ts",
     "verify:report": "tsx scripts/verify-report.ts",
     "import-epub": "tsx scripts/import-epub.ts",
