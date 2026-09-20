@@ -47,6 +47,28 @@ const arg = (name: string, fallback: number): number => {
 const WANT = arg('positions', 24)
 
 /**
+ * How much harder real games are than this model says.
+ *
+ * The model was applied once and the game-playing calibration caught it
+ * overshooting by a lot: band 800 solved to a predicted 150 and measured
+ * 246.9 in real play, band 1000 predicted 120 and measured 183.7. Ratios of
+ * 1.65 and 1.53.
+ *
+ * The reason is compounding, and it is not a bug in the arithmetic. This
+ * model evaluates independent positions taken from master games, where the
+ * candidate moves are close together because the position is sound. A loose
+ * bot does not stay in positions like that: one sloppy move produces a worse
+ * position, where the spread between best and tenth-best is far wider, so
+ * the NEXT sloppy move costs more than the model's average says. Error feeds
+ * on itself and a per-position expectation cannot see it.
+ *
+ * So the solver aims at target/REALISM and the measurement decides whether
+ * that was right. This number is empirical — two bands, one run — and it is
+ * meant to be re-derived whenever calibrate.ts disagrees with it again.
+ */
+const REALISM = arg('realism', 1.6)
+
+/**
  * Enough of the move list that the "wild" tail is real.
  *
  * The blunder path samples from legal moves OUTSIDE the shortlist, so their
@@ -181,12 +203,15 @@ async function main() {
       }
     })
 
-  console.log('  band  target    now   |  multipv     blunder         temperature')
+  console.log(`  aiming at target / ${REALISM} — see REALISM above\n`)
+  console.log('  band  target    aim    now   |  multipv     blunder         temperature')
   const rows: string[] = []
   for (const band of BANDS as Band[]) {
     const p = bandProfile(band)
     const losses = byDepth.get(p.depth) ?? []
     const nowAcpl = expectedAcpl(shapesFor(losses, p.multipv), p.temperature, p.blunderChance)
+    /* What the model must predict for real play to land on the target. */
+    const aim = p.targetAcpl / REALISM
 
     /*
      * Blunders are cut to roughly a third. A real 800 hangs a piece, but not
@@ -229,17 +254,17 @@ async function main() {
      * cannot hit its own target is not a recommendation.
      */
     let newBlunder = wanted
-    let temp = solveTemperature(shapesFor(losses, multipv), p.targetAcpl, newBlunder)
+    let temp = solveTemperature(shapesFor(losses, multipv), aim, newBlunder)
     if (temp === null && wanted !== p.blunderChance) {
       newBlunder = p.blunderChance
-      temp = solveTemperature(shapesFor(losses, multipv), p.targetAcpl, newBlunder)
+      temp = solveTemperature(shapesFor(losses, multipv), aim, newBlunder)
     }
 
     const reached = temp !== null
     const newTemp = temp ?? p.temperature
     console.log(
       `  ${String(band).padStart(4)}  ${String(p.targetAcpl).padStart(6)}` +
-      `  ${nowAcpl.toFixed(1).padStart(5)}   |` +
+      `  ${aim.toFixed(0).padStart(5)}  ${nowAcpl.toFixed(1).padStart(5)}   |` +
       `  ${String(p.multipv).padStart(2)} → ${String(multipv).padStart(2)}` +
       `    ${p.blunderChance.toFixed(3)} → ${newBlunder.toFixed(3)}` +
       `    ${String(p.temperature).padStart(4)} → ${String(newTemp).padStart(4)}` +

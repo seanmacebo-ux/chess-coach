@@ -39,10 +39,31 @@
  * produces both halves of it. The loss should come from playing consistently
  * loose, which is what humans at that rating actually do.
  *
+ * AND THE MODEL WAS WRONG THE FIRST TIME, which is why the measurement runs.
+ *
+ * The analytic solver's first answer was applied and calibrate.ts caught it
+ * overshooting hard: band 800 was predicted at 150 and measured 246.9 in real
+ * play, with 41% of its moves losing 200cp or more. Not a weak bot — a
+ * useless one.
+ *
+ * The cause is compounding, and it is not an arithmetic bug. The model
+ * evaluates independent positions from master games, where the candidate
+ * moves sit close together because the position is sound. A loose bot does
+ * not stay in positions like that: one sloppy move reaches a worse one, where
+ * the spread between best and tenth-best is far wider, so the next sloppy
+ * move costs more than the model's average. Error feeds on itself and a
+ * per-position expectation cannot see it. The measured factor was about 1.6,
+ * and tune-bands.ts now aims at target/1.6.
+ *
+ * So the shape that survived is: a WIDE pool, a MODERATE temperature and a
+ * LOW blunder rate. The bot mostly plays sensible moves and now and then
+ * reaches further down a long list — which is what a weak human looks like —
+ * rather than alternating between engine moves and random ones.
+ *
  * CALIBRATION HONESTY: the targets are drawn from published rating-band
- * averages. The numbers below are solved analytically against this policy's
- * own maths, and an analytic solution is a model — scripts/calibrate.ts plays
- * real games and is the measurement that decides.
+ * averages. Everything below is solved against this policy's own maths and
+ * then corrected by measurement, and scripts/calibrate.ts is the thing that
+ * decides. It has now overruled this table twice.
  *
  * That guess is no longer the last word. `bandProfile` applies whatever
  * calibration.ts has measured from games actually played, so the table below
@@ -76,14 +97,14 @@ export interface BandProfile {
  * mistakes, they make bigger ones, so both knobs move together.
  */
 const PROFILES: Record<Band, Omit<BandProfile, 'band'>> = {
-  800: { targetAcpl: 150, temperature: 766, blunderChance: 0.063, depth: 6, multipv: 28 },
-  1000: { targetAcpl: 120, temperature: 979, blunderChance: 0.049, depth: 7, multipv: 24 },
-  1200: { targetAcpl: 95, temperature: 607, blunderChance: 0.039, depth: 8, multipv: 20 },
-  1400: { targetAcpl: 75, temperature: 271, blunderChance: 0.022, depth: 9, multipv: 16 },
-  1600: { targetAcpl: 60, temperature: 199, blunderChance: 0.019, depth: 10, multipv: 12 },
-  1800: { targetAcpl: 48, temperature: 201, blunderChance: 0.012, depth: 11, multipv: 9 },
-  2000: { targetAcpl: 38, temperature: 164, blunderChance: 0.007, depth: 12, multipv: 7 },
-  2200: { targetAcpl: 30, temperature: 172, blunderChance: 0.004, depth: 13, multipv: 5 },
+  800: { targetAcpl: 150, temperature: 142, blunderChance: 0.022, depth: 6, multipv: 28 },
+  1000: { targetAcpl: 120, temperature: 113, blunderChance: 0.022, depth: 7, multipv: 24 },
+  1200: { targetAcpl: 95, temperature: 90, blunderChance: 0.022, depth: 8, multipv: 20 },
+  1400: { targetAcpl: 75, temperature: 78, blunderChance: 0.022, depth: 9, multipv: 16 },
+  1600: { targetAcpl: 60, temperature: 76, blunderChance: 0.019, depth: 10, multipv: 12 },
+  1800: { targetAcpl: 48, temperature: 82, blunderChance: 0.012, depth: 11, multipv: 9 },
+  2000: { targetAcpl: 38, temperature: 78, blunderChance: 0.007, depth: 12, multipv: 7 },
+  2200: { targetAcpl: 30, temperature: 74, blunderChance: 0.004, depth: 13, multipv: 5 },
 }
 
 /*
