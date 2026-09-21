@@ -135,18 +135,38 @@ export interface BandProfile {
  * because a learned correction needs a sample to learn from and continuous
  * ratings would never accumulate one.
  *
- * The three anchors below 800 are new and are the least trustworthy numbers
- * here: everything from 800 up has been measured in self-play, and these have
- * not. They are placed on the shape the measured ones follow and will move
- * when measure-acpl has had a run at them.
+ * THE BOTTOM THREE, AND HOW THEY WERE SET.
+ *
+ * They were first guessed — 320 acpl for the 350 bot — and self-play
+ * measured 178.8, with the 350 and the 550 landing on the same number inside
+ * their intervals. Raising temperature moved neither, which is the signature
+ * of a saturated knob.
+ *
+ * So scripts/diag-floor.ts measured the two policies that bracket everything
+ * a bot can be:
+ *
+ *     uniformly random legal move   345.8 acpl, something hanging 53% of the time
+ *     one-ply greedy (see naiveMove) 221.0 acpl, something hanging 32% of the time
+ *
+ * That settles two arguments at once. 320 was NOT impossible — but it is 92%
+ * of the way to moving at random, and a 350-rated person is nothing like a
+ * random mover. They develop pieces, they castle eventually, they take what
+ * is free. What they do not do is look at the reply, and that player has now
+ * been measured: 221.
+ *
+ * So the bottom of the ladder is built out of that policy rather than out of
+ * temperature. Bud is mostly a one-ply player, Kit is part of one, Pip is
+ * mostly the search — which is a description of how beginners actually
+ * improve, and it gives the three of them genuinely different characters
+ * rather than three settings of the same dial.
  */
 interface Anchor extends Omit<BandProfile, 'band'> {
   elo: number
 }
 
 const ANCHORS: Anchor[] = [
-  { elo: 350, targetAcpl: 320, temperature: 620, blunderChance: 0.14, depth: 4, multipv: 32 },
-  { elo: 550, targetAcpl: 225, temperature: 430, blunderChance: 0.07, depth: 5, multipv: 30 },
+  { elo: 350, targetAcpl: 210, temperature: 950, blunderChance: 0.45, depth: 4, multipv: 34 },
+  { elo: 550, targetAcpl: 180, temperature: 560, blunderChance: 0.18, depth: 5, multipv: 31 },
   { elo: 800, targetAcpl: 150, temperature: 286, blunderChance: 0.022, depth: 6, multipv: 28 },
   { elo: 1000, targetAcpl: 120, temperature: 227, blunderChance: 0.022, depth: 7, multipv: 24 },
   { elo: 1200, targetAcpl: 95, temperature: 181, blunderChance: 0.022, depth: 8, multipv: 20 },
@@ -221,12 +241,20 @@ export function profileFor(elo: number): BandProfile {
     band,
     ...base,
     temperature: Math.round(base.temperature * factor),
-    // The blunder path is the knob with real headroom — the softmax can only
-    // ever be as loose as the candidate pool — so it carries the correction
-    // too, at half strength and never past a third of moves, which is the
-    // point where a bot stops reading as a weak human and starts reading as
-    // broken.
-    blunderChance: Math.min(0.33, base.blunderChance * (1 + (factor - 1) * 0.5)),
+    /*
+     * The one-ply path is the knob with real headroom — the softmax can only
+     * ever be as loose as the candidate pool — so it carries the correction
+     * too, at half strength.
+     *
+     * The ceiling used to be a third of moves, on the grounds that past that
+     * a bot stops reading as a weak human and starts reading as broken. That
+     * was true of the old path, which played a uniformly random legal move.
+     * It is not true of this one: looking exactly one move ahead IS what a
+     * beginner does, and a bot that does it most of the time reads as a
+     * beginner rather than as a fault. Measured at 221 acpl on its own, which
+     * is a real player and not noise.
+     */
+    blunderChance: Math.min(0.6, base.blunderChance * (1 + (factor - 1) * 0.5)),
   }
 }
 
