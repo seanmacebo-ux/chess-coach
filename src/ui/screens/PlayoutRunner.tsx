@@ -63,8 +63,36 @@ export function PlayoutRunner({ position, tierId = null, onDone }: PlayoutRunner
   const you = position.youPlay
   const yourColour = you === 'w' ? 'white' : 'black'
 
-  /* -------------------------------------------------------- reset */
-  useEffect(() => {
+  /*
+   * Which setup the board is currently on.
+   *
+   * Bumped by every reset. An engine reply captures it before awaiting and
+   * drops itself if it no longer matches, so a search that started against a
+   * position we have since left can never apply its move to the new one.
+   * React's StrictMode runs effects twice in development, which makes that
+   * race happen on every single mount rather than rarely.
+   *
+   * It is BOTH a ref and a state value, deliberately. The ref is what the
+   * async reply reads, because it has to see the newest value and not the
+   * one captured when it started. The state is what the opening-reply effect
+   * depends on — and that half was missing at first, which cost a second
+   * bug: pressing Restart mid-drill changed the ref but no dependency, so
+   * the effect never re-ran and the board froze exactly as before.
+   */
+  const generation = useRef(0)
+  const [gen, setGen] = useState(0)
+
+  /*
+   * Put the board back to the drill's starting position.
+   *
+   * Both the mount effect and the Restart button go through here, because
+   * they had drifted apart: the button forgot to bump the generation, so a
+   * restart mid-search let the abandoned reply land on the fresh board, and
+   * it forgot the hint, so restarting left the answer on screen.
+   */
+  const reset = useCallback(() => {
+    generation.current++
+    setGen(generation.current)
     chess.current = new Chess(position.fen)
     setFen(position.fen)
     setLastMove(undefined)
@@ -75,6 +103,8 @@ export function PlayoutRunner({ position, tierId = null, onDone }: PlayoutRunner
     startedAt.current = Date.now()
     recorded.current = false
   }, [position])
+
+  useEffect(reset, [reset])
 
   /* ------------------------------------------------------- record */
   const record = useCallback(
@@ -173,12 +203,17 @@ export function PlayoutRunner({ position, tierId = null, onDone }: PlayoutRunner
   /* -------------------------------------------------- engine move */
   const engineReply = useCallback(
     async (playedByYou: number) => {
+      const mine = generation.current
       setPhase('thinking')
       try {
         const analysis = await getEngine().analyse(chess.current.fen(), {
           depth: DEFENCE_DEPTH,
           multipv: 1,
         })
+        // The board was reset while this search was running. Applying the
+        // move now would play it on a different position — and concluding on
+        // it would end a drill that has only just started.
+        if (mine !== generation.current) return
         const best = analysis.bestMove
         if (!best || !applyUci(chess.current, best)) {
           conclude('held', 'The defence has run out of moves.')
@@ -195,6 +230,37 @@ export function PlayoutRunner({ position, tierId = null, onDone }: PlayoutRunner
     },
     [conclude, settle],
   )
+
+  /*
+   * THE ENGINE MOVES FIRST WHEN IT IS THE ENGINE'S TURN.
+   *
+   * engineReply was only ever called from onMove — after you had played — so
+   * a position whose FEN has the DEFENDER to move sat there forever. You saw
+   * the board, clicked your king, and nothing lit up, because it was not your
+   * turn and nothing was ever going to make it your turn. Sean's words for
+   * this were "wtf your learn is broken".
+   *
+   * Nine of the twenty endgame positions start that way, and it is not an
+   * accident in the data: opposition, the trébuchet, mutual zugzwang and the
+   * fortresses are ALL defined by whose turn it is. "Kings two squares apart
+   * with the other side to move" is the entire lesson — you cannot express it
+   * with your own side on move. So the bug landed squarely on the most
+   * instructive half of the section, and left the shallow ones working.
+   *
+   * Guarded on the ref rather than on `phase`, because phase goes
+   * 'playing' -> 'thinking' -> 'playing' during a reply and would re-trigger.
+   */
+  const openedFor = useRef(-1)
+  useEffect(() => {
+    if (phase !== 'playing') return
+    // Keyed on the generation rather than on a boolean a sibling effect has
+    // to remember to clear — that ordering is exactly what turns one opening
+    // reply into two, and two replies means the engine plays YOUR move.
+    if (openedFor.current === generation.current) return
+    openedFor.current = generation.current
+    if (chess.current.turn() === you || chess.current.isGameOver()) return
+    void engineReply(0)
+  }, [gen, phase, you, engineReply])
 
   /* ---------------------------------------------------- your move */
   const onMove = useCallback(
@@ -223,16 +289,7 @@ export function PlayoutRunner({ position, tierId = null, onDone }: PlayoutRunner
     [fen, phase],
   )
 
-  const restart = useCallback(() => {
-    chess.current = new Chess(position.fen)
-    setFen(position.fen)
-    setLastMove(undefined)
-    setPhase('playing')
-    setMoves(0)
-    setNote(null)
-    startedAt.current = Date.now()
-    recorded.current = false
-  }, [position])
+  const restart = reset
 
   const done = phase === 'won' || phase === 'held' || phase === 'lost' || phase === 'capped'
   const success = phase === 'won' || phase === 'held'
