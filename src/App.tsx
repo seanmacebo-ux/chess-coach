@@ -608,21 +608,67 @@ function YourRatings({
 
       <div className="small muted">
         This one comes from games: it moves when you win or lose against a rated bot, by more when
-        the result was a surprise. The five below come from training instead, one per part of the
-        game, so you can see which part is holding the number down.
+        the result was a surprise. The five section ratings come from training instead, one per
+        part of the game, so you can see which part is holding the number down.
       </div>
 
-      <div className="secrate-grid">
-        {SECTION_IDS.map((id) => (
-          <div key={id} className="secrate">
-            <div className="small muted">{SECTION_NAME[id]}</div>
-            <RatingChip r={sections?.[id]} />
-            <RatingExplainer r={sections?.[id]} />
-          </div>
-        ))}
-      </div>
+      {(() => {
+        /*
+         * FIVE CARDS SAYING THE SAME SENTENCE IS NOT FIVE PIECES OF
+         * INFORMATION.
+         *
+         * Until you have trained a section its rating is the starting guess
+         * and its explainer reads "Not trained yet — the number is a starting
+         * guess." Printing that five times under the board, each in its own
+         * box, took over half the Play screen to say one thing — and said it
+         * every single time anyone opened the tab to start a game.
+         *
+         * RatingChip's own module comment already identified this failure on
+         * the Learn index and shortened the sentence. Shortening was not the
+         * fix; repeating it was the problem.
+         *
+         * So untrained sections collapse to one line that names them, and the
+         * grid appears only for the ones that have something to report. A new
+         * player sees a sentence. Someone who has trained three sections sees
+         * three cards, which is three pieces of information.
+         */
+        const trained = SECTION_IDS.filter((id) => (sections?.[id]?.played ?? 0) > 0)
+        const untrained = SECTION_IDS.filter((id) => (sections?.[id]?.played ?? 0) === 0)
 
-      {verdict && <div className="small">{verdict}</div>}
+        return (
+          <>
+            {trained.length > 0 && (
+              <div className="secrate-grid">
+                {trained.map((id) => (
+                  <div key={id} className="secrate">
+                    <div className="small muted">{SECTION_NAME[id]}</div>
+                    <RatingChip r={sections?.[id]} />
+                    <RatingExplainer r={sections?.[id]} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {untrained.length > 0 && (
+              <div className="small muted">
+                {untrained.length === SECTION_IDS.length
+                  ? 'None of the five are trained yet, so all five are still the starting guess. Solve anything and they start moving.'
+                  : `Not trained yet: ${untrained.map((id) => SECTION_NAME[id]).join(', ')}.`}
+              </div>
+            )}
+          </>
+        )
+      })()}
+
+      {/*
+        The overall verdict is worth saying once there is something to
+        summarise. With nothing trained it reads "Nothing measured yet. Train
+        anything and these start moving", directly under a line that has just
+        said the same thing in more detail — so it is held back until at
+        least one section has a number behind it.
+      */}
+      {verdict && SECTION_IDS.some((id) => (sections?.[id]?.played ?? 0) > 0) && (
+        <div className="small">{verdict}</div>
+      )}
     </div>
   )
 }
@@ -1363,7 +1409,17 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         }}
       />
 
-      <div className="card stack">
+      {/*
+        THE SETUP IS ONE THING, NOT THREE BOXES.
+        Strength, clock and style are the three decisions you make before a
+        game and they were three stacked cards, each with its own border, as
+        though they were unrelated features that happened to be adjacent. The
+        calm register applies here for the same reason it applies to Today:
+        this is a surface you ACT on. Checkered rules separate the decisions;
+        nothing needs a box around it.
+      */}
+      <div className="setup">
+        <div className="day-kicker">Before you start</div>
         <label className="field">
           Opponent strength — <strong style={{ color: 'var(--text)' }}>{elo}</strong>
           <input
@@ -1375,6 +1431,8 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
             onChange={(e) => setElo(Number(e.target.value))}
           />
         </label>
+        <div className="rule" />
+
         <div>
           <div className="small muted" style={{ marginBottom: 6 }}>
             Clock
@@ -1404,6 +1462,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
               : 'Applies from the next game.'}
           </div>
         </div>
+
+        <div className="rule" />
+
         <div>
           <div className="small muted" style={{ marginBottom: 6 }}>
             Style

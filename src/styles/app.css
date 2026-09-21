@@ -995,7 +995,15 @@ input[type='range'] {
   border-bottom: 1px solid var(--border);
 }
 
-.hist-row:last-child {
+/*
+ * The row is wrapped in a div that carries its progress panel, so .hist-row
+ * is always the first and only child of that wrapper and :last-child never
+ * matched anything — every row drew a trailing rule, including the last one,
+ * which is where the list looked like it had been cut off rather than ended.
+ * The wrapper is what needs to be last.
+ */
+.card > .stack:last-child > .hist-row,
+.card .stack > div:last-child > .hist-row {
   border-bottom: 0;
 }
 
@@ -5751,4 +5759,24 @@ button.act-cell.on {
   font-size: var(--t-caption);
   font-family: var(--font-num);
   color: var(--text-muted);
+}
+
+/*
+ * The pre-game setup, in the calm register.
+ *
+ * Strength, clock and style are three decisions you make before a game, and
+ * they were three stacked cards each with its own border — as though they
+ * were unrelated features that happened to be adjacent. Today established
+ * the rule: on a surface you ACT on, the chrome comes off and space does the
+ * separating. This is the same kind of surface and now reads the same way.
+ */
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+}
+
+.setup .rule {
+  margin: 2px 0;
 }
