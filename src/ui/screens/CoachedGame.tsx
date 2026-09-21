@@ -314,13 +314,24 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
   }, [colour])
 
   /* ------------------------------------------------------- moves */
+  /**
+   * Which game the board is on. Bumped when the opponent changes, so a search
+   * started against the old one cannot deliver its move into the new one.
+   */
+  const generation = useRef(0)
+  useEffect(() => {
+    generation.current++
+  }, [opponent])
+
   /** The bot's turn — shared by your-move handling and the Black-side kickoff. */
   const botReply = useCallback(() => {
     if (!opponent || chess.current.isGameOver()) return
+    const mine = generation.current
     setThinking(true)
     void opponent
       .move(chess.current.fen())
       .then((uci) => {
+        if (mine !== generation.current) return
         if (!uci) return
         try {
           const m = chess.current.move({
@@ -337,7 +348,24 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
           /* an illegal engine move is not worth crashing the game over */
         }
       })
-      .finally(() => setThinking(false))
+      .catch((err: unknown) => {
+        /*
+         * This used to be a bare .finally. If the engine rejected — a worker
+         * that ran out of memory, a search that timed out — the spinner
+         * cleared, nothing moved, and the game sat on the bot's turn forever
+         * with no way to tell whether it was thinking or dead. A silent hang
+         * is the worst failure a game screen has, because the only thing the
+         * player can do about it is assume the whole app is broken.
+         */
+        if (mine !== generation.current) return
+        setGameNote(
+          `The engine stopped responding (${err instanceof Error ? err.message : String(err)}). ` +
+            'Reload to start a fresh game — nothing before this is lost.',
+        )
+      })
+      .finally(() => {
+        if (mine === generation.current) setThinking(false)
+      })
   }, [opponent, readThreats])
 
   /* As Black the game starts on their move, so the bot opens — once one is
@@ -419,11 +447,20 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
       opponentElo: bot.elo,
       opponentStyle: bot.style,
       source: 'play',
-    }).then(({ delta }) => {
-      setGameNote(
-        `Saved to History. Your rating ${delta === 0 ? 'held' : delta > 0 ? `went up ${delta}` : `went down ${-delta}`}. Review it there to see the loop's misses.`,
-      )
     })
+      .then(({ delta }) => {
+        setGameNote(
+          `Saved to History. Your rating ${delta === 0 ? 'held' : delta > 0 ? `went up ${delta}` : `went down ${-delta}`}. Review it there to see the loop's misses.`,
+        )
+      })
+      .catch((err: unknown) => {
+        // Losing a finished game silently is worse than saying so: the whole
+        // point of playing it was the record.
+        setGameNote(
+          `Could not save this game (${err instanceof Error ? err.message : String(err)}). ` +
+            'Your rating has not moved. Check storage in Settings.',
+        )
+      })
   }, [fen, bot, colour, book])
 
   const over = chess.current.isGameOver()

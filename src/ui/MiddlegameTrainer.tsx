@@ -202,11 +202,20 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
       opponentElo: bot.elo,
       opponentStyle: bot.style,
       source: 'middlegame-trainer',
-    }).then(({ delta }) => {
-      setGameNote(
-        `Saved to History. Your rating ${delta === 0 ? 'held' : delta > 0 ? `went up ${delta}` : `went down ${-delta}`}.`,
-      )
     })
+      .then(({ delta }) => {
+        setGameNote(
+          `Saved to History. Your rating ${delta === 0 ? 'held' : delta > 0 ? `went up ${delta}` : `went down ${-delta}`}.`,
+        )
+      })
+      .catch((err: unknown) => {
+        // A finished game that vanishes without a word is worse than one that
+        // says it could not be saved — the record was the point of playing it.
+        setGameNote(
+          `Could not save this game (${err instanceof Error ? err.message : String(err)}). ` +
+            'Your rating has not moved.',
+        )
+      })
   }, [stage, fen, yourColour, bot])
 
   const playOnYourTurn =
@@ -332,6 +341,18 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
           } catch {
             /* an illegal engine move is not worth crashing the drill over */
           }
+        })
+        .catch((err: unknown) => {
+          /*
+           * A bare .finally left this silently hung: if the engine rejected,
+           * the spinner cleared, nothing moved, and it stayed the bot's turn
+           * with nothing on screen to say why. The player cannot tell a dead
+           * engine from a slow one, so it has to be said.
+           */
+          setGameNote(
+            `The engine stopped responding (${err instanceof Error ? err.message : String(err)}). ` +
+              'Reload to start again.',
+          )
         })
         .finally(() => setThinking(false))
     },
