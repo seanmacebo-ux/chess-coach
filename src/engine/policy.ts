@@ -92,7 +92,7 @@
 
 import { Chess } from 'chess.js'
 import type { Band, Line, Style, UciMove } from './types'
-import { lineScore, nearestBand } from './types'
+import { BANDS, lineScore, nearestBand } from './types'
 import { factorFor, registerTargets } from './calibration'
 
 export interface BandProfile {
@@ -110,18 +110,80 @@ export interface BandProfile {
 }
 
 /**
- * Approximate ACPL by rating band. Weaker players don't just make more
- * mistakes, they make bigger ones, so both knobs move together.
+ * THE BUG THIS TABLE USED TO HAVE, WHICH WAS THE WHOLE PROBLEM.
+ *
+ * These numbers were keyed by Band, and Band is one of eight fixed values.
+ * Every opponent's rating was snapped to the nearest one with nearestBand()
+ * before anything was looked up. The roster does not use those eight values
+ * — it spaces eleven bots about 150 apart — so the snapping quietly collapsed
+ * the ladder:
+ *
+ *     Bud 350, Kit 550 and Pip 800  →  all band 800, byte for byte identical
+ *     Nadia 950 and Walter 1100     →  both band 1000
+ *     Darius 1550 and Ren 1700      →  both band 1600
+ *
+ * Eleven opponents, seven strengths, and the three at the bottom were one bot
+ * wearing three faces. Worse: the weakest thing in the app was an 800 aimed
+ * at a player rated 316. The roster's own header notices the closed door and
+ * adds Bud and Kit to open it — and they snapped straight back to 800, so the
+ * fix was a rename. Sean's read of this was "the bots we are using are not
+ * right", and he was describing something real and precise.
+ *
+ * So the table is now ANCHORS and everything between them is interpolated.
+ * A 1100 bot is genuinely between the 1000 and the 1200; a 350 bot is a 350
+ * bot. Bands survive only where they belong — calibration measures per band,
+ * because a learned correction needs a sample to learn from and continuous
+ * ratings would never accumulate one.
+ *
+ * The three anchors below 800 are new and are the least trustworthy numbers
+ * here: everything from 800 up has been measured in self-play, and these have
+ * not. They are placed on the shape the measured ones follow and will move
+ * when measure-acpl has had a run at them.
  */
-const PROFILES: Record<Band, Omit<BandProfile, 'band'>> = {
-  800: { targetAcpl: 150, temperature: 286, blunderChance: 0.022, depth: 6, multipv: 28 },
-  1000: { targetAcpl: 120, temperature: 227, blunderChance: 0.022, depth: 7, multipv: 24 },
-  1200: { targetAcpl: 95, temperature: 181, blunderChance: 0.022, depth: 8, multipv: 20 },
-  1400: { targetAcpl: 75, temperature: 157, blunderChance: 0.022, depth: 9, multipv: 16 },
-  1600: { targetAcpl: 60, temperature: 153, blunderChance: 0.019, depth: 10, multipv: 12 },
-  1800: { targetAcpl: 48, temperature: 165, blunderChance: 0.012, depth: 11, multipv: 9 },
-  2000: { targetAcpl: 38, temperature: 157, blunderChance: 0.007, depth: 12, multipv: 7 },
-  2200: { targetAcpl: 30, temperature: 149, blunderChance: 0.004, depth: 13, multipv: 5 },
+interface Anchor extends Omit<BandProfile, 'band'> {
+  elo: number
+}
+
+const ANCHORS: Anchor[] = [
+  { elo: 350, targetAcpl: 320, temperature: 620, blunderChance: 0.14, depth: 4, multipv: 32 },
+  { elo: 550, targetAcpl: 225, temperature: 430, blunderChance: 0.07, depth: 5, multipv: 30 },
+  { elo: 800, targetAcpl: 150, temperature: 286, blunderChance: 0.022, depth: 6, multipv: 28 },
+  { elo: 1000, targetAcpl: 120, temperature: 227, blunderChance: 0.022, depth: 7, multipv: 24 },
+  { elo: 1200, targetAcpl: 95, temperature: 181, blunderChance: 0.022, depth: 8, multipv: 20 },
+  { elo: 1400, targetAcpl: 75, temperature: 157, blunderChance: 0.022, depth: 9, multipv: 16 },
+  { elo: 1600, targetAcpl: 60, temperature: 153, blunderChance: 0.019, depth: 10, multipv: 12 },
+  { elo: 1800, targetAcpl: 48, temperature: 165, blunderChance: 0.012, depth: 11, multipv: 9 },
+  { elo: 2000, targetAcpl: 38, temperature: 157, blunderChance: 0.007, depth: 12, multipv: 7 },
+  { elo: 2200, targetAcpl: 30, temperature: 149, blunderChance: 0.004, depth: 13, multipv: 5 },
+]
+
+/** Linear between a and b at position t in [0,1]. */
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+/**
+ * Geometric between a and b — the right shape for a scale parameter.
+ *
+ * Temperature and blunder chance both span more than an order of magnitude
+ * across the ladder, and halfway between 0.14 and 0.004 is not 0.072: a bot
+ * at the midpoint should be about as far from each end in ratio, not in
+ * subtraction. Linear interpolation of blunderChance would leave a 1000-rated
+ * bot blundering at nearly the rate of a 350.
+ */
+const glerp = (a: number, b: number, t: number) =>
+  a > 0 && b > 0 ? a * Math.pow(b / a, t) : lerp(a, b, t)
+
+/** The two anchors an Elo falls between, and how far along it sits. */
+function bracket(elo: number): { lo: Anchor; hi: Anchor; t: number } {
+  const first = ANCHORS[0]!
+  const last = ANCHORS[ANCHORS.length - 1]!
+  if (elo <= first.elo) return { lo: first, hi: first, t: 0 }
+  if (elo >= last.elo) return { lo: last, hi: last, t: 0 }
+  for (let i = 0; i < ANCHORS.length - 1; i++) {
+    const lo = ANCHORS[i]!
+    const hi = ANCHORS[i + 1]!
+    if (elo <= hi.elo) return { lo, hi, t: (elo - lo.elo) / (hi.elo - lo.elo) }
+  }
+  return { lo: last, hi: last, t: 0 }
 }
 
 /*
@@ -132,13 +194,26 @@ const PROFILES: Record<Band, Omit<BandProfile, 'band'>> = {
  */
 registerTargets(
   Object.fromEntries(
-    (Object.keys(PROFILES) as unknown as Band[]).map((b) => [b, PROFILES[b].targetAcpl]),
+    BANDS.map((b) => [b, ANCHORS.find((a) => a.elo === b)?.targetAcpl ?? 0]),
   ) as Record<Band, number>,
 )
 
-export function bandProfile(elo: number): BandProfile {
+/**
+ * The opponent a given rating should be, at that rating and not at the
+ * nearest of eight.
+ */
+export function profileFor(elo: number): BandProfile {
+  const { lo, hi, t } = bracket(elo)
+  const base: Omit<BandProfile, 'band'> = {
+    targetAcpl: Math.round(lerp(lo.targetAcpl, hi.targetAcpl, t)),
+    temperature: Math.round(glerp(lo.temperature, hi.temperature, t)),
+    blunderChance: glerp(lo.blunderChance, hi.blunderChance, t),
+    depth: Math.round(lerp(lo.depth, hi.depth, t)),
+    multipv: Math.round(lerp(lo.multipv, hi.multipv, t)),
+  }
+  // Calibration still works in bands, because a learned correction needs a
+  // sample and continuous ratings would spread one too thin to ever act on.
   const band = nearestBand(elo)
-  const base = PROFILES[band]
   // Everything the app has learned about this band from games actually
   // played. 1 until a band has a real sample, so day one is unchanged.
   const factor = factorFor(band)
@@ -154,6 +229,13 @@ export function bandProfile(elo: number): BandProfile {
     blunderChance: Math.min(0.33, base.blunderChance * (1 + (factor - 1) * 0.5)),
   }
 }
+
+/**
+ * Kept for the band-keyed harnesses (calibrate, tune-bands, measure-acpl),
+ * which iterate BANDS and mean exactly those values. Identical to profileFor
+ * at every band, because every band is an anchor.
+ */
+export const bandProfile = profileFor
 
 /* ------------------------------------------------------------------ */
 /* Move features                                                       */
@@ -472,6 +554,75 @@ function sample(candidates: Candidate[], rng: Rng): Candidate | null {
 }
 
 /**
+ * How much a move is worth to somebody who is not looking at the reply.
+ *
+ * Deliberately crude, because the whole point is the crudeness. Material on
+ * the square is most of it; a check and a promotion read as progress; moving
+ * forwards feels like doing something and retreating feels like giving up.
+ * Nothing here asks what happens next, which is exactly the mistake being
+ * modelled.
+ */
+function faceValue(m: {
+  captured?: string
+  promotion?: string
+  san: string
+  from: string
+  to: string
+  color: 'w' | 'b'
+}): number {
+  let v = m.captured ? (VALUE[m.captured] ?? 0) : 0
+  if (m.promotion) v += 800
+  if (m.san.includes('#')) v += 2000
+  else if (m.san.includes('+')) v += 80
+  const forward = (rankOf(m.to) - rankOf(m.from)) * (m.color === 'w' ? 1 : -1)
+  v += forward * 12
+  return v
+}
+
+/**
+ * Spread over face value rather than winner-takes-all.
+ *
+ * At 220 a hanging queen (900) outweighs a quiet move by e^4 ≈ 55, so it is
+ * taken nearly always; two captures of similar size stay a real choice. Make
+ * it much smaller and the bot becomes a deterministic material-grabber, which
+ * is a different and equally inhuman thing.
+ */
+const NAIVE_TEMPERATURE = 220
+
+/**
+ * The move a one-ply player picks here.
+ *
+ * Exported so the diagnostics can characterise it on its own, away from the
+ * search: "what does this policy shed, and how often does it hang something"
+ * is a question about this function alone.
+ */
+export function naiveMove(fen: string, rng: Rng): UciMove | null {
+  const board = new Chess(fen)
+  const moves = board.moves({ verbose: true })
+  if (moves.length === 0) return null
+
+  const weights = moves.map((m) => Math.exp(faceValue(m) / NAIVE_TEMPERATURE))
+  const total = weights.reduce((a, c) => a + c, 0)
+  if (!(total > 0) || !Number.isFinite(total)) {
+    // A forced mate makes faceValue large enough to overflow the exponential
+    // in principle; fall back rather than return null and lose the turn.
+    const m = moves[Math.floor(rng() * moves.length)]!
+    return `${m.from}${m.to}${m.promotion ?? ''}`
+  }
+
+  let r = rng() * total
+  for (let i = 0; i < moves.length; i++) {
+    r -= weights[i] ?? 0
+    if (r <= 0) {
+      const m = moves[i]!
+      return `${m.from}${m.to}${m.promotion ?? ''}`
+    }
+  }
+  const m = moves[moves.length - 1]!
+  return `${m.from}${m.to}${m.promotion ?? ''}`
+}
+
+/**
  * Pick the move this opponent actually plays.
  *
  * `rng` is injectable so simulations are reproducible — the same seed replays
@@ -485,34 +636,84 @@ export function chooseMove(
   style: Style,
   rng: Rng = Math.random,
 ): UciMove | null {
+  return chooseMoveDetailed(fen, lines, elo, style, rng).uci
+}
+
+/** Where a chosen move came from. Diagnostics need to tell these apart. */
+export interface Choice {
+  uci: UciMove | null
+  /**
+   * 'pool' — sampled from the engine's shortlist by the softmax.
+   * 'wild' — the blunder path: a legal move the engine never shortlisted.
+   * 'forced' — one legal move, or nothing to choose from.
+   */
+  source: 'pool' | 'wild' | 'forced'
+  /** Centipawns worse than best, for pool picks. Unknown for wild ones. */
+  loss: number | null
+  /** How far apart best and worst candidate were — the room style had. */
+  spread: number
+  candidates: number
+}
+
+/**
+ * chooseMove with its reasoning attached.
+ *
+ * Split out because "the bot played a bad move" and "the bot played an absurd
+ * move" have different causes and different fixes, and from the outside they
+ * are indistinguishable. The softmax reaching a loose move and the blunder
+ * path firing a random one both show up as a large centipawn loss; only one
+ * of them looks like a human.
+ */
+export function chooseMoveDetailed(
+  fen: string,
+  lines: Line[],
+  elo: number,
+  style: Style,
+  rng: Rng = Math.random,
+): Choice {
   const candidates = weighCandidates(fen, lines, elo, style)
-  if (candidates.length === 0) return null
+  const spread =
+    candidates.length > 1 ? Math.max(...candidates.map((c) => c.loss)) : 0
+  const none: Choice = { uci: null, source: 'forced', loss: null, spread: 0, candidates: 0 }
+  if (candidates.length === 0) return none
 
   const profile = bandProfile(elo)
 
-  // The blunder path.
+  // The one-ply path — what used to be called the blunder path.
   //
-  // This used to sample uniformly from the multipv candidates — i.e. from the
-  // engine's top eight moves, all of which are perfectly reasonable. It was a
-  // no-op, and calibration proved it: at 1400 with blunderChance 0.08, only
-  // 2.4% of moves shed 200cp and measured ACPL sat at ~59% of target.
+  // FIRST VERSION sampled uniformly from the multipv candidates, i.e. from
+  // the engine's top eight moves, all of which are fine. A no-op, and
+  // calibration proved it: at 1400 with blunderChance 0.08, only 2.4% of
+  // moves shed 200cp.
   //
-  // A real blunder means playing a move that was never in the engine's
-  // shortlist at all — hanging the piece, missing the threat. So sample from
-  // ALL legal moves, excluding the ones already under consideration.
+  // SECOND VERSION sampled uniformly from every legal move the shortlist did
+  // not contain. That produced losses — and produced them in the wrong shape.
+  // A uniformly random legal move is a rook shuffling to h2 for no reason.
+  // Nobody has ever played that. Human errors are not noise; they are the
+  // output of a cheaper policy. A beginner looks one ply deep, takes the
+  // biggest thing on offer, gives the check, pushes the pawn — and simply
+  // does not see the reply. That is why their blunders look purposeful right
+  // up until the refutation.
+  //
+  // So this now plays the move a one-ply player would pick: weighted by what
+  // it wins THIS move with no thought at all for the answer. It is allowed to
+  // land on a good move, because sometimes the greedy move is the right one
+  // and pretending otherwise is its own kind of tell.
   if (rng() < profile.blunderChance) {
-    const board = new Chess(fen)
-    const shortlist = new Set(candidates.map((c) => c.uci))
-    const wild = board
-      .moves({ verbose: true })
-      .map((m) => `${m.from}${m.to}${m.promotion ?? ''}`)
-      .filter((u) => !shortlist.has(u))
-    if (wild.length > 0) {
-      return wild[Math.floor(rng() * wild.length)] ?? null
+    const naive = naiveMove(fen, rng)
+    if (naive) {
+      return { uci: naive, source: 'wild', loss: null, spread, candidates: candidates.length }
     }
   }
 
-  return sample(candidates, rng)?.uci ?? null
+  const picked = sample(candidates, rng)
+  return {
+    uci: picked?.uci ?? null,
+    source: candidates.length === 1 ? 'forced' : 'pool',
+    loss: picked?.loss ?? null,
+    spread,
+    candidates: candidates.length,
+  }
 }
 
 /**
