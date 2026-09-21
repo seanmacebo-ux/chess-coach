@@ -5341,9 +5341,60 @@ button.alt.open .alt-san {
 .trend-dot.good { background: var(--accent); }
 .trend-dot.bad { background: var(--danger); }
 
+/*
+ * What the number is and which way is progress — the two things the reader
+ * was being asked to already know. Sean: "even the trackers, it's hard to
+ * interpret."
+ */
+.trend-what {
+  margin-top: 1px;
+  font-size: 10px;
+  letter-spacing: 0.01em;
+}
+
 .trend-foot {
   margin-top: 5px;
   font-size: 10px;
+  line-height: 1.45;
+}
+
+/* The sentence carries the verdict's colour; the coverage note stays quiet. */
+.trend-foot .good { color: var(--accent-hi); }
+.trend-foot .bad { color: var(--danger); }
+
+/*
+ * The answer to the question the heading asks, above the evidence for it.
+ * (Not .prog-verdict — that is already a small uppercase badge elsewhere on
+ * this screen, and reusing the name would have silently shrunk this to 9.5px
+ * right-aligned caps.)
+ */
+.prog-answer {
+  margin: 0 0 var(--s2);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r2);
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  border-left: 3px solid var(--accent);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+/*
+ * Four numbers have to sit on one line to be comparable at a glance. A label
+ * that wraps pushes its number down and the row stops reading as a row, so
+ * the label reserves the taller of the two heights for all four.
+ */
+.hero-strip .hgrid > * > .small {
+  min-height: 1.2em;
+}
+
+/* Each hero tile says its own unit, so none of them needs the caption. */
+.hgrid-sub {
+  margin-top: 2px;
+  min-height: 2.6em;
+  font-size: 9.5px;
+  line-height: 1.3;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
 }
 
 .trend.empty {

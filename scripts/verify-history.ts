@@ -12,7 +12,14 @@
  *   npm run verify:history
  */
 
-import { buildActivity, dayKey, WINDOW_DAYS } from '../src/coach/history'
+import {
+  buildActivity,
+  dayKey,
+  readProgress,
+  readTrend,
+  tidy,
+  WINDOW_DAYS,
+} from '../src/coach/history'
 
 let fail = 0
 const check = (name: string, cond: boolean, detail = '') => {
@@ -105,6 +112,90 @@ check('no games means no mistakes-per-game, not zero',
       noGames.weeks[noGames.weeks.length - 1]!.mistakesPerGame === null)
 check('no analysed games means no performance point',
       buildActivity([game(0, null)], [], [], NOW).weeks[11]!.perf === null)
+
+/* ---------------------------------------------- reading it out loud ---- */
+
+/*
+ * The sentence under a chart and the chart itself have to agree, and the only
+ * way they stay in agreement is if the sentence is generated from the same
+ * points the line is drawn from — and then tested.
+ *
+ * The case that matters most is the inverted one. Mistakes-per-game falling
+ * is PROGRESS, and it sits directly under two charts where falling is a
+ * problem. Getting that backwards is most of why this section was hard to
+ * read, so it gets its own test rather than being assumed from a flag.
+ */
+console.log('')
+{
+  const up = readTrend([60, 64, 68, 73], { goodWhen: 'up', unit: '%', noise: 2, noun: 'points' })
+  check('a rising accuracy reads as better', up.direction === 'better', up.direction)
+  check('it names both ends, not just the delta',
+        up.sentence.includes('60%') && up.sentence.includes('73%'), up.sentence)
+  check('a percentage moves in points, not in percent of a percent',
+        up.sentence.includes('up 13 points'), up.sentence)
+
+  const down = readTrend([3.2, 2.4, 1.1], { goodWhen: 'down', noise: 0.3, noun: 'mistakes' })
+  check('FALLING mistakes read as better, not worse', down.direction === 'better', down.sentence)
+  check('and the sentence says so', down.sentence.includes('right direction'), down.sentence)
+
+  const slipping = readTrend([73, 68, 60], { goodWhen: 'up', unit: '%', noise: 2, noun: 'points' })
+  check('a falling accuracy reads as worse', slipping.direction === 'worse', slipping.sentence)
+
+  const noise = readTrend([70, 71, 70.4], { goodWhen: 'up', unit: '%', noise: 2, noun: 'points' })
+  check('a wobble under the noise floor is flat, not a trend', noise.direction === 'flat',
+        noise.sentence)
+
+  const one = readTrend([null, null, 55], { goodWhen: 'up', unit: '%' })
+  check('one week is a reading, not a trend', one.direction === 'unknown', one.sentence)
+  check('and it says that rather than showing a delta from nothing',
+        one.sentence.includes('not a trend'), one.sentence)
+
+  const none = readTrend([null, null], { goodWhen: 'up' })
+  check('no data says so in words', none.direction === 'unknown' && none.now === null)
+
+  /* Gaps must not be read as zeroes — the same rule the line drawing follows. */
+  const gappy = readTrend([50, null, null, 62], { goodWhen: 'up', unit: '%', noun: 'points' })
+  check('a gap is skipped, not counted as zero', gappy.then === 50 && gappy.now === 62,
+        `${gappy.then} → ${gappy.now}`)
+  check('coverage counts only the weeks with data', gappy.covered === 2, String(gappy.covered))
+
+  check('83.80000000000001 never reaches the screen', tidy(83.80000000000001) === '83.8',
+        tidy(83.80000000000001))
+  check('a whole number stays whole', tidy(70) === '70', tidy(70))
+}
+
+/*
+ * The verdict. The one it MUST get right is the disagreement: puzzles
+ * improving while the games get worse is a different problem with a different
+ * fix, and a screen that averages the three into "partly" hides it.
+ */
+{
+  const v = readProgress([
+    { side: 'puzzles', direction: 'better' },
+    { side: 'play', direction: 'worse' },
+    { side: 'play', direction: 'flat' },
+  ])
+  check('puzzles up but games down is called out by name',
+        v.includes('not reaching the board'), v)
+
+  const allGood = readProgress([
+    { side: 'puzzles', direction: 'better' },
+    { side: 'play', direction: 'better' },
+  ])
+  check('everything improving answers yes', allGood.startsWith('Yes'), allGood)
+
+  const allBad = readProgress([
+    { side: 'puzzles', direction: 'worse' },
+    { side: 'play', direction: 'worse' },
+  ])
+  check('everything slipping does not answer yes', !allBad.startsWith('Yes'), allBad)
+
+  const nothing = readProgress([
+    { side: 'puzzles', direction: 'unknown' },
+    { side: 'play', direction: 'unknown' },
+  ])
+  check('no data does not get a verdict', nothing.includes('Not enough history'), nothing)
+}
 
 console.log(fail === 0 ? '\n✓ the activity record holds' : `\n✗ ${fail} FAILED`)
 process.exit(fail === 0 ? 0 : 1)

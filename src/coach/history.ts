@@ -221,3 +221,130 @@ export async function loadActivity(now = Date.now()): Promise<Activity> {
     now,
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Reading a trend out loud                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Sean, about this whole section: "even the trackers, it's hard to
+ * interpret."
+ *
+ * He is right, and the reason is worth naming precisely. Every chart here
+ * rendered a number and a delta — "50%" and a red "-14" — and left the
+ * reader to supply three things the screen knew and did not say: what the
+ * number was fourteen less THAN, what the fourteen is measured in, and
+ * whether down is good. Mistakes-per-game sat directly below puzzle accuracy
+ * with the same red styling for a falling line, where falling is the entire
+ * goal. A tracker that needs a legend you do not have is decoration.
+ *
+ * So the reading is done here, in words, as a pure function over the same
+ * points the line is drawn from — which also means it can be tested, and
+ * tested is the only way the sentence and the picture stay in agreement.
+ */
+
+export interface TrendRead {
+  /** Latest value with enough data behind it. */
+  now: number | null
+  /** Earliest one in the window. */
+  then: number | null
+  change: number | null
+  /** Judged against goodWhen, not against the sign. */
+  direction: 'better' | 'worse' | 'flat' | 'unknown'
+  /** A whole sentence. No legend required. */
+  sentence: string
+  /** How many of the weeks in the window had enough work to plot. */
+  covered: number
+}
+
+export interface TrendSpec {
+  /** Rendered after every number, e.g. '%'. */
+  unit?: string
+  /** Which way is progress. */
+  goodWhen: 'up' | 'down'
+  /** How small a change is not a change. In the metric's own units. */
+  noise?: number
+  /** What one point of this metric IS, for the sentence: "points", "mistakes". */
+  noun?: string
+}
+
+/** Two decimal places at most, and never 83.80000000000001. */
+export function tidy(n: number): string {
+  const r = Math.round(n * 10) / 10
+  return Number.isInteger(r) ? String(r) : r.toFixed(1)
+}
+
+export function readTrend(points: (number | null)[], spec: TrendSpec): TrendRead {
+  const { unit = '', goodWhen, noise = 0, noun = 'points' } = spec
+  const real = points.filter((p): p is number => p !== null)
+  const covered = real.length
+
+  if (covered === 0) {
+    return {
+      now: null, then: null, change: null, direction: 'unknown', covered,
+      sentence: 'Nothing here yet — this fills in once you have a week of work behind you.',
+    }
+  }
+  const now = real[real.length - 1]!
+  if (covered === 1) {
+    return {
+      now, then: null, change: null, direction: 'unknown', covered,
+      sentence: `${tidy(now)}${unit} so far. One week is a reading, not a trend — come back after another.`,
+    }
+  }
+
+  const then = real[0]!
+  const change = now - then
+  const moved = Math.abs(change) > noise
+  const direction = !moved ? 'flat' : (change > 0) === (goodWhen === 'up') ? 'better' : 'worse'
+  const word = change > 0 ? 'up' : 'down'
+
+  const sentence = !moved
+    ? `Flat: ${tidy(then)}${unit} then, ${tidy(now)}${unit} now. Holding steady.`
+    // "up 11 %" is not a thing anybody says, and "up 11%" from 62% to 73%
+    // reads as eleven percent OF sixty-two. Percentages move in points.
+    : `${tidy(then)}${unit} twelve weeks ago, ${tidy(now)}${unit} now — ` +
+      `${word} ${tidy(Math.abs(change))} ${noun}. ` +
+      (direction === 'better' ? 'That is the right direction.' : 'That is the wrong direction.')
+
+  return { now, then, change, direction, sentence, covered }
+}
+
+/**
+ * The answer to the question the heading asks.
+ *
+ * "Is it working" was a heading above three charts and nothing ever said yes
+ * or no. The one case worth calling out by name is the disagreement: puzzle
+ * accuracy climbing while the games get worse means the drilling is not
+ * reaching the board, and that is a different problem with a different fix
+ * from simply not improving.
+ */
+export function readProgress(reads: {
+  /** 'puzzles' | 'play' — which side of the app this measures. */
+  side: 'puzzles' | 'play'
+  direction: TrendRead['direction']
+}[]): string {
+  const known = reads.filter((r) => r.direction !== 'unknown')
+  if (known.length === 0) {
+    return 'Not enough history yet. Train for a fortnight and this starts answering itself.'
+  }
+  const better = known.filter((r) => r.direction === 'better')
+  const worse = known.filter((r) => r.direction === 'worse')
+
+  const puzzlesUp = better.some((r) => r.side === 'puzzles')
+  const playDown = worse.some((r) => r.side === 'play')
+  if (puzzlesUp && playDown) {
+    return 'Mixed, and in the way that matters: the puzzles are improving but the games are not. ' +
+      'The drilling is not reaching the board yet — play more and review them.'
+  }
+  if (worse.length === 0 && better.length > 0) {
+    return better.length === known.length
+      ? 'Yes. Every measure here is moving the right way.'
+      : 'Yes, on balance. Nothing is going backwards.'
+  }
+  if (better.length === 0 && worse.length > 0) {
+    return 'Not right now — everything here has slipped over the window. ' +
+      'That usually means less training rather than worse training; check the calendar above.'
+  }
+  return `Partly: ${better.length} of ${known.length} measures are improving.`
+}

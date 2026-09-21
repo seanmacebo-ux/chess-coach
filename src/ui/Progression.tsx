@@ -30,6 +30,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import { readTrend, readProgress, tidy, type TrendRead } from '../coach/history'
 import type { Activity, WeekPoint } from '../coach/history'
 
 /* ------------------------------------------------------------------ */
@@ -112,6 +113,10 @@ export interface TrendProps {
   goodWhen: 'up' | 'down'
   /** Rendered after the latest value. */
   unit?: string
+  /** The reading, in words. Computed by the caller so it can also be summed. */
+  read: TrendRead
+  /** One line saying what this measures, because "Playing strength 324" is not self-explanatory. */
+  what: string
 }
 
 /**
@@ -123,7 +128,7 @@ export interface TrendProps {
  * size.
  */
 export function Trend({
-  label, points, goodWhen, unit = '', weeks, picked, onPick,
+  label, points, goodWhen, unit = '', read, what, weeks, picked, onPick,
 }: TrendProps & {
   /** Week start dates, so a tapped point can say WHICH week it is. */
   weeks?: string[]
@@ -135,9 +140,7 @@ export function Trend({
     return (
       <div className="trend empty">
         <span className="trend-label">{label}</span>
-        <span className="small muted">
-          not enough weeks yet — needs two with real work in them
-        </span>
+        <span className="small muted">{read.sentence}</span>
       </div>
     )
   }
@@ -166,11 +169,15 @@ export function Trend({
   })
   if (run.length > 1) segments.push(run.join(' '))
 
-  const firstReal = real[0]!
   const lastReal = real[real.length - 1]!
-  const change = lastReal - firstReal
-  const better = goodWhen === 'up' ? change > 0 : change < 0
-  const tone = change === 0 ? '' : better ? 'good' : 'bad'
+  /*
+   * Tone follows the READING, not the sign of the change. A falling line is
+   * green on "mistakes per game" and red on "puzzle accuracy", and getting
+   * that backwards is most of why this section was hard to read: three charts
+   * in a column, the middle one meaning the opposite of its neighbours, and
+   * nothing on screen saying so.
+   */
+  const tone = read.direction === 'better' ? 'good' : read.direction === 'worse' ? 'bad' : ''
   const lastIndex = points.length - 1 - [...points].reverse().findIndex((p) => p !== null)
 
   return (
@@ -178,12 +185,21 @@ export function Trend({
       <div className="trend-head">
         <span className="trend-label">{label}</span>
         <span className="trend-now">
-          {lastReal}
+          {tidy(lastReal)}
           {unit}
-          <span className={`trend-delta ${tone}`}>
-            {change === 0 ? ' —' : ` ${change > 0 ? '+' : ''}${Math.round(change * 10) / 10}`}
-          </span>
+          {read.direction !== 'unknown' && read.direction !== 'flat' && (
+            <span className={`trend-delta ${tone}`}>
+              {' '}
+              {read.change !== null && read.change > 0 ? '▲' : '▼'}
+              {read.change !== null ? tidy(Math.abs(read.change)) : ''}
+              {unit}
+            </span>
+          )}
         </span>
+      </div>
+      {/* What the number is, and which way is progress. Both were assumed. */}
+      <div className="trend-what small muted">
+        {what} · {goodWhen === 'up' ? 'higher is better' : 'lower is better'}
       </div>
       {/*
         The plot is its own positioned box. The dot used to be placed against
@@ -223,11 +239,20 @@ export function Trend({
       </div>
       {picked !== null && picked !== undefined && points[picked] !== null && (
         <div className="trend-picked">
-          week of {weeks?.[picked] ?? '—'} · <strong>{points[picked]}{unit}</strong>
+          week of {weeks?.[picked] ?? '—'} · <strong>{tidy(points[picked]!)}{unit}</strong>
         </div>
       )}
-      <div className="trend-foot small muted">
-        12 weeks · {real.length} with enough data
+      {/*
+        The sentence the chart could not say for itself. "50%" and a red "-14"
+        leaves the reader to supply what the 14 is measured in, what it is 14
+        less than, and whether down is good — three things the screen already
+        knew.
+      */}
+      <div className="trend-foot small">
+        <span className={tone}>{read.sentence}</span>{' '}
+        <span className="muted">
+          {read.covered} of 12 weeks had enough work to plot.
+        </span>
       </div>
     </div>
   )
@@ -243,6 +268,26 @@ export function Progression({ activity }: { activity: Activity }) {
   const [week, setWeek] = useState<number | null>(null)
   const starts = weeks.map((w) => w.start)
   const shown = day ? activity.days.find((d) => d.date === day) : null
+
+  /*
+   * Read once, used twice: each chart's own sentence, and the verdict that
+   * sums them. Computing the verdict from the same reads the charts show is
+   * what keeps the headline from contradicting the pictures under it.
+   */
+  const accuracy = readTrend(weeks.map((w) => w.accuracy), {
+    goodWhen: 'up', unit: '%', noise: 2, noun: 'points',
+  })
+  const perf = readTrend(weeks.map((w) => w.perf), {
+    goodWhen: 'up', noise: 25, noun: 'rating points',
+  })
+  const mistakes = readTrend(weeks.map((w) => w.mistakesPerGame), {
+    goodWhen: 'down', noise: 0.3, noun: 'mistakes',
+  })
+  const verdict = readProgress([
+    { side: 'puzzles', direction: accuracy.direction },
+    { side: 'play', direction: perf.direction },
+    { side: 'play', direction: mistakes.direction },
+  ])
 
   return (
     <div className="card stack">
@@ -297,13 +342,21 @@ export function Progression({ activity }: { activity: Activity }) {
 
       <div className="prog-label">Is it working</div>
       {/*
+        The heading asks a question. For a long time nothing under it answered
+        one — three charts, three deltas, and the reader left to decide. The
+        verdict goes first now, and the charts are the evidence for it.
+      */}
+      <p className="prog-answer">{verdict}</p>
+      {/*
         Three lines rather than one score. They can move independently, and
         the case worth seeing is exactly the one a composite would hide:
         puzzle accuracy climbing while games get worse means the drills are
-        not reaching the board.
+        not reaching the board. readProgress names that case explicitly.
       */}
       <Trend
         label="Puzzle accuracy"
+        what="share of puzzles solved first try"
+        read={accuracy}
         weeks={starts}
         picked={week}
         onPick={(i) => setWeek((cur) => (cur === i ? null : i))}
@@ -313,6 +366,8 @@ export function Progression({ activity }: { activity: Activity }) {
       />
       <Trend
         label="Playing strength"
+        what="the rating your moves in real games were worth"
+        read={perf}
         weeks={starts}
         picked={week}
         onPick={(i) => setWeek((cur) => (cur === i ? null : i))}
@@ -321,6 +376,8 @@ export function Progression({ activity }: { activity: Activity }) {
       />
       <Trend
         label="Mistakes per game"
+        what="moves the coach flagged, per game played"
+        read={mistakes}
         weeks={starts}
         picked={week}
         onPick={(i) => setWeek((cur) => (cur === i ? null : i))}

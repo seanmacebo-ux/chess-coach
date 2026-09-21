@@ -16,6 +16,7 @@ import { analyseGame, acpl, performanceRating, type MoveAssessment } from '../..
 import { GameReview } from './GameReview'
 import { openingOfPgn, type OpeningName } from '../../coach/eco'
 import { ReviewProgress } from '../ReviewProgress'
+import { BOTS } from '../../engine/roster'
 import {
   balanceVerdict,
   categoryTrends,
@@ -59,11 +60,32 @@ const TREND_WORD: Record<TrendState, string> = {
 
 function when(iso: string): string {
   const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'undated'
   const days = Math.floor((Date.now() - d.getTime()) / 86_400_000)
   if (days === 0) return 'today'
   if (days === 1) return 'yesterday'
   if (days < 7) return `${days} days ago`
-  return d.toISOString().slice(0, 10)
+  /*
+   * "2026-09-13" next to "yesterday" in the same column is two date formats
+   * in one list, and the ISO one is the machine's, not a person's. Weeks are
+   * the unit the rest of this screen thinks in, so say weeks.
+   */
+  if (days < 56) return `${Math.floor(days / 7)} weeks ago`
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+/**
+ * Who you actually played.
+ *
+ * Games store an Elo and a style, not a bot id — they predate the roster and
+ * the chess.com import has neither. So the name is recovered by matching the
+ * rating, and when nothing matches (an imported game, a rating off the
+ * ladder) it says so plainly rather than printing the style field and hoping.
+ */
+function opponentName(elo: number, style: string): string {
+  const exact = BOTS.find((b) => b.elo === elo)
+  if (exact) return `${exact.face} ${exact.name} · ${elo}`
+  return `a ${style === 'human' ? '' : style + ' '}${elo} opponent`.replace('  ', ' ')
 }
 
 /**
@@ -232,13 +254,23 @@ export function History() {
     <div className="stack">
       <div className="card hero-strip">
         <div className="hgrid">
+          {/*
+            Four tiles that looked identical while one of them meant the
+            opposite. "Accuracy 101" sat beside "Rating 800" in the same
+            weight and the same colour, and on three of the four a bigger
+            number is better. The caption underneath explained it once, in
+            grey, below the fold on a phone. So each tile now carries its own
+            unit and the inverted one says so on its face.
+          */}
           <div>
             <div className="small muted">Rating</div>
             <div className="stat">{snap.rating}</div>
+            <div className="hgrid-sub">your strength</div>
           </div>
           <div>
             <div className="small muted">Games</div>
             <div className="stat">{games.length}</div>
+            <div className="hgrid-sub">played, all time</div>
           </div>
           <div>
             <div className="small muted">Puzzles</div>
@@ -248,15 +280,19 @@ export function History() {
                 /{attempts.length}
               </span>
             </div>
+            <div className="hgrid-sub">solved of tried</div>
           </div>
           <div>
-            <div className="small muted">Accuracy</div>
+            <div className="small muted">Lost/move</div>
             <div className="stat">{avgAcpl === null ? '—' : avgAcpl}</div>
+            <div className="hgrid-sub">centipawns · lower is better</div>
           </div>
         </div>
         {avgAcpl !== null && (
           <div className="small muted" style={{ marginTop: 8 }}>
-            Accuracy is centipawns lost per move — lower is better. Under 50 is strong club play.
+            A centipawn is a hundredth of a pawn. You give away about{' '}
+            <strong>{(avgAcpl / 100).toFixed(1)} pawns a move</strong> on average — under 50
+            (half a pawn) is strong club play, over 100 means whole pieces are going astray.
           </div>
         )}
       </div>
@@ -401,7 +437,13 @@ export function History() {
               <div className="row spread hist-row">
                 <span className={'pill ' + g.result}>{g.result}</span>
                 <span className="small" style={{ flex: 1 }}>
-                  vs {g.opponentStyle} {g.opponentElo} as{' '}
+                  {/*
+                    This read "vs human 911 as white". `human` is the STYLE
+                    field, printed where a name belongs — and the roster has
+                    names, which is the entire reason it exists. You remember
+                    losing to Nadia. You do not remember losing to human 911.
+                  */}
+                  vs {opponentName(g.opponentElo, g.opponentStyle)} as{' '}
                   {g.humanColour === 'w' ? 'white' : 'black'}
                   <span className="muted"> · {when(g.playedAt)}</span>
                 </span>
@@ -413,7 +455,8 @@ export function History() {
                     disabled={gr.busy !== null}
                     onClick={() => void gr.review(g)}
                   >
-                    {g.acpl === null ? 'Review' : `${g.acpl} acpl`}
+                    {/* 83.80000000000001 acpl was on screen. It is a mean. */}
+                    {g.acpl === null ? 'Review' : `${Math.round(g.acpl)} lost/move`}
                   </button>
                 )}
               </div>

@@ -212,7 +212,17 @@ export async function detectPatterns(): Promise<Pattern[]> {
   }
 
   /* --- are you improving --------------------------------------------- */
-  const analysed = games.filter((g) => g.acpl !== null).sort((a, b) => a.playedAt.localeCompare(b.playedAt))
+  /*
+   * `?? ''` is not defensive noise. A game row with no playedAt threw here,
+   * and the throw took the WHOLE History screen with it — every chart, every
+   * row, replaced by "Could not read your history. Cannot read properties of
+   * undefined". One bad row out of forty. Rows arrive from restored backups
+   * and from schema versions older than a field, so a reader that assumes
+   * every column is present is a reader that will eventually show nothing.
+   */
+  const analysed = games
+    .filter((g) => g.acpl !== null)
+    .sort((a, b) => (a.playedAt ?? '').localeCompare(b.playedAt ?? ''))
   if (analysed.length >= 8) {
     const half = Math.floor(analysed.length / 2)
     const mean = (gs: typeof analysed) =>
