@@ -205,6 +205,27 @@ export function botById(id: string): Bot | undefined {
 }
 
 /**
+ * What to call the opponent in a rating-and-style pair.
+ *
+ * Games are stored with an Elo and a style, not a bot id — the rows predate
+ * the roster and the chess.com import has neither. So the name is recovered
+ * by matching the rating, and when nothing matches it says so plainly instead
+ * of printing an internal field and hoping.
+ *
+ * It exists because two screens were printing that internal field. The
+ * post-game screen said "vs Bot 350 350" (the auto-generated opponent name,
+ * which already contains the rating, printed next to the rating) and History
+ * said "vs human 911 as white", where `human` is the STYLE. The roster exists
+ * precisely because you remember losing to Bud and do not remember losing to
+ * human 911.
+ */
+export function botLabel(elo: number, style: string): string {
+  const exact = BOTS.find((b) => b.elo === elo)
+  if (exact) return `${exact.face} ${exact.name}`
+  return `a ${style === 'human' ? '' : style + ' '}bot`.replace('  ', ' ')
+}
+
+/**
  * Who you should be playing at this rating.
  *
  * Slightly ABOVE you on purpose — the nearest bot at or above your rating,

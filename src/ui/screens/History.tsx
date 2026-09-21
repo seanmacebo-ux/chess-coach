@@ -16,7 +16,7 @@ import { analyseGame, acpl, performanceRating, type MoveAssessment } from '../..
 import { GameReview } from './GameReview'
 import { openingOfPgn, type OpeningName } from '../../coach/eco'
 import { ReviewProgress } from '../ReviewProgress'
-import { BOTS } from '../../engine/roster'
+import { botLabel } from '../../engine/roster'
 import {
   balanceVerdict,
   categoryTrends,
@@ -74,18 +74,9 @@ function when(iso: string): string {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-/**
- * Who you actually played.
- *
- * Games store an Elo and a style, not a bot id — they predate the roster and
- * the chess.com import has neither. So the name is recovered by matching the
- * rating, and when nothing matches (an imported game, a rating off the
- * ladder) it says so plainly rather than printing the style field and hoping.
- */
+/** See roster.botLabel — the same recovery, shared with the result screen. */
 function opponentName(elo: number, style: string): string {
-  const exact = BOTS.find((b) => b.elo === elo)
-  if (exact) return `${exact.face} ${exact.name} · ${elo}`
-  return `a ${style === 'human' ? '' : style + ' '}${elo} opponent`.replace('  ', ' ')
+  return `${botLabel(elo, style)} · ${elo}`
 }
 
 /**
@@ -145,7 +136,7 @@ function useGameReview() {
       const opening = await openingOfPgn(g.pgn)
       setOpen({
         moves, colour: colour === 'w' ? 'white' : 'black', acpl: avg, perf, opening,
-        opponentName: `the ${g.opponentElo} bot`,
+        opponentName: opponentName(g.opponentElo, g.opponentStyle),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

@@ -53,7 +53,7 @@ import { Captured } from './ui/Captured'
 import { openingOfPgn, type OpeningName } from './coach/eco'
 import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
-import { BOTS, suggestedBot, type Bot } from './engine/roster'
+import { BOTS, botLabel, suggestedBot, type Bot } from './engine/roster'
 import { recordFinishedGame, outcomeOf } from './coach/record'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
@@ -760,7 +760,16 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const [style, setStyle] = useState<Style>(props.initialStyle)
   const [orientation, setOrientation] = useState<'white' | 'black'>(props.initialColour)
 
-  const opponent = useMemo<Opponent>(() => createOpponent({ elo, style }), [elo, style])
+  /*
+   * Named from the roster. Without the name, EngineOpponent falls back to
+   * "Bot 350" — which the result screen then printed beside the rating as
+   * "vs Bot 350 350". The whole reason the roster has faces and names is that
+   * beating Bud is a memory and beating Bot 350 is a log line.
+   */
+  const opponent = useMemo<Opponent>(
+    () => createOpponent({ elo, style, name: botLabel(elo, style) }),
+    [elo, style],
+  )
 
   // Read once per game rather than per render — flipping the setting
   // mid-game would change the rules underneath you.
