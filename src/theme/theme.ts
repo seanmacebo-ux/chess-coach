@@ -88,6 +88,104 @@ export interface BoardTheme {
  * would silently reset the board of anyone already using it.
  */
 export const BOARD_THEMES: BoardTheme[] = [
+  /*
+   * Boards cost nothing, so there should be a lot of them.
+   *
+   * Sean: "I need better boards, or just more selection." Every one of these
+   * is two colours plus a finish recipe, generated as a CSS gradient in the
+   * browser — no image is fetched, switching is instant, and adding one is
+   * eight lines of data. There was no reason for the list to be short.
+   *
+   * The additions are deliberately spread across FAMILIES rather than piled
+   * into the greens: a warm wood, a cool flat, a dark slate, a stone and a
+   * marble each, so the range covers different rooms rather than different
+   * shades of the same one. Classic brown is the lichess default and its
+   * absence was conspicuous.
+   */
+  {
+    id: 'brown', name: 'Classic brown', finish: 'wood',
+    light: '#F0D9B5', dark: '#B58863',
+    lastMove: 'rgba(255,236,120,0.55)', selected: 'rgba(255,236,120,0.75)',
+    coordLight: '#B58863', coordDark: '#F0D9B5',
+  },
+  {
+    id: 'maple', name: 'Maple', finish: 'wood',
+    light: '#F7E2C0', dark: '#C68B59',
+    lastMove: 'rgba(255,233,127,0.55)', selected: 'rgba(255,233,127,0.75)',
+    coordLight: '#C68B59', coordDark: '#F7E2C0',
+  },
+  {
+    id: 'teak', name: 'Teak', finish: 'wood',
+    light: '#DCC4A0', dark: '#7A5230',
+    lastMove: 'rgba(250,226,120,0.5)', selected: 'rgba(250,226,120,0.72)',
+    coordLight: '#7A5230', coordDark: '#DCC4A0',
+  },
+  {
+    id: 'mint', name: 'Mint', finish: 'flat',
+    light: '#E8F1E4', dark: '#6E9E7A',
+    lastMove: 'rgba(247,236,116,0.55)', selected: 'rgba(247,236,116,0.75)',
+    coordLight: '#6E9E7A', coordDark: '#E8F1E4',
+  },
+  {
+    id: 'sky', name: 'Sky', finish: 'flat',
+    light: '#E6EEF6', dark: '#7D9EC0',
+    lastMove: 'rgba(255,236,130,0.5)', selected: 'rgba(255,236,130,0.7)',
+    coordLight: '#7D9EC0', coordDark: '#E6EEF6',
+  },
+  {
+    id: 'coral', name: 'Coral', finish: 'flat',
+    light: '#F6E7E2', dark: '#C97B6B',
+    lastMove: 'rgba(255,226,140,0.5)', selected: 'rgba(255,226,140,0.72)',
+    coordLight: '#C97B6B', coordDark: '#F6E7E2',
+  },
+  {
+    id: 'violet', name: 'Violet', finish: 'flat',
+    light: '#E9E4F2', dark: '#8A7BB0',
+    lastMove: 'rgba(255,232,140,0.5)', selected: 'rgba(255,232,140,0.72)',
+    coordLight: '#8A7BB0', coordDark: '#E9E4F2',
+  },
+  {
+    id: 'graphite', name: 'Graphite', finish: 'slate',
+    light: '#C9CBCC', dark: '#54585C',
+    lastMove: 'rgba(238,209,108,0.45)', selected: 'rgba(238,209,108,0.68)',
+    coordLight: '#54585C', coordDark: '#C9CBCC',
+  },
+  {
+    id: 'storm', name: 'Storm', finish: 'slate',
+    light: '#B8C2CC', dark: '#455767',
+    lastMove: 'rgba(240,214,120,0.45)', selected: 'rgba(240,214,120,0.68)',
+    coordLight: '#455767', coordDark: '#B8C2CC',
+  },
+  {
+    id: 'travertine', name: 'Travertine', finish: 'stone',
+    light: '#E4DCCB', dark: '#9C8F78',
+    lastMove: 'rgba(250,228,130,0.5)', selected: 'rgba(250,228,130,0.7)',
+    coordLight: '#9C8F78', coordDark: '#E4DCCB',
+  },
+  {
+    id: 'onyx', name: 'Onyx', finish: 'marble',
+    light: '#CFCFD3', dark: '#3A3A40',
+    lastMove: 'rgba(238,209,108,0.45)', selected: 'rgba(238,209,108,0.68)',
+    coordLight: '#3A3A40', coordDark: '#CFCFD3',
+  },
+  {
+    id: 'jade', name: 'Jade', finish: 'marble',
+    light: '#DCE8DF', dark: '#4F7A63',
+    lastMove: 'rgba(247,236,116,0.5)', selected: 'rgba(247,236,116,0.72)',
+    coordLight: '#4F7A63', coordDark: '#DCE8DF',
+  },
+  {
+    id: 'parchment', name: 'Parchment', finish: 'canvas',
+    light: '#EFE6D2', dark: '#A8A188',
+    lastMove: 'rgba(250,228,130,0.5)', selected: 'rgba(250,228,130,0.7)',
+    coordLight: '#A8A188', coordDark: '#EFE6D2',
+  },
+  {
+    id: 'copper', name: 'Copper', finish: 'metal',
+    light: '#D8C3B0', dark: '#8C5A3C',
+    lastMove: 'rgba(255,226,140,0.5)', selected: 'rgba(255,226,140,0.72)',
+    coordLight: '#8C5A3C', coordDark: '#D8C3B0',
+  },
   /* ---- flat ---- */
   {
     id: 'green', name: 'Tournament', finish: 'flat',
@@ -259,6 +357,66 @@ export interface PieceSet {
  */
 export const PIECE_SETS: PieceSet[] = [
   {
+    commercial: false,
+    id: 'caliente', name: 'Caliente', dir: 'caliente',
+    blurb: 'Warm, rounded and modern. Very legible small.',
+    credit: 'caliente by avi — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'fresca', name: 'Fresca', dir: 'fresca',
+    blurb: 'Crisp outlines with a flat fill. Clean on wood.',
+    credit: 'fresca by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'icpieces', name: 'IC', dir: 'icpieces',
+    blurb: 'Soft edges, gentle contrast. Restful for long games.',
+    credit: 'icpieces by sadsnake1 — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'cooke', name: 'Cooke', dir: 'cooke',
+    blurb: 'Fine-lined and elegant. A drawn set rather than a moulded one.',
+    credit: 'cooke by fejfar — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: false,
+    id: 'minimal-warmth', name: 'Warmth', dir: 'minimal-warmth',
+    blurb: 'Pared back to the silhouette, with a warm fill.',
+    credit: 'minimal-warmth by blunder_reign — CC BY-NC-SA 4.0',
+  },
+  {
+    commercial: true,
+    id: 'mpchess', name: 'MP', dir: 'mpchess',
+    blurb: 'Bold geometry. Reads from across a room.',
+    credit: 'mpchess by Maxime Chupin — GPLv3+',
+  },
+  {
+    commercial: true,
+    id: 'shapes', name: 'Shapes', dir: 'shapes',
+    blurb: 'Pure geometry — no pieces at all, just what each one does.',
+    credit: 'shapes by flugsio — CC BY-SA 4.0',
+  },
+  {
+    commercial: true,
+    id: 'letter', name: 'Letter', dir: 'letter',
+    blurb: 'The letter, nothing else. For reading positions fast.',
+    credit: 'letter by usolando — AGPLv3+',
+  },
+  {
+    commercial: true,
+    id: 'pixel', name: 'Pixel', dir: 'pixel',
+    blurb: 'Eight-bit. Small, sharp and a bit silly.',
+    credit: 'pixel by therealqtpi — AGPLv3+',
+  },
+  {
+    commercial: false,
+    id: 'xkcd', name: 'XKCD', dir: 'xkcd',
+    blurb: 'Randall Munroe\'s stick figures. Exactly as serious as it sounds.',
+    credit: 'xkcd by Randall Munroe — CC BY-NC-SA 2.5',
+  },
+  {
     commercial: true,
     id: 'cburnett', name: 'Classic', dir: 'cburnett',
     blurb: 'The Staunton shape everyone pictures. Clean at any size.',
@@ -389,32 +547,48 @@ export const PIECE_SETS: PieceSet[] = [
  * The ids here are checked against PIECE_SETS below, so a set added without a
  * group fails loudly at import rather than silently vanishing from Settings.
  */
-export type PieceStyle = 'flat' | 'classic' | 'ornate' | 'playful'
+export type PieceStyle = 'flat' | 'classic' | 'ornate' | 'playful' | 'abstract'
 
 const STYLE_ORDER: { style: PieceStyle; label: string; note: string; ids: string[] }[] = [
   {
     style: 'flat',
     label: 'Flat',
     note: 'No shading, no depth. Easiest to read at speed.',
-    ids: ['spatial', 'kiwen-suwi', 'rhosgfx', 'staunty'],
+    ids: ['spatial', 'kiwen-suwi', 'rhosgfx', 'staunty', 'minimal-warmth', 'mpchess'],
   },
   {
     style: 'classic',
     label: 'Classic',
     note: 'The Staunton shape, with weight and shadow.',
-    ids: ['cburnett', 'merida', 'chessnut', 'maestro', 'gioco', 'dubrovny', 'pirouetti'],
+    ids: [
+      'cburnett', 'merida', 'chessnut', 'maestro', 'gioco', 'dubrovny', 'pirouetti',
+      'caliente', 'fresca', 'icpieces',
+    ],
   },
   {
     style: 'ornate',
     label: 'Ornate',
     note: 'Carved and detailed. Best on stone and marble boards.',
-    ids: ['fantasy', 'celtic', 'cardinal', 'tatiana'],
+    ids: ['fantasy', 'celtic', 'cardinal', 'tatiana', 'cooke'],
   },
   {
     style: 'playful',
     label: 'Playful',
     note: 'Hand-drawn and cartoon. Still perfectly legible.',
-    ids: ['california', 'anarcandy', 'horsey'],
+    ids: ['california', 'anarcandy', 'horsey', 'xkcd'],
+  },
+  {
+    /*
+     * Not pieces so much as labels, and that is the point rather than a
+     * shortcoming. A player who reads a position by shape rather than by
+     * picture gets a lot from these — and someone still learning what the
+     * pieces DO gets more from `shapes`, where a bishop is drawn as the
+     * diagonal it moves on, than from any carved knight.
+     */
+    style: 'abstract',
+    label: 'Abstract',
+    note: 'Letters and geometry. The move, not the sculpture.',
+    ids: ['letter', 'shapes', 'pixel'],
   },
 ]
 

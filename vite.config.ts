@@ -63,7 +63,16 @@ export default defineConfig({
         // you only ever need the two or three around your rating. They're
         // cached on first use instead — see runtimeCaching below.
         globPatterns: ['**/*.{js,css,html,svg,wasm,woff2}'],
-        globIgnores: ['**/puzzles/**'],
+        /*
+         * piece/ is excluded for the same reason puzzles/ is, and it became
+         * urgent when the set count went from eighteen to twenty-eight:
+         * that is 336 SVGs, and precaching them ships every set anyone might
+         * ever choose to every user on first load, to serve the ONE they are
+         * actually using. They are runtime-cached below instead, so the set
+         * you pick is available offline and the other twenty-seven cost
+         * nothing until you try them.
+         */
+        globIgnores: ['**/puzzles/**', '**/piece/**'],
         runtimeCaching: [
           {
             urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/puzzles/'),
@@ -72,6 +81,20 @@ export default defineConfig({
               cacheName: 'puzzle-bands',
               // Puzzle files are immutable once built; a year is fine.
               expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/piece/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'piece-sets',
+              /*
+               * Twelve files per set, so this holds about eight sets' worth —
+               * the one in use plus anything recently tried, which is the
+               * real usage pattern. Piece files never change once built.
+               */
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
