@@ -334,9 +334,16 @@ body {
     var(--shadow-board);
 }
 
-/* The playing surface, recessed into the frame. */
+/* The playing surface, recessed into the frame.
+ *
+ * `> div` is scoped with :not(.board-coords) deliberately. The rule is meant
+ * for the chessground host, which is the only child it had when it was
+ * written — but the coordinate strips are now a sibling, and `overflow:
+ * hidden` was silently applying to them too. Nothing clips at today's font
+ * size; a wider label or a larger type scale would be trimmed at a rounded
+ * corner with no obvious cause. */
 .board-wrap .cg-wrap,
-.board-wrap > div {
+.board-wrap > div:not(.board-coords) {
   border-radius: 6px;
   overflow: hidden;
 }
@@ -395,8 +402,22 @@ body {
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  /* On the frame, which is --sq-dark darkened, so a light tone always reads. */
-  color: rgb(255 255 255 / 62%);
+  /*
+   * Computed per board, not chosen. The frame is derived from each board's
+   * own dark square, so it is thirty-two different backgrounds behind one row
+   * of labels — and CSS cannot ask how light a colour is, so the decision is
+   * made in theme/contrast.ts and published as a variable.
+   *
+   * What was here was `rgb(255 255 255 / 62%)` under a comment claiming "a
+   * light tone always reads". A code review computed it: 2.30:1 on Parchment,
+   * about the contrast of light grey on white. Seventeen of the thirty-two
+   * boards keep their own tint now; the pale ones get dark lettering, which is
+   * what a real board with pale trim has. verify:contrast holds all of them
+   * above 4.5:1.
+   *
+   * The fallback is for a first paint before applyTheme has run.
+   */
+  color: var(--coord-frame, #e8e4dc);
   z-index: 2;
 }
 
@@ -460,7 +481,7 @@ body {
  * sets cover it. Six of eight letters were invisible on a full back rank.
  *
  * The labels are in the FRAME now, where a real board keeps them and where
- * nothing can stand on one. See .board-coords below.
+ * nothing can stand on one. See .board-coords further down this file.
  */
 
 /* Move feedback ------------------------------------------------------- */

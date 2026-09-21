@@ -1,4 +1,5 @@
 import { readLocal, writeLocal } from '../data/local'
+import { coordColourFor } from './contrast'
 /**
  * Board and piece theming.
  *
@@ -846,6 +847,15 @@ export function applyTheme(board: BoardTheme, pieces: PieceSet, background?: Bac
   root.style.setProperty('--sq-selected', board.selected)
   root.style.setProperty('--coord-light', board.coordLight)
   root.style.setProperty('--coord-dark', board.coordDark)
+  /*
+   * The coordinates in the board FRAME get their own colour, computed rather
+   * than chosen, because the frame is a different background for every one of
+   * the thirty-two boards and CSS cannot ask how light a colour is. See
+   * theme/contrast.ts, and verify:contrast, which holds all thirty-two above
+   * 4.5:1. What shipped before this was white at 62% opacity, and it bottomed
+   * out at 2.30:1 on Parchment — roughly light grey on white.
+   */
+  root.style.setProperty('--coord-frame', coordColourFor(board))
 
   const rules: string[] = [pieceRules(pieces)]
 

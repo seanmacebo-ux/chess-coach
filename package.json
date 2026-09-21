@@ -37,6 +37,7 @@
     "verify:material": "tsx scripts/verify-material.ts",
     "verify:redo": "tsx scripts/verify-redo.ts",
     "verify:theme": "tsx scripts/verify-theme.ts",
+    "verify:contrast": "tsx scripts/verify-contrast.ts",
     "verify:style": "tsx scripts/verify-style.ts",
     "verify:game-breakdown": "tsx scripts/verify-game-breakdown.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
