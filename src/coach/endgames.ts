@@ -39,6 +39,29 @@ export interface EndgamePosition {
   moveCap: number
 }
 
+/**
+ * Does the ENGINE move first in this drill?
+ *
+ * Nine of the twenty positions start with the defender to move, and that is
+ * not sloppy data — whose turn it is IS the lesson in every one of them. You
+ * cannot express "kings two squares apart with the other side to move" with
+ * your own side on move, so opposition, the trebuchet, mutual zugzwang and
+ * both fortresses all have to be set up this way.
+ *
+ * It is a named function rather than an inline expression because the runner
+ * did not ask the question at all. It only ever replied after YOUR move, so a
+ * drill where it was not your turn never became your turn: you clicked your
+ * king, nothing lit up, forever. It hit the most instructive half of the
+ * section and nothing caught it, because verify:endgames checks that each FEN
+ * is the win or draw it claims and never touches the screen.
+ *
+ * Naming it puts the invariant somewhere a test can reach.
+ */
+export function engineMovesFirst(position: Pick<EndgamePosition, 'fen' | 'youPlay'>): boolean {
+  const sideToMove = position.fen.split(' ')[1]
+  return sideToMove !== position.youPlay
+}
+
 /*
  * On FEN correctness: every one of these is parsed by chess.js at load time in
  * the verify script, and rejected if the side to move is already checkmated,

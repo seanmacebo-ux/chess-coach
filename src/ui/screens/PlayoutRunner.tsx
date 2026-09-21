@@ -29,7 +29,7 @@ import { getEngine } from '../../engine/uci'
 import { lineScore } from '../../engine/types'
 import { recordTierAttempt } from '../../coach/profile'
 import { db } from '../../data/db'
-import type { EndgamePosition } from '../../coach/endgames'
+import { engineMovesFirst, type EndgamePosition } from '../../coach/endgames'
 
 /** Depth the defender searches at. High — this side is meant to be perfect. */
 const DEFENCE_DEPTH = 18
@@ -258,7 +258,11 @@ export function PlayoutRunner({ position, tierId = null, onDone }: PlayoutRunner
     // reply into two, and two replies means the engine plays YOUR move.
     if (openedFor.current === generation.current) return
     openedFor.current = generation.current
-    if (chess.current.turn() === you || chess.current.isGameOver()) return
+    // engineMovesFirst is the same question, asked where a test can reach it.
+    // The board is consulted too, because a restart mid-drill re-runs this
+    // effect and the position on the board is then the one that matters.
+    if (!engineMovesFirst(position) || chess.current.turn() === you) return
+    if (chess.current.isGameOver()) return
     void engineReply(0)
   }, [gen, phase, you, engineReply])
 

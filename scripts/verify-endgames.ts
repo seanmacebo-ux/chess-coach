@@ -14,7 +14,7 @@
 
 import { Chess } from 'chess.js'
 import { NodeEngine } from './lib/engine-node'
-import { ENDGAMES, type EndgamePosition } from '../src/coach/endgames'
+import { ENDGAMES, engineMovesFirst, type EndgamePosition } from '../src/coach/endgames'
 
 /** Deep enough that the theoretical results resolve; still finishes in minutes. */
 const DEPTH = 26
@@ -116,7 +116,57 @@ async function judge(engine: NodeEngine, pos: EndgamePosition): Promise<Verdict>
   return { pos, saw, detail, ok }
 }
 
+/**
+ * WHO MOVES FIRST — the check this file did not have.
+ *
+ * Everything below verifies that each FEN is the win or draw it claims. That
+ * is the teaching content and it was all correct. It is also the entire
+ * reason the section could be completely unplayable without this script
+ * noticing: nine of the twenty positions start with the DEFENDER to move, the
+ * runner only ever replied after YOUR move, and so those nine sat frozen. You
+ * clicked your king and nothing lit up. Forever.
+ *
+ * The data was never wrong. The screen could not play it. A verifier that
+ * only reads the data cannot see that, so this part states the property the
+ * screen has to satisfy and fails if the shape of the library changes under
+ * it — if the count ever drops to zero, someone has "fixed" the lesson by
+ * deleting it, because whose turn it is IS the lesson in every one of them.
+ */
+function checkWhoMovesFirst(): number {
+  const engineFirst = ENDGAMES.filter(engineMovesFirst)
+  console.log(
+    `\n  ${engineFirst.length} of ${ENDGAMES.length} positions start with the DEFENDER to move.`,
+  )
+  console.log('  The runner must open with an engine move in these, or they cannot be played:')
+  for (const p of engineFirst) console.log(`    ${p.id}`)
+
+  let bad = 0
+  for (const p of ENDGAMES) {
+    const sideToMove = p.fen.split(' ')[1]
+    if (sideToMove !== 'w' && sideToMove !== 'b') {
+      console.log(`  FAIL ${p.id}: unreadable side to move in fen`)
+      bad++
+    }
+    if (engineMovesFirst(p) !== (sideToMove !== p.youPlay)) {
+      console.log(`  FAIL ${p.id}: engineMovesFirst disagrees with the fen`)
+      bad++
+    }
+  }
+  if (engineFirst.length === 0) {
+    console.log(
+      '  FAIL no position starts with the defender to move. Opposition, the trebuchet\n' +
+        '       and the fortresses cannot be expressed any other way, so this means the\n' +
+        '       lessons have been flattened rather than the runner fixed.',
+    )
+    bad++
+  }
+  return bad
+}
+
 async function main(): Promise<void> {
+  const whoFirst = checkWhoMovesFirst()
+  if (whoFirst > 0) process.exitCode = 1
+
   const engine = new NodeEngine()
   await engine.init()
 
