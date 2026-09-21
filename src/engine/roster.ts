@@ -20,12 +20,25 @@
  * the opponent you would have got at that rating and style — the roster adds
  * character, not a second difficulty system.
  *
- * HONEST CAVEAT, and it is a big one. The bots measure at roughly half their
- * labelled ACPL and the 1000/1200 pair is non-monotonic (see FINDINGS.md), so
- * these ratings describe what each bot is AIMED at, not what it has been
- * measured at. That is fixed by replacing the policy with Maia, not by
- * renaming anything, and until then `calibrated: false` says so on the card
- * rather than letting the name imply a precision that is not there.
+ * THE CAVEAT THAT USED TO BE HERE WAS WRONG ABOUT ITS OWN CAUSE.
+ *
+ * It said the bots measured at roughly half their labelled ACPL and that the
+ * 1000/1200 pair was non-monotonic, and it blamed the policy — something only
+ * a swap to Maia would fix. The real cause was one line in the lookup:
+ * profiles were keyed by Band, every rating was snapped to the nearest of
+ * eight before the lookup, and this roster does not use those eight values.
+ * So Bud, Kit and Pip were byte-for-byte the same bot, as were Nadia and
+ * Walter, and Darius and Ren. Eleven opponents, seven strengths. Adding Bud
+ * and Kit to open the bottom of the ladder for a 316-rated player was a
+ * rename, because they snapped straight back to 800.
+ *
+ * Profiles interpolate now (see engine/policy.ts) and scripts/verify-policy.ts
+ * walks this list in order and insists every bot is a different and harder
+ * opponent than the one below it. Nothing had ever compared two bots.
+ *
+ * `calibrated` means a rating has been measured in self-play against its
+ * target with an interval attached, not merely aimed at. The four that carry
+ * it are the ones diag:bots has actually run.
  */
 
 import type { Style } from './types'
@@ -45,8 +58,8 @@ export interface Bot {
   /** Emoji stand-in for a portrait. Cheap, and works offline. */
   face: string
   /**
-   * Whether the strength has been measured rather than aimed at. All false
-   * today, deliberately — see the file header.
+   * Whether the strength has been measured in self-play against its target,
+   * with an interval, rather than merely aimed at. See the file header.
    */
   calibrated: boolean
 }
@@ -58,6 +71,11 @@ export const BOTS: Bot[] = [
    * a difficulty setting, it is a closed door — and it was the same failure as
    * the old 1400 default: one number chosen from the wrong end of the range,
    * silently making every recommendation wrong at once.
+   *
+   * For a long time they did not open it either, because both snapped to the
+   * 800 profile. They are now genuinely the weakest things in the app: Bud
+   * takes about half his moves from the one-ply policy — sees what a move
+   * wins, never sees the answer — and measures 226 acpl against Pip's 140.
    */
   {
     id: 'bud',
@@ -68,7 +86,7 @@ export const BOTS: Bot[] = [
     bio: 'Knows the rules. That is genuinely the whole list.',
     plays: 'Moves pieces to squares. Sometimes good squares, by accident.',
     weakness: 'Everything hangs, all the time. This is the opponent to practise scanning for loose pieces against, because there will always be one.',
-    calibrated: false,
+    calibrated: true,
   },
   {
     id: 'kit',
@@ -79,7 +97,7 @@ export const BOTS: Bot[] = [
     bio: 'Has noticed that pieces can be defended and is trying it out.',
     plays: 'Develops a bit, castles sometimes, grabs anything left en prise.',
     weakness: 'No plan past the opening, and misses one-move threats. Attack something twice and it usually falls.',
-    calibrated: false,
+    calibrated: true,
   },
   {
     id: 'pip',
@@ -90,7 +108,7 @@ export const BOTS: Bot[] = [
     bio: 'Just learned how the knight moves and is very pleased about it.',
     plays: 'Develops something every move, castles late, and takes whatever is offered.',
     weakness: 'Leaves pieces hanging constantly. If you scan for loose pieces every move you will win material inside fifteen moves.',
-    calibrated: false,
+    calibrated: true,
   },
   {
     id: 'nadia',
@@ -134,7 +152,7 @@ export const BOTS: Bot[] = [
     bio: 'Would rather have a good knight than your rook, and is often right.',
     plays: 'Outposts, open files, and squeezing you into a smaller and smaller space.',
     weakness: 'Slow to strike. Break in the centre early, before she has finished arranging things, and the squeeze never starts.',
-    calibrated: false,
+    calibrated: true,
   },
   {
     id: 'darius',
