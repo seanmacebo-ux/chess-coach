@@ -36,10 +36,23 @@ export interface FixMistakesProps {
 
 export function FixMistakes({ onExit }: FixMistakesProps) {
   const [puzzles, setPuzzles] = useState<Puzzle[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ solved: number; total: number } | null>(null)
 
   useEffect(() => {
-    void buildRedoSet(SET_SIZE).then(setPuzzles)
+    let cancelled = false
+    // Without the catch a rejected load left `puzzles` null forever, which on
+    // screen is an indistinguishable and permanent loading state.
+    void buildRedoSet(SET_SIZE)
+      .then((p) => {
+        if (!cancelled) setPuzzles(p)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return (
@@ -51,7 +64,15 @@ export function FixMistakes({ onExit }: FixMistakesProps) {
         <span className="small muted">Fix your own games</span>
       </div>
 
-      {puzzles === null ? (
+      {error ? (
+        <div className="feature">
+          <div className="feature-title">Could not build the drill</div>
+          <p className="feature-body">
+            {error}. This reads your reviewed games out of local storage — if that is blocked
+            or full, Settings has a backup and a reset.
+          </p>
+        </div>
+      ) : puzzles === null ? (
         <div className="card small muted">Pulling the positions from your games…</div>
       ) : puzzles.length === 0 ? (
         <div className="feature">

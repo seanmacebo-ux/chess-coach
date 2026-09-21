@@ -1014,7 +1014,11 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       setMyRating(newRating)
       // One fetch of a cached file, no engine time — so it lands well before
       // the move ratings do and the result screen can name the game early.
-      void openingOfPgn(pgn).then(setOpening)
+      // A cached fetch, so it fails only offline-before-first-load — in which
+      // case the game keeps its name blank rather than rejecting into nothing.
+      void openingOfPgn(pgn)
+        .then(setOpening)
+        .catch(() => setOpening(null))
 
       if (!assessments) {
         // The game is saved and the rating has moved — the recorder does both
