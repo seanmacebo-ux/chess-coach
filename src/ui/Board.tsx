@@ -7,7 +7,7 @@
  * board feel broken on touch.
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chessground } from 'chessground'
 import type { Api } from 'chessground/api'
 import type { Config } from 'chessground/config'
@@ -51,10 +51,21 @@ export function Board(props: BoardProps) {
     const config: Config = {
       fen: props.fen,
       orientation: props.orientation,
-      // Was hardcoded true, which made the Settings toggle a control that
-      // did nothing. Defaults to on, so coordinates are always there unless
-      // deliberately turned off.
-      coordinates: loadPrefs().showCoordinates,
+      /*
+       * chessground's own coordinates are off, always.
+       *
+       * They are drawn inside the playing surface, in the corner of the rank-1
+       * and a-file squares, on the assumption that a piece never covers that
+       * corner. These piece sets do. On a full back rank six of the eight file
+       * letters were invisible and only the empty squares showed one — the
+       * result screen after a scholar's mate showed "D" and "F" and nothing
+       * else, because d1 and f1 happened to be empty.
+       *
+       * So the labels moved to where a real board puts them: the frame. See
+       * BoardCoords below and .board-coords in the stylesheet. Nothing can
+       * stand on them there.
+       */
+      coordinates: false,
       addPieceZIndex: true,
       highlight: { lastMove: true, check: true },
       animation: { enabled: true, duration: 180 },
@@ -108,9 +119,49 @@ export function Board(props: BoardProps) {
     props.shapes,
   ])
 
+  /*
+   * Read once. It is a localStorage hit, and flipping the setting mid-game
+   * should not reshape the board under a drag — the rest of the app treats
+   * preferences the same way.
+   */
+  const [showCoords] = useState(() => loadPrefs().showCoordinates)
+
   return (
-    <div className="board-wrap">
+    <div className={'board-wrap' + (showCoords ? '' : ' bare')}>
       <div ref={el} style={{ width: '100%', height: '100%' }} />
+      {showCoords && <BoardCoords orientation={props.orientation} />}
+    </div>
+  )
+}
+
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1']
+
+/**
+ * Rank numbers down the left edge, file letters along the bottom — in the
+ * frame, not on the board.
+ *
+ * Two strips of eight, each cell exactly an eighth of the playing surface, so
+ * every label lines up with the row or column it names however wide the board
+ * is. Flipping the board reverses both, which is the whole reason this takes
+ * `orientation` rather than being static markup.
+ */
+function BoardCoords({ orientation }: { orientation: 'white' | 'black' }) {
+  const flipped = orientation === 'black'
+  const ranks = useMemo(() => (flipped ? [...RANKS].reverse() : RANKS), [flipped])
+  const files = useMemo(() => (flipped ? [...FILES].reverse() : FILES), [flipped])
+  return (
+    <div className="board-coords" aria-hidden="true">
+      <div className="board-coords-ranks">
+        {ranks.map((r) => (
+          <span key={r}>{r}</span>
+        ))}
+      </div>
+      <div className="board-coords-files">
+        {files.map((f) => (
+          <span key={f}>{f}</span>
+        ))}
+      </div>
     </div>
   )
 }

@@ -298,7 +298,18 @@ body {
      is four depth cues on one object, and four is what "too 3d" looks like.
      The frame stays because a board needs an edge; it got thinner so the edge
      is a line rather than a moulding. */
-  padding: 7px;
+  /*
+   * Two edges are wider than the other two, and the board stays square.
+   *
+   * The left and bottom carry the coordinates, so they need room a 7px frame
+   * does not have. Because the element is box-sizing:border-box with
+   * aspect-ratio 1, the playing surface is (W - left - right) wide and
+   * (W - top - bottom) tall — so as long as left+right equals top+bottom, it
+   * is still exactly square. 14+7 on one axis, 7+14 on the other.
+   */
+  --frame: 7px;
+  --gutter: 14px;
+  padding: var(--frame) var(--frame) var(--gutter) var(--gutter);
   border-radius: 14px;
   /*
    * The frame takes its colour from the board's own dark squares, darkened.
@@ -340,21 +351,79 @@ body {
 .board-wrap::after {
   content: '';
   position: absolute;
-  inset: 7px;
+  inset: var(--frame) var(--frame) var(--gutter) var(--gutter);
   border-radius: 6px;
   pointer-events: none;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 22%);
   z-index: 3;
 }
 
+/* Coordinates off: the gutter is decoration with nothing in it, so give the
+   space back to the board. */
+.board-wrap.bare {
+  --gutter: var(--frame);
+}
+
 @media (max-width: 380px) {
   /* Reclaim the frame on small phones — board size beats decoration. */
   .board-wrap {
-    padding: 5px;
+    --frame: 5px;
+    --gutter: 12px;
   }
-  .board-wrap::after {
-    inset: 5px;
-  }
+}
+
+/* ------------------------------------------------------------------ */
+/* COORDINATES, IN THE FRAME                                           */
+/*
+ * They used to be chessground's, drawn in the corner of the rank-1 and
+ * a-file SQUARES. The comment that justified that said bottom-right is "the
+ * one part of a square a piece never covers". These piece sets cover it. On a
+ * full back rank six of the eight letters were invisible, and the result
+ * screen after a scholar's mate showed a lone "D" and "F" — the two squares
+ * that happened to be empty.
+ *
+ * A real board puts them on the border, and so does this one now. Each strip
+ * is eight equal cells spanning exactly the playing surface, so every label
+ * sits on the line it names at any board size, and nothing can stand on one.
+ */
+/* ------------------------------------------------------------------ */
+
+.board-coords {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  /* On the frame, which is --sq-dark darkened, so a light tone always reads. */
+  color: rgb(255 255 255 / 62%);
+  z-index: 2;
+}
+
+.board-coords-ranks {
+  position: absolute;
+  left: 0;
+  width: var(--gutter);
+  top: var(--frame);
+  bottom: var(--gutter);
+  display: grid;
+  grid-template-rows: repeat(8, 1fr);
+}
+
+.board-coords-files {
+  position: absolute;
+  bottom: 0;
+  height: var(--gutter);
+  left: var(--gutter);
+  right: var(--frame);
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+}
+
+.board-coords span {
+  display: grid;
+  place-items: center;
+  line-height: 1;
 }
 
 /*
@@ -380,50 +449,19 @@ body {
 }
 
 /*
- * Coordinates. Deliberately NOT alternating per square: chessground doesn't
- * guarantee which DOM index lands on which shade, so nth-child colouring makes
- * half of them invisible. One light colour plus a dark shadow reads on both.
- */
-.cg-wrap coords {
-  font-size: 10px;
-  font-weight: 700;
-}
-
-/*
- * Put the file letters back on their own files.
+ * chessground's own coordinates are switched off at the config (see
+ * ui/Board.tsx), so the ~50 lines that used to live here are gone with them.
  *
- * chessground ships `coords.files { left: 24px; right: -24px }` — half a square
- * of offset, for a board drawn with a margin around it to hold the labels.
- * Ours is flush inside a frame with `overflow: hidden`, so the offset put every
- * letter on the boundary between two files ("A" between a and b) and pushed "h"
- * 21px past the right edge, where it was clipped in half. Eight labels, none of
- * them over the file it names, and one of them missing.
- */
-.cg-wrap coords.files {
-  left: 0;
-  right: 0;
-  width: 100%;
-}
-
-/*
- * And into the corner of the square, not the middle of it.
+ * They were two rounds of fixing a placement that could not be fixed. First
+ * the file letters were half a square off, because chessground offsets them
+ * for a board drawn with a margin and ours is flush. Then, centred, they hid
+ * behind the back-rank pieces — so they moved to the bottom-right corner of
+ * the square, "the one part of a square a piece never covers". These piece
+ * sets cover it. Six of eight letters were invisible on a full back rank.
  *
- * Centring them fixed the offset and immediately created the next problem: a
- * letter in the middle of a square is directly behind whatever piece is
- * standing there, so on the back rank A, D and H vanished under the rooks and
- * the queen. Bottom-right is where every real board puts them, and it is the
- * one part of a square a piece never covers.
+ * The labels are in the FRAME now, where a real board keeps them and where
+ * nothing can stand on one. See .board-coords below.
  */
-.cg-wrap coords.files coord {
-  text-align: right;
-  padding-right: 3px;
-}
-
-.cg-wrap coords coord {
-  color: #fff;
-  opacity: 0.92;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
-}
 
 /* Move feedback ------------------------------------------------------- */
 
