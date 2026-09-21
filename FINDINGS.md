@@ -5,61 +5,101 @@ are raw output, not summaries, so you can check them yourself.
 
 ---
 
-## 1. The bots aren't the strength the label says
+## 1. Three of the eleven bots were the same bot
 
-I made the bots play each other hundreds of times and measured how much they
-throw away per move. That measure is called **ACPL** — average centipawn loss.
-A centipawn is 1/100th of a pawn. Lose 100 centipawns and you effectively
-handed over a pawn.
+*(This section used to say something else. What it said is at the bottom, with
+what was wrong with it, because a findings document that quietly rewrites its
+own history is not one.)*
 
-Real humans lose roughly this much per move:
+Bots are measured by **ACPL** — average centipawn loss. A centipawn is 1/100th
+of a pawn, so losing 100 centipawns a move means handing over a pawn a move.
+Lower is stronger.
 
-| Rating | Centipawns lost per move |
-|--------|--------------------------|
-| 800    | ~150 |
-| 1200   | ~95  |
-| 1400   | ~75  |
-| 1800   | ~48  |
-
-Our bots measured about **half** of that, meaning they play noticeably
-*stronger* than their labels.
+Every bot's rating was snapped to the nearest of eight fixed "bands" before its
+settings were looked up. The roster does not use those eight values — it spaces
+eleven bots about 150 apart. So the ladder collapsed:
 
 ```
- 800   should be 150   measured  70.4
-1000   should be 120   measured  90.5
-1200   should be  95   measured  59.9
-1400   should be  75   measured  42.8
-1600   should be  60   measured  33.2
-2200   should be  30   measured  12.8
+Bud 350, Kit 550, Pip 800   ->  all band 800, byte for byte identical
+Nadia 950, Walter 1100      ->  both band 1000
+Darius 1550, Ren 1700       ->  both band 1600
 ```
 
-**Worse:** 1000 loses *more* than 1200 does. The weaker bot plays worse than the
-stronger bot's target. That ordering is impossible if the model were sound, and
-the head-to-head backs it up — 1000 vs 1200 finished dead level at 50%.
+Eleven opponents. Seven strengths. And the three at the bottom were one bot
+wearing three faces — which is why the weakest thing in the app was an 800 aimed
+at a player rated 316, and why ten attempts at scholar's mate against "Bud" all
+failed.
 
-Raw data: `calibration/report-*.json`, section `bands` and `pairings`.
+Settings now interpolate, so a 1100 bot is genuinely between the 1000 and the
+1200 and a 350 bot is a 350 bot.
 
-## 2. Chess.com has the same problem
+## 2. The ladder descends now, and here are the numbers
 
-Their bots are a very strong engine (Komodo) told to make mistakes on purpose.
-That's why their bots feel odd: three brilliant moves, then a queen hangs for no
-reason. A "1200 bot" there doesn't play like a 1200 human either.
+Self-play, referee at depth 14, with a 95% interval on every reading — because
+the interval is the whole point. Per-move loss is violently skewed and a mean
+over a few hundred moves carries enough noise to make two identical answers look
+like a trend. This project chased that three times.
 
-I built mine the same way. So mine inherited the same flaw. Copying them harder
-doesn't fix it.
+```
+         target    before           after            moves
+  350      210     226.5 +/- 17     (unchanged)       763
+  550      180     154.1 +/- 18 ->  197.1 +/- 17      711
+  800      150     139.8 +/- 13     (unchanged)       582
+ 1400       75      87.4 +/- 10 ->   72.9 +/-  6      755
+```
 
-## 3. Why it can't be tuned away
+Only the two that sat outside their intervals were changed. The other two are
+already consistent with their targets, and nudging a reading that is already
+consistent is exactly the mistake that was made three times before.
 
-A strong engine can only be wrong *randomly*. Real people are wrong
-*systematically* — they miss backward knight moves, miss long retreats, over-value
-checks, don't see quiet defensive resources. Our model only knows "how good is
-this move", so it can't reproduce any of that.
+The ladder: **226 -> 197 -> 140 -> 73**. Before the fix above, the first three
+of those were one number.
 
-Every time I tuned one rating band into place, the one next to it fell out. That's
-the signature of a model with the wrong shape, not a knob set slightly wrong.
+## 3. What a bad move looks like now
 
-**The fix is Maia** — a program trained on millions of real human games at each
-rating, so it errs where humans err. Export and verification in progress.
+A weakened engine can only be wrong at random, and that is what this one did:
+the "blunder" path played a uniformly random legal move. Nobody has ever shuffled
+a rook to h2 for no reason. It reads as a bug, not a mistake — which is most of
+what "the bots feel wrong" actually means.
+
+Human errors are not noise. They are the output of a cheaper policy: look at what
+a move wins right now, do not look at the answer. So that is what the path plays
+now. It takes the free queen, grabs the defended pawn, gives the pointless check
+— blunders that look purposeful right up until the refutation.
+
+That policy was measured on its own, and the number is useful in itself:
+
+```
+uniformly random legal move    345.8 +/- 20 acpl    something hanging 53% of the time
+one-ply greedy                 221.0 +/- 18 acpl    something hanging 32% of the time
+```
+
+So a player who looks exactly one move ahead is a 221-acpl player. The bottom of
+the ladder is now built out of that: Bud is mostly a one-ply player, Kit is part
+of one, Pip is mostly the search. That is a description of how beginners actually
+improve, and it gives the three of them different characters rather than three
+settings of one dial.
+
+**Maia is still the better answer** — a program trained on millions of real human
+games at each rating errs where humans err, which no amount of this gets you. But
+the claim that this model could not be tuned into a working ladder was wrong, and
+the ladder above is the disproof.
+
+## 3a. What this section used to say, and why it was wrong
+
+It said the bots measured at about half their labelled ACPL, that 1000 lost more
+than 1200, that "every time I tuned one band into place the one next to it fell
+out", and that this was "the signature of a model with the wrong shape" fixable
+only by replacing it with Maia.
+
+The measurements were real. The diagnosis was wrong. Non-monotonic bands and
+tuning that would not converge are also exactly what you get when several bots
+resolve to the same settings and the tuner is aiming at readings with intervals
+wider than the differences it is chasing. Both of those were true and neither was
+the model's shape.
+
+It is left here because being wrong about a cause for months is the more useful
+finding.
 
 ## 4. Bugs the testing caught
 
@@ -107,7 +147,16 @@ ladder copies.
 ## How to check any of this yourself
 
 ```bash
-npm run calibrate -- --games 4      # re-run the bot strength test
+npm run verify:policy               # is the ladder a ladder? (seconds, no engine)
+npm run diag:bots -- --bands 350,550,800,1400 --games 8
+                                    # the table in section 2, with intervals
+npm run diag:floor                  # the two policies in section 3
+npm run calibrate -- --games 4      # the slower run: ladder, head-to-heads, styles
 cat calibration/history.jsonl       # every run, so you can see drift
 npm run puzzles                     # rebuild the puzzle set from source
 ```
+
+`verify:policy` is the one worth running first. It walks the roster in order and
+insists every bot is a different and harder opponent than the one below it —
+which nothing had ever checked, and is how three bots stayed identical for
+months.

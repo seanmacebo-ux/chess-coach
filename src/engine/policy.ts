@@ -165,17 +165,28 @@ interface Anchor extends Omit<BandProfile, 'band'> {
 }
 
 /*
- * MEASURED, 6 self-play games each, referee depth 14 (npm run diag:bots).
- * The interval is what decides whether a number moves — this file's history
- * is three rounds of tuning on differences smaller than the noise.
+ * MEASURED IN SELF-PLAY (npm run diag:bots), referee depth 14. The interval
+ * is what decides whether a number moves — this file's history is three
+ * rounds of tuning on differences smaller than the noise.
  *
- *    350   226.5 +/- 17   target 210   at the edge, left alone
- *    550   154.1 +/- 18   target 180   clearly too strong -> one-ply share 0.18 to 0.29
- *    800   139.8 +/- 13   target 150   inside the interval, left alone
- *   1400    87.4 +/- 10   target  75   just outside -> temperature 157 to 138
+ *          target    before          after the change      moves
+ *    350      210    226.5 +/- 17    (unchanged)            763
+ *    550      180    154.1 +/- 18 -> 197.1 +/- 17           711
+ *    800      150    139.8 +/- 13    (unchanged)            582
+ *   1400       75     87.4 +/- 10 ->  72.9 +/-  6           755
  *
- * Only the two outside their intervals moved. The other two are readings, not
- * results, and nudging them would be the same mistake a fourth time.
+ * Only the two outside their intervals moved: 550's one-ply share 0.18 ->
+ * 0.29, and 1400's temperature 157 -> 138. Both now contain their target,
+ * and 1400 is dead on it. 350 and 800 sit at or inside their intervals and
+ * were left alone, because nudging a reading that is already consistent with
+ * its target is exactly the mistake this file has made three times.
+ *
+ * And the thing that was actually broken is now true: the ladder descends.
+ *
+ *    226 -> 197 -> 140 -> 73 acpl
+ *
+ * Before the band-snapping fix, 350, 550 and 800 were the same number,
+ * because they were the same bot.
  */
 const ANCHORS: Anchor[] = [
   { elo: 350, targetAcpl: 210, temperature: 950, blunderChance: 0.45, depth: 4, multipv: 34 },
