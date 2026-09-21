@@ -164,13 +164,26 @@ interface Anchor extends Omit<BandProfile, 'band'> {
   elo: number
 }
 
+/*
+ * MEASURED, 6 self-play games each, referee depth 14 (npm run diag:bots).
+ * The interval is what decides whether a number moves — this file's history
+ * is three rounds of tuning on differences smaller than the noise.
+ *
+ *    350   226.5 +/- 17   target 210   at the edge, left alone
+ *    550   154.1 +/- 18   target 180   clearly too strong -> one-ply share 0.18 to 0.29
+ *    800   139.8 +/- 13   target 150   inside the interval, left alone
+ *   1400    87.4 +/- 10   target  75   just outside -> temperature 157 to 138
+ *
+ * Only the two outside their intervals moved. The other two are readings, not
+ * results, and nudging them would be the same mistake a fourth time.
+ */
 const ANCHORS: Anchor[] = [
   { elo: 350, targetAcpl: 210, temperature: 950, blunderChance: 0.45, depth: 4, multipv: 34 },
-  { elo: 550, targetAcpl: 180, temperature: 560, blunderChance: 0.18, depth: 5, multipv: 31 },
+  { elo: 550, targetAcpl: 180, temperature: 560, blunderChance: 0.29, depth: 5, multipv: 31 },
   { elo: 800, targetAcpl: 150, temperature: 286, blunderChance: 0.022, depth: 6, multipv: 28 },
   { elo: 1000, targetAcpl: 120, temperature: 227, blunderChance: 0.022, depth: 7, multipv: 24 },
   { elo: 1200, targetAcpl: 95, temperature: 181, blunderChance: 0.022, depth: 8, multipv: 20 },
-  { elo: 1400, targetAcpl: 75, temperature: 157, blunderChance: 0.022, depth: 9, multipv: 16 },
+  { elo: 1400, targetAcpl: 75, temperature: 138, blunderChance: 0.022, depth: 9, multipv: 16 },
   { elo: 1600, targetAcpl: 60, temperature: 153, blunderChance: 0.019, depth: 10, multipv: 12 },
   { elo: 1800, targetAcpl: 48, temperature: 165, blunderChance: 0.012, depth: 11, multipv: 9 },
   { elo: 2000, targetAcpl: 38, temperature: 157, blunderChance: 0.007, depth: 12, multipv: 7 },

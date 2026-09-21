@@ -209,7 +209,7 @@ async function play(band: number): Promise<Sample[]> {
           hangs: hangsSomethingNew(fen, board.fen()),
         })
       }
-      process.stdout.write(`    band ${band}: game ${g + 1}/${GAMES}, ${out.length} moves   \r`)
+      process.stdout.write(`    ${band}: game ${g + 1}/${GAMES}, ${out.length} moves   \r`)
     }
   }
   return out
