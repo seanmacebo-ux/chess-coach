@@ -17,6 +17,7 @@ import {
   type Rng,
 } from './policy'
 import type { Style, UciMove } from './types'
+import { MaiaOpponent, type MaiaLevel } from './maia/maia'
 
 export interface Opponent {
   readonly id: string
@@ -101,6 +102,17 @@ export class CoachEngine {
 
 export function createOpponent(cfg: OpponentConfig): Opponent {
   return new EngineOpponent(cfg)
+}
+
+/**
+ * Build the right opponent for a chosen (elo, style, engine). 'maia' routes to
+ * the human-trained net at that level; everything else is the Stockfish policy.
+ * This is the single seam the Play screen uses so the two engines are
+ * interchangeable behind the Opponent contract.
+ */
+export function makeOpponent(cfg: { elo: number; style: Style; engine?: 'maia' }): Opponent {
+  if (cfg.engine === 'maia') return new MaiaOpponent(cfg.elo as MaiaLevel)
+  return new EngineOpponent({ elo: cfg.elo, style: cfg.style })
 }
 
 /** Two bots for a simulation run, seeded so the run is replayable. */

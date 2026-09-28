@@ -45,10 +45,17 @@ export interface Bot {
   /** Emoji stand-in for a portrait. Cheap, and works offline. */
   face: string
   /**
-   * Whether the strength has been measured rather than aimed at. All false
-   * today, deliberately — see the file header.
+   * Whether the strength has been measured rather than aimed at. False for the
+   * Stockfish-policy bots (see the file header); true for the Maia bots, whose
+   * rating is what the net was trained on.
    */
   calibrated: boolean
+  /**
+   * Which engine plays this bot. Omitted = the Stockfish policy. 'maia' = a
+   * human-trained Maia net at `elo` (a real level: 1100 / 1500 / 1900), which
+   * errs the way a human of that rating errs instead of throwing engine moves.
+   */
+  engine?: 'maia'
 }
 
 export const BOTS: Bot[] = [
@@ -182,8 +189,54 @@ export const BOTS: Bot[] = [
   },
 ]
 
+/**
+ * The Maia bots — the honest half of the roster. Each is a neural net trained
+ * on millions of real human games at that rating, so it plays the move a human
+ * of that strength actually would (and blunders where they blunder), not an
+ * engine move dialled down. Unlike the Stockfish bots above, the rating is
+ * measured, so `calibrated` is true and beating one means what it says.
+ */
+export const MAIA_BOTS: Bot[] = [
+  {
+    id: 'maia-1100',
+    name: 'Maia 1100',
+    elo: 1100,
+    style: 'human',
+    face: '🧑',
+    bio: 'Learns from beginner-club games. Plays like a real improving player.',
+    plays: 'Natural developing moves, the odd hopeful attack, human-shaped mistakes.',
+    weakness: 'Misses tactics and hangs pieces about as often as a 1100 human — because it learned from them. No engine quirk to exploit; just outplay it.',
+    calibrated: true,
+    engine: 'maia',
+  },
+  {
+    id: 'maia-1500',
+    name: 'Maia 1500',
+    elo: 1500,
+    style: 'human',
+    face: '🧑‍🎓',
+    bio: 'Trained on solid club-level play. Knows plans, still human under pressure.',
+    plays: 'Sensible openings, real middlegame ideas, the occasional club-player slip.',
+    weakness: 'Loosens under complications the way a 1500 does. Create problems and it will eventually make one back.',
+    calibrated: true,
+    engine: 'maia',
+  },
+  {
+    id: 'maia-1900',
+    name: 'Maia 1900',
+    elo: 1900,
+    style: 'human',
+    face: '🧑‍🏫',
+    bio: 'Strong club strength, learned from strong human games.',
+    plays: 'Clean, purposeful chess with genuinely human judgement.',
+    weakness: 'Few free gifts. Beating it means playing real chess — which is the point at this level.',
+    calibrated: true,
+    engine: 'maia',
+  },
+]
+
 export function botById(id: string): Bot | undefined {
-  return BOTS.find((b) => b.id === id)
+  return [...BOTS, ...MAIA_BOTS].find((b) => b.id === id)
 }
 
 /**

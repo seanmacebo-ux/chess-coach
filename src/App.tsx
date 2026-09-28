@@ -44,12 +44,12 @@ import { syncInBackground } from './data/sync'
 import { markSessionComplete } from './coach/profile'
 import type { DailySession } from './coach/session'
 import { applyUci, colourOf, statusOf, toDests } from './chess/game'
-import { createOpponent, type Opponent } from './engine/opponent'
+import { makeOpponent, type Opponent } from './engine/opponent'
 import { STYLES, type Style } from './engine/types'
 import { acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
 import { Climb } from './ui/screens/Climb'
-import { BOTS, suggestedBot, type Bot } from './engine/roster'
+import { BOTS, MAIA_BOTS, suggestedBot, type Bot } from './engine/roster'
 import { recordFinishedGame, outcomeOf } from './coach/record'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
@@ -593,9 +593,13 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
   const [elo, setElo] = useState(props.initialElo)
   const [style, setStyle] = useState<Style>(props.initialStyle)
+  // 'maia' when a Maia bot is picked; undefined = the Stockfish policy. The
+  // slider and style chips clear it, since Maia only comes at discrete levels
+  // and has no style knob.
+  const [engine, setEngine] = useState<'maia' | undefined>(undefined)
   const [orientation, setOrientation] = useState<'white' | 'black'>(props.initialColour)
 
-  const opponent = useMemo<Opponent>(() => createOpponent({ elo, style }), [elo, style])
+  const opponent = useMemo<Opponent>(() => makeOpponent({ elo, style, engine }), [elo, style, engine])
 
   // Read once per game rather than per render — flipping the setting
   // mid-game would change the rules underneath you.
@@ -969,9 +973,11 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         rating={myRating ?? 800}
         elo={elo}
         style={style}
+        engine={engine}
         onPick={(b) => {
           setElo(b.elo)
           setStyle(b.style)
+          setEngine(b.engine)
         }}
       />
 
@@ -984,7 +990,10 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
             max={2200}
             step={100}
             value={elo}
-            onChange={(e) => setElo(Number(e.target.value))}
+            onChange={(e) => {
+              setElo(Number(e.target.value))
+              setEngine(undefined) // slider = Stockfish policy
+            }}
           />
         </label>
         <div>
@@ -998,7 +1007,10 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
                 className="chip"
                 aria-pressed={style === s.id}
                 title={s.blurb}
-                onClick={() => setStyle(s.id)}
+                onClick={() => {
+                  setStyle(s.id)
+                  setEngine(undefined) // style chips = Stockfish policy
+                }}
               >
                 {s.name}
               </button>
@@ -1041,15 +1053,37 @@ function BotRoster({
   rating,
   elo,
   style,
+  engine,
   onPick,
 }: {
   rating: number
   elo: number
   style: Style
+  engine?: 'maia'
   onPick: (b: Bot) => void
 }) {
   const suggested = suggestedBot(rating)
   const [openId, setOpenId] = useState<string | null>(null)
+  const isActive = (b: Bot) => b.elo === elo && b.style === style && (b.engine ?? undefined) === engine
+  const renderBot = (b: Bot) => (
+    <button
+      key={b.id}
+      className={'bot' + (isActive(b) ? ' on' : '') + (b.id === suggested.id ? ' next' : '')}
+      onClick={() => {
+        onPick(b)
+        setOpenId(openId === b.id ? null : b.id)
+      }}
+    >
+      <span className="bot-face" aria-hidden="true">
+        {b.face}
+      </span>
+      <span className="bot-id">
+        <span className="bot-name">{b.name}</span>
+        <span className="bot-elo">{b.elo}</span>
+      </span>
+      {b.id === suggested.id && <span className="bot-tag">next up</span>}
+    </button>
+  )
 
   return (
     <div className="card stack">
@@ -1058,33 +1092,15 @@ function BotRoster({
         <span className="small muted">{BOTS.length} bots</span>
       </div>
 
-      <div className="bot-grid">
-        {BOTS.map((b) => {
-          const active = b.elo === elo && b.style === style
-          const isNext = b.id === suggested.id
-          return (
-            <button
-              key={b.id}
-              className={'bot' + (active ? ' on' : '') + (isNext ? ' next' : '')}
-              onClick={() => {
-                onPick(b)
-                setOpenId(openId === b.id ? null : b.id)
-              }}
-            >
-              <span className="bot-face" aria-hidden="true">
-                {b.face}
-              </span>
-              <span className="bot-id">
-                <span className="bot-name">{b.name}</span>
-                <span className="bot-elo">{b.elo}</span>
-              </span>
-              {isNext && <span className="bot-tag">next up</span>}
-            </button>
-          )
-        })}
-      </div>
+      <div className="bot-grid">{BOTS.map(renderBot)}</div>
 
-      {openId && <BotCard bot={BOTS.find((b) => b.id === openId)!} />}
+      <div className="row spread" style={{ marginTop: 4 }}>
+        <span className="small muted">Real humans — trained on human games</span>
+        <span className="small muted">honest rating</span>
+      </div>
+      <div className="bot-grid">{MAIA_BOTS.map(renderBot)}</div>
+
+      {openId && <BotCard bot={[...BOTS, ...MAIA_BOTS].find((b) => b.id === openId)!} />}
     </div>
   )
 }

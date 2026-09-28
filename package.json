@@ -20,6 +20,7 @@
     "verify:middlegame": "tsx scripts/verify-middlegame.ts",
     "check:record": "node scripts/check-record.mjs",
     "verify:rating": "tsx scripts/verify-rating.ts",
+    "verify:maia": "tsx scripts/verify-maia.ts",
     "sandbox:puzzles": "tsx scripts/sandbox-puzzles.ts",
     "sandbox:drills": "tsx scripts/sandbox-drills.ts",
     "sandbox:tiers": "tsx scripts/sandbox-tiers.ts"
