@@ -72,7 +72,21 @@ export default defineConfig({
               cacheName: 'puzzle-bands',
               // Puzzle files are immutable once built; a year is fine.
               expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
+              // Same-origin only, so drop status 0 (opaque) — caching a failed
+              // opaque response first would pin a broken band for a year.
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // Maia weights (.pb.gz) aren't matched by the precache glob and are
+            // needed for the human bots to work offline. Cache on first use.
+            urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/maia/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'maia-weights',
+              // Immutable trained nets; a year, and 6 covers every level.
+              expiration: { maxEntries: 6, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [200] },
             },
           },
         ],

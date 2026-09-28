@@ -250,8 +250,14 @@ export async function analyseGame(
   const depth = opts.depth ?? 14
 
   const replay = new Chess()
-  if (typeof pgnOrMoves === 'string') replay.loadPgn(pgnOrMoves)
-  else for (const m of pgnOrMoves) replay.move(m)
+  // chess.js throws on malformed PGN / illegal moves. A bad imported game
+  // should surface a clean error the caller can skip on, not crash the review.
+  try {
+    if (typeof pgnOrMoves === 'string') replay.loadPgn(pgnOrMoves)
+    else for (const m of pgnOrMoves) replay.move(m)
+  } catch {
+    throw new Error('Could not read this game — the moves are malformed or illegal.')
+  }
 
   const history = replay.history({ verbose: true })
   const board = new Chess()

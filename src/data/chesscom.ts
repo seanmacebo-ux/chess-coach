@@ -72,12 +72,22 @@ const KEY_OF: Record<TimeClass, keyof StatsResponse> = {
 /** Below this many games a rating is still settling and is not worth importing. */
 const MIN_GAMES = 5
 
-export async function fetchChessComProfile(username: string): Promise<ChessComImport> {
+/**
+ * Normalise and validate a chess.com username, or throw a friendly error.
+ * Shared by every fetch so validation can't drift between call sites — the
+ * regex is defence-in-depth on top of encodeURIComponent at the fetch.
+ */
+function normaliseUsername(username: string): string {
   const user = username.trim().toLowerCase().replace(/^@/, '')
   if (!user) throw new Error('Enter a chess.com username.')
   if (!/^[a-z0-9_-]{3,25}$/.test(user)) {
     throw new Error('That does not look like a chess.com username.')
   }
+  return user
+}
+
+export async function fetchChessComProfile(username: string): Promise<ChessComImport> {
+  const user = normaliseUsername(username)
 
   const res = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(user)}/stats`, {
     headers: { Accept: 'application/json' },
@@ -295,8 +305,7 @@ export async function fetchRecentGames(
   opts: GameFetchOptions = {},
 ): Promise<ChessComGame[]> {
   const { max = 20, ratedOnly = true } = opts
-  const user = username.trim().toLowerCase().replace(/^@/, '')
-  if (!user) throw new Error('Enter a chess.com username.')
+  const user = normaliseUsername(username)
 
   const archiveRes = await fetch(
     `https://api.chess.com/pub/player/${encodeURIComponent(user)}/games/archives`,

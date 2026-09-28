@@ -5,6 +5,12 @@ public/sf/
 .DS_Store
 *.log
 
+# Never commit secrets. This repo is PUBLIC — a committed .env is a published
+# secret. .env.example (no real values) is the one that stays tracked.
+.env
+.env.*
+!.env.example
+
 # calibration/ IS committed on purpose — the reports are the evidence behind
 # every claim about how strong the bots actually are. Sean should be able to
 # open them without running anything.

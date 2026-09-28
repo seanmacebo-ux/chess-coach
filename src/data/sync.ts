@@ -172,8 +172,12 @@ async function pullTables(): Promise<number> {
   // Matched on the natural identity of the row, not local_id — that's
   // device-specific and would collide across machines.
   if (remoteGames.data?.length) {
-    const seen = new Set((await db.games.toArray()).map((g) => `${g.playedAt}|${g.pgn.length}`))
-    const fresh = remoteGames.data.filter((r) => !seen.has(`${r.played_at}|${r.pgn.length}`))
+    // Dedup on the FULL pgn, not its length: two distinct games can share a
+    // pgn length + timestamp (bullet games ending the same second), and the old
+    // key silently dropped one as a "duplicate". local_id can't help here — it's
+    // a per-device autoincrement, so it collides across machines.
+    const seen = new Set((await db.games.toArray()).map((g) => `${g.playedAt}|${g.pgn}`))
+    const fresh = remoteGames.data.filter((r) => !seen.has(`${r.played_at}|${r.pgn}`))
     if (fresh.length) {
       await db.games.bulkAdd(
         fresh.map((r) => ({
@@ -194,8 +198,8 @@ async function pullTables(): Promise<number> {
   }
 
   if (remoteMistakes.data?.length) {
-    const seen = new Set((await db.mistakes.toArray()).map((m) => `${m.at}|${m.fen}|${m.ply}`))
-    const fresh = remoteMistakes.data.filter((r) => !seen.has(`${r.at}|${r.fen}|${r.ply}`))
+    const seen = new Set((await db.mistakes.toArray()).map((m) => `${m.at}|${m.fen}|${m.ply}|${m.san}`))
+    const fresh = remoteMistakes.data.filter((r) => !seen.has(`${r.at}|${r.fen}|${r.ply}|${r.san}`))
     if (fresh.length) {
       await db.mistakes.bulkAdd(
         fresh.map((r) => ({
@@ -217,8 +221,8 @@ async function pullTables(): Promise<number> {
   }
 
   if (remoteAttempts.data?.length) {
-    const seen = new Set((await db.puzzleAttempts.toArray()).map((a) => `${a.puzzleId}|${a.at}`))
-    const fresh = remoteAttempts.data.filter((r) => !seen.has(`${r.puzzle_id}|${r.at}`))
+    const seen = new Set((await db.puzzleAttempts.toArray()).map((a) => `${a.puzzleId}|${a.at}|${a.ms}`))
+    const fresh = remoteAttempts.data.filter((r) => !seen.has(`${r.puzzle_id}|${r.at}|${r.ms}`))
     if (fresh.length) {
       await db.puzzleAttempts.bulkAdd(
         fresh.map((r) => ({
@@ -315,7 +319,22 @@ export function syncNow(): Promise<SyncResult> {
   return inFlight
 }
 
+/**
+ * The last background sync failure, or null if the last one succeeded / was
+ * skipped. Read by the settings/status UI so a silent background failure (auth
+ * expired, RLS rejection, offline) still leaves a signal — otherwise a user can
+ * accumulate local-only history believing it's mirrored and lose it on a cache
+ * clear, the exact thing sync exists to prevent.
+ */
+let lastBackgroundError: string | null = null
+export function getLastSyncError(): string | null {
+  return lastBackgroundError
+}
+
 /** Fire-and-forget, for call sites that shouldn't wait (end of a game). */
 export function syncInBackground(): void {
-  void syncNow()
+  void syncNow().then((r) => {
+    lastBackgroundError = r.ok || r.skipped ? null : (r.error ?? 'sync failed')
+    if (lastBackgroundError) console.warn('[sync] background sync failed:', lastBackgroundError)
+  })
 }
