@@ -60,6 +60,58 @@ export interface Puzzle {
   setup?: string
   /** Where this came from, when it is worth saying. Own-game positions. */
   from?: string
+  /**
+   * Pieces on the board in the position you are shown.
+   *
+   * Free — hydrate() already builds the board to apply the setup move — and
+   * it is the single best predictor of whether a beginner can read a puzzle
+   * at all. See `readability`.
+   */
+  pieces: number
+}
+
+/**
+ * HOW HARD A PUZZLE IS TO READ, which is not the same as how hard it is.
+ *
+ * Sean, rated around 350: "the puzzles don't seem to make sense." Measured,
+ * the easiest band in the corpus — the floor, 600, already 250 points above
+ * him — has a MEDIAN of 17 pieces on the board and 29 legal moves, and 59% of
+ * its puzzles need more than one move from you. That is not a puzzle at his
+ * level, it is a position from somebody else's middlegame with a tactic
+ * buried in it. The rating says "easy" because a 600-rated player finds it
+ * easy; it says nothing about whether a beginner can even parse the board.
+ *
+ * And the simple ones are right there. Band 600 alone holds 291 one-move
+ * puzzles with fourteen pieces or fewer, including four-piece mates. They
+ * were never preferred, so they were served at the same rate as everything
+ * else — about one in eleven.
+ *
+ * Lower is clearer. Two terms, both deliberately crude.
+ *
+ * Pieces, because that is what you have to read before you can begin. And
+ * solution length, weighted HARD — sixteen points per extra move, eight
+ * pieces' worth — because the gap between one move and two is not one more
+ * move. It is having to predict the reply as well, which is a different skill
+ * and not the one a mate-in-one is teaching. At ten points the corpus average
+ * barely shifted: 1.65 moves against its own 1.70.
+ */
+export function readability(p: Pick<Puzzle, 'pieces' | 'solution'>): number {
+  return p.pieces * 2 + (p.solution.length - 1) * 16
+}
+
+/**
+ * The readability a player at this rating should be served, if it is going.
+ *
+ * Fades out: below the corpus floor nothing in the set was built for you, so
+ * clarity is most of what can be offered. By the time you are comfortably
+ * inside the corpus the position's complexity IS part of the exercise and
+ * filtering it away would hold you back.
+ */
+export function clarityBudget(rating: number): number | null {
+  if (rating >= 1000) return null
+  if (rating < 700) return 30
+  if (rating < 850) return 40
+  return 50
 }
 
 const BAND_SIZE = 200
@@ -98,7 +150,21 @@ export function hydrate(raw: RawPuzzle): Puzzle | null {
     opening: raw.o,
     colour: board.turn() === 'w' ? 'white' : 'black',
     setup,
+    pieces: board.board().reduce((n, row) => n + row.filter(Boolean).length, 0),
   }
+}
+
+/**
+ * Resolved lazily, for the same reason engine/uci.ts resolves its worker URL
+ * lazily: `import.meta.env` does not exist until Vite has processed the
+ * module, so reading it anywhere a Node script can reach makes the whole file
+ * unimportable outside the browser bundle. uci.ts already lost `loosePieces`
+ * to this — "one constant made an entire layer untestable" — and it had just
+ * cost pickPuzzles the same way, which is the function the clarity budget
+ * most needs a test around.
+ */
+function baseUrl(): string {
+  return import.meta.env?.BASE_URL ?? '/'
 }
 
 export async function loadBand(rating: number): Promise<Puzzle[]> {
@@ -110,7 +176,7 @@ export async function loadBand(rating: number): Promise<Puzzle[]> {
   if (pending) return pending
 
   const p = (async () => {
-    const url = `${import.meta.env.BASE_URL}puzzles/band-${band}.json`
+    const url = `${baseUrl()}puzzles/band-${band}.json`
     const res = await fetch(url)
     if (!res.ok) throw new Error(`puzzle band ${band} failed: ${res.status}`)
     const raw = (await res.json()) as RawPuzzle[]
@@ -139,6 +205,17 @@ export interface Briefing {
   legalMoves: number
   /** The named ideas involved. */
   ideas: string[]
+  /**
+   * Are you in check in the position you are shown?
+   *
+   * It was never said, and on a crowded board a beginner can miss it
+   * entirely — which turns the puzzle into a riddle, because every move they
+   * consider is illegal and nothing on screen explains why the board keeps
+   * refusing them. Measured across the corpus: 4.2% of the easiest band opens
+   * in check, 4.0% at 800, 2.9% at 1400. Small, and the ones it rescues are
+   * the most confusing puzzles in the set.
+   */
+  inCheck: boolean
 }
 
 /**
@@ -205,7 +282,7 @@ export function briefing(puzzle: Puzzle): Briefing {
 
   const ideas = puzzle.themes.filter((t) => !t.startsWith('mateIn'))
 
-  return { objective, yourMoves, legalMoves, ideas }
+  return { objective, yourMoves, legalMoves, ideas, inCheck: new Chess(puzzle.fen).isCheck() }
 }
 
 export interface PickOptions {
@@ -254,17 +331,39 @@ export async function pickPuzzles(opts: PickOptions): Promise<Puzzle[]> {
         ? [...unseen].sort((a, b) => a.rating - b.rating)
         : unseen
 
+  /*
+   * CLARITY FIRST, AT THE BOTTOM.
+   *
+   * Same degradation rule as themes below: prefer, never require. A beginner
+   * handed a seventeen-piece middlegame cannot start, but handing them
+   * nothing is worse, so the budget reorders the pool rather than cutting it.
+   * Above 1000 it returns null and this is a no-op — by then the clutter is
+   * part of the exercise.
+   */
+  const budget = clarityBudget(rating)
+  const graded =
+    budget === null
+      ? pool
+      : [...pool].sort((a, b) => {
+          const ra = readability(a)
+          const rb = readability(b)
+          const aIn = ra <= budget
+          const bIn = rb <= budget
+          if (aIn !== bIn) return aIn ? -1 : 1
+          return 0
+        })
+
   const wantedSet = new Set<string>()
   const wanted: Puzzle[] = []
   if (themes.length > 0) {
-    for (const p of pool) {
+    for (const p of graded) {
       if (p.themes.some((t) => themes.includes(t))) {
         wanted.push(p)
         wantedSet.add(p.id)
       }
     }
   }
-  const rest = pool.filter((p) => !wantedSet.has(p.id))
+  const rest = graded.filter((p) => !wantedSet.has(p.id))
 
   const shuffle = (xs: Puzzle[]) => {
     const a = [...xs]
@@ -277,5 +376,20 @@ export async function pickPuzzles(opts: PickOptions): Promise<Puzzle[]> {
     return a
   }
 
-  return [...shuffle(wanted), ...shuffle(rest)].slice(0, count)
+  /*
+   * Shuffle WITHIN the clarity tiers, not across them.
+   *
+   * A plain shuffle would undo the sort above and hand the budget back its
+   * own randomness. Splitting first keeps two puzzles at the same tier
+   * genuinely random — nobody should get the same five every morning — while
+   * a readable one still outranks an unreadable one.
+   */
+  const tier = (xs: Puzzle[]) => {
+    if (budget === null) return shuffle(xs)
+    const clear = xs.filter((p) => readability(p) <= budget)
+    const cluttered = xs.filter((p) => readability(p) > budget)
+    return [...shuffle(clear), ...shuffle(cluttered)]
+  }
+
+  return [...tier(wanted), ...tier(rest)].slice(0, count)
 }

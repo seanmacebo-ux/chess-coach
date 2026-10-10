@@ -543,7 +543,16 @@ export function PuzzleRunner({
           <div>
             <strong>{brief.objective}.</strong>{' '}
             <span className="muted">
-              {puzzle.colour === 'white' ? 'White' : 'Black'} to play
+              {/*
+                Say it when it is true. The board shows check with a red
+                square, which is easy to miss on a crowded position, and a
+                player who has not noticed finds every move they try refused
+                with no explanation — the puzzle becomes a riddle about the
+                interface rather than about chess.
+              */}
+              {brief.inCheck
+                ? `${puzzle.colour === 'white' ? 'White' : 'Black'} is in check`
+                : `${puzzle.colour === 'white' ? 'White' : 'Black'} to play`}
               {/* Mate objectives already carry their move count; repeating it
                   produced "Checkmate in one move ... one move". Only the
                   non-mate lines need the length stated. */}

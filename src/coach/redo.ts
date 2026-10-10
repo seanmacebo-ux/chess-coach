@@ -114,6 +114,9 @@ export function redoFrom(rows: MistakeRow[], games: Map<number, GameRow>, limit:
     out.push({
       id: `redo-${r.id ?? out.length}`,
       fen: r.fen,
+      // Counted from the position, same as a corpus puzzle, so the clarity
+      // preference can read these too rather than treating them as unknown.
+      pieces: new Chess(r.fen).board().reduce((n, row) => n + row.filter(Boolean).length, 0),
       solution: [uci],
       line: [uci],
       // 0 = unrated: this is your game, not a calibrated puzzle, and the
