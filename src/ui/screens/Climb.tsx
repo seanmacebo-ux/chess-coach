@@ -43,10 +43,21 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { pickPuzzles, type Puzzle } from '../../data/puzzles'
-import { db, getProfile } from '../../data/db'
-import { getSectionRatings } from '../../coach/rating'
+import { db } from '../../data/db'
+import { puzzleRating } from '../../coach/rating'
 import { PuzzleRunner } from './PuzzleRunner'
 import { readLocal, writeLocal } from '../../data/local'
+
+/*
+ * A BEST YOU WERE HANDED IS NOT A BEST.
+ *
+ * A run used to begin with `best: start`, so the number on the card was your
+ * starting difficulty before you had solved anything — 800 on a fresh
+ * profile, sitting there as "best", and three misses later the run ends
+ * having never beaten a figure it was given for free. A personal best has to
+ * be reached. It starts at zero and only a SOLVED puzzle raises it, which is
+ * already what the solve path does.
+ */
 
 /** How far the next puzzle moves after a solve. */
 const STEP_UP = 40
@@ -57,12 +68,52 @@ const MAX_MISSES = 3
 /** The corpus starts here; asking below it just returns the same easiest rows. */
 const CORPUS_FLOOR = 600
 
-interface RunState {
+export interface RunState {
+  /** The difficulty the NEXT puzzle is drawn at. */
   difficulty: number
+  /** The hardest puzzle actually SOLVED in this run. 0 until one is. */
   best: number
   solved: number
   missed: number
   streak: number
+}
+
+/** A fresh run beginning at `start`. */
+export function newRun(start: number): RunState {
+  return { difficulty: start, best: 0, solved: 0, missed: 0, streak: 0 }
+}
+
+/**
+ * One puzzle's effect on the run.
+ *
+ * Pulled out of the component because it had two bugs that a single test
+ * would have caught, and no test could reach it inside a hook.
+ *
+ *   `best` was seeded with the STARTING difficulty, so the number on the card
+ *   was something you were handed rather than something you reached — 800 on
+ *   a fresh profile, before a single puzzle.
+ *
+ *   And it was then updated with the NEXT difficulty rather than the one you
+ *   had just beaten, so every solve credited you with a level 40 points above
+ *   anything you had actually done.
+ *
+ * Both ways the number was flattering, which is the worst direction for the
+ * one figure the whole mode exists to produce.
+ */
+export function advance(run: RunState, correct: boolean): RunState {
+  return {
+    difficulty: Math.max(100, run.difficulty + (correct ? STEP_UP : -STEP_DOWN)),
+    // The difficulty you just SOLVED AT, not the one you are moving to.
+    best: correct ? Math.max(run.best, run.difficulty) : run.best,
+    solved: run.solved + (correct ? 1 : 0),
+    missed: run.missed + (correct ? 0 : 1),
+    streak: correct ? run.streak + 1 : 0,
+  }
+}
+
+/** Has this run ended? */
+export function runOver(run: RunState): boolean {
+  return run.missed >= MAX_MISSES
 }
 
 /** What outlives the component: the live run, the all-time best, and where
@@ -114,15 +165,20 @@ export function Climb({ onExit }: ClimbProps) {
   const [newBest, setNewBest] = useState(false)
   const seen = useRef<Set<string>>(new Set())
 
-  /** Start from the tactics rating rather than the overall one — this is a
-   *  tactics exercise and the overall number is dragged around by bot games. */
+  /*
+   * Start from the tactics rating rather than the overall one — this is a
+   * tactics exercise and the overall number is dragged around by bot games.
+   *
+   * That was always the intent and it never once happened. The fallback fires
+   * while tactics is provisional, and nothing wrote the tactics rating, so it
+   * was provisional forever and the fallback was the only path this function
+   * had. PuzzleRunner records it now. Same decision, in one place, shared with
+   * every other screen that serves a puzzle.
+   */
   const startingPoint = useCallback(async () => {
-    const [profile, sections] = await Promise.all([getProfile(), getSectionRatings()])
-    const tactics = sections.tactics
-    const base = tactics && !tactics.provisional ? tactics.rating : profile.rating
-    const attempts = await db.puzzleAttempts.toArray()
+    const [base, attempts] = await Promise.all([puzzleRating(), db.puzzleAttempts.toArray()])
     seen.current = new Set(attempts.map((a) => a.puzzleId))
-    return Math.round(base)
+    return base
   }, [])
 
   const serve = useCallback(async (difficulty: number) => {
@@ -159,7 +215,7 @@ export function Climb({ onExit }: ClimbProps) {
         return
       }
       const start = store.last ?? ratingBase
-      setRun({ difficulty: start, best: start, solved: 0, missed: 0, streak: 0 })
+      setRun(newRun(start))
       await serve(start)
     })()
     return () => {
@@ -189,23 +245,13 @@ export function Climb({ onExit }: ClimbProps) {
   const onSolved = useCallback(
     async (correct: boolean) => {
       if (!run) return
-      const difficulty = Math.max(
-        100,
-        run.difficulty + (correct ? STEP_UP : -STEP_DOWN),
-      )
-      const next: RunState = {
-        difficulty,
-        best: correct ? Math.max(run.best, difficulty) : run.best,
-        solved: run.solved + (correct ? 1 : 0),
-        missed: run.missed + (correct ? 0 : 1),
-        streak: correct ? run.streak + 1 : 0,
-      }
+      const next = advance(run, correct)
       setRun(next)
-      if (next.missed >= MAX_MISSES) {
+      if (runOver(next)) {
         endRun(next)
         return
       }
-      await serve(difficulty)
+      await serve(next.difficulty)
     },
     [run, serve, endRun],
   )
@@ -217,7 +263,7 @@ export function Climb({ onExit }: ClimbProps) {
     // climb begins where the last one ended, not back at the rating.
     const store = loadStore()
     const start = store.last ?? (await startingPoint())
-    setRun({ difficulty: start, best: start, solved: 0, missed: 0, streak: 0 })
+    setRun(newRun(start))
     await serve(start)
   }, [startingPoint, serve])
 

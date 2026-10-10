@@ -40,6 +40,7 @@ import { toDests } from '../../chess/game'
 import { briefing, type Puzzle } from '../../data/puzzles'
 import { db } from '../../data/db'
 import { recordTierAttempt } from '../../coach/profile'
+import { recordSectionResult } from '../../coach/rating'
 import { explainWrongMove, tagForThemes } from '../../coach/analysis'
 import { adjudicate, type Verdict } from '../../coach/adjudicate'
 import { categoryOf } from '../../coach/categories'
@@ -219,6 +220,34 @@ export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }
           at,
         })
       }
+
+      /*
+       * THE RATING THIS APP SHOWS YOU FOR TACTICS WAS NEVER WRITTEN.
+       *
+       * recordSectionResult('tactics', ...) had exactly one caller — the
+       * candidate-move drill — so solving or failing a puzzle moved nothing.
+       * Three things depended on it and all three were quietly broken:
+       *
+       *   Learn says "none of the five are trained yet, so all five are still
+       *   the starting guess. Solve anything and they start moving." You could
+       *   solve five hundred puzzles and the tactics number would not move.
+       *
+       *   The Climb opens with "start from the tactics rating rather than the
+       *   overall one — this is a tactics exercise and the overall number is
+       *   dragged around by bot games", and then falls back to the overall
+       *   number whenever tactics is provisional. `played` never left zero, so
+       *   it was provisional forever and the fallback was the only path. The
+       *   code wanted the right thing and could never reach it.
+       *
+       *   Which means puzzle difficulty tracked the rating you get from
+       *   BEATING BOTS. Make the bots weaker — as the last round of work did —
+       *   and your game rating climbs, and the puzzles get harder, and nothing
+       *   anywhere asks whether you are actually solving them. Sean: "the
+       *   puzzles are seemingly worse."
+       *
+       * A reveal counts as a miss, because it is one.
+       */
+      await recordSectionResult('tactics', correct, puzzle.rating)
 
       if (tierId) await recordTierAttempt(tierId, correct)
     },

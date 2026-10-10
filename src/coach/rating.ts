@@ -358,3 +358,30 @@ export function overallVerdict(ratings: Record<SectionId, SectionRating>): strin
     worst.section
   ].toLowerCase()} your weakest at ${worst.rating} — a ${gap}-point gap. That gap is where the cheapest rating points are.`
 }
+
+/**
+ * The number that should choose your puzzles.
+ *
+ * Not `profile.rating`. That one moves when you beat a bot, and it was the
+ * only input to puzzle difficulty for the whole life of this app — so making
+ * the bots weaker, which the previous round of work did on purpose, pushed
+ * the game rating up and made the PUZZLES harder. Nothing in that loop ever
+ * asked whether you were solving them. Sean, immediately: "the puzzles are
+ * seemingly worse."
+ *
+ * The tactics section rating is the right input and always was. The Climb
+ * already said so in a comment — "start from the tactics rating rather than
+ * the overall one, this is a tactics exercise and the overall number is
+ * dragged around by bot games" — and then could never use it, because the
+ * rating stayed provisional forever: nothing wrote it. PuzzleRunner records
+ * it now, so this is reachable.
+ *
+ * It still falls back while the section is genuinely provisional, which is
+ * the honest thing to do with four attempts behind it. The difference is that
+ * the fallback now ends.
+ */
+export async function puzzleRating(): Promise<number> {
+  const [sections, profile] = await Promise.all([getSectionRatings(), getProfile()])
+  const tactics = sections.tactics
+  return Math.round(tactics && !tactics.provisional ? tactics.rating : profile.rating)
+}

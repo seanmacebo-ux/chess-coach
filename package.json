@@ -18,6 +18,7 @@
     "diag:bots": "tsx scripts/diag-bots.ts",
     "diag:floor": "tsx scripts/diag-floor.ts",
     "verify:policy": "tsx scripts/verify-policy.ts",
+    "verify:climb": "tsx scripts/verify-climb.ts",
     "verify:endgames": "tsx scripts/verify-endgames.ts",
     "verify:positional": "tsx scripts/verify-positional.ts",
     "verify:openings": "tsx scripts/verify-openings.ts",

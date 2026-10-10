@@ -26,6 +26,7 @@ import { type PositionalPosition } from './coach/positional'
 import {
   getSectionRatings,
   overallVerdict,
+  puzzleRating,
   SECTION_IDS,
   SECTION_NAME,
   type SectionId,
@@ -196,10 +197,11 @@ export default function App() {
   const [building, setBuilding] = useState<{ done: number; total: number } | null>(null)
 
   const trainCategory = useCallback(async (motifs: string[], label: string) => {
-    const profile = await getProfile()
     const seen = new Set((await db.puzzleAttempts.toArray()).map((r) => r.puzzleId))
     const puzzles = await pickPuzzles({
-      rating: profile.rating,
+      // Your TACTICS rating, not the one that moves when you beat a bot.
+      // See coach/rating.ts: puzzleRating.
+      rating: await puzzleRating(),
       themes: motifs,
       count: loadPrefs().puzzlesPerDay,
       exclude: seen,
@@ -231,8 +233,7 @@ export default function App() {
    * loose pieces, is not a scan worth setting.
    */
   const startScan = useCallback(async () => {
-    const profile = await getProfile()
-    const pool = await pickPuzzles({ rating: profile.rating, count: 120 })
+    const pool = await pickPuzzles({ rating: await puzzleRating(), count: 120 })
     const questions = buildScanQuestions(pool, Math.min(8, loadPrefs().puzzlesPerDay))
     if (questions.length === 0) {
       setResult('Could not find positions with a loose piece. Try again in a moment.')
@@ -243,8 +244,7 @@ export default function App() {
   }, [])
 
   const startThreat = useCallback(async () => {
-    const profile = await getProfile()
-    const pool = await pickPuzzles({ rating: profile.rating, count: 160 })
+    const pool = await pickPuzzles({ rating: await puzzleRating(), count: 160 })
     setBuilding({ done: 0, total: 1 })
     setTab('threat')
     const questions = await buildThreatQuestions(pool, 5, (done, total) =>
@@ -260,8 +260,7 @@ export default function App() {
   }, [])
 
   const startCandidates = useCallback(async () => {
-    const profile = await getProfile()
-    const pool = await pickPuzzles({ rating: profile.rating, count: 40 })
+    const pool = await pickPuzzles({ rating: await puzzleRating(), count: 40 })
     setBuilding({ done: 0, total: 1 })
     setTab('candidates')
     const questions = await buildCandidateQuestions(pool, 5, (done, total) =>

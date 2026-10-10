@@ -22,6 +22,7 @@ import { loadPrefs } from '../data/settings'
 import { pickPuzzles, type Puzzle } from '../data/puzzles'
 import { buildRedoSet } from './redo'
 import { computeStreak, computeWeaknesses, nextTier, type Weakness } from './profile'
+import { puzzleRating } from './rating'
 import { LICHESS_MOTIFS, isExerciseBacked, puzzleThemes, type Tier } from './tiers'
 import type { Style } from '../engine/types'
 
@@ -140,7 +141,10 @@ export async function buildDailySession(opts: BuildOptions = {}): Promise<DailyS
   const own = coldStart ? [] : await buildRedoSet(Math.min(3, puzzleCount))
 
   const picked = await pickPuzzles({
-    rating: profile.rating,
+    // Tactics rating, not the overall one — see coach/rating.ts: puzzleRating.
+    // The overall number moves when you beat a bot, and keying puzzles to it
+    // meant a good run against the bots made the puzzles harder.
+    rating: await puzzleRating(),
     themes,
     count: Math.max(0, puzzleCount - own.length),
     exclude: seen,
