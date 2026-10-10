@@ -301,6 +301,22 @@ export function Climb({ onExit }: ClimbProps) {
   return (
     <div className="stack">
       <ClimbBar run={run} bestEver={bestEver} />
+      {/*
+        WHAT THIS MODE IS, said once.
+        Sean: "I am also not sure if people would be able to work this out."
+        The screen showed a number called "difficulty", three pips, three more
+        pips, and a board — and nowhere did it say that solving makes the next
+        one harder, or that three misses ends the run, or that the number is
+        the thing you are trying to beat. Every one of those is a rule you
+        were expected to infer from watching the numbers move.
+        Only at the top of a run, so it is an introduction and not a nag.
+      */}
+      {run.solved === 0 && run.missed === 0 && (
+        <p className="climb-how">
+          Solve one and the next is harder. Miss and it gets easier. Three misses ends the
+          run — how far you climbed is the score.
+        </p>
+      )}
       {loading || !puzzle ? (
         <div className="card">
           {loading ? 'Finding one at ' + run.difficulty + '…' : 'No puzzles left at this level.'}
@@ -311,6 +327,10 @@ export function Climb({ onExit }: ClimbProps) {
           puzzles={[puzzle]}
           tierId={null}
           compact
+          // One puzzle at a time, and another one after it. The runner's
+          // default label for a final puzzle is "Finish", which here was the
+          // button that continues the climb telling you it ends it.
+          lastLabel="Next puzzle"
           onDone={({ solved }) => void onSolved(solved > 0)}
         />
       )}
@@ -354,10 +374,14 @@ function ClimbBar({ run, bestEver }: { run: RunState; bestEver: number }) {
         <span className={run.streak >= 3 ? 'hot' : ''}>
           <b>{run.streak}</b> streak
         </span>
+        {/* Labelled: the puzzle card below shows three TRIES pips in the same
+            style, and two unlabelled rows of three green dots a few pixels
+            apart is a riddle rather than a readout. */}
         <span className="climb-lives" aria-label={`${MAX_MISSES - run.missed} lives left`}>
           {Array.from({ length: MAX_MISSES }, (_, i) => (
             <i key={i} className={i < MAX_MISSES - run.missed ? 'on' : ''} />
           ))}
+          lives
         </span>
       </div>
     </div>

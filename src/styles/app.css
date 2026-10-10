@@ -3709,6 +3709,39 @@ button.back {
   margin-left: auto;
 }
 
+/*
+ * The pip readouts carry a word now. Two unlabelled rows of three green dots
+ * a few pixels apart — lives above, tries below — was a riddle rather than a
+ * readout, and the only explanation lived in an aria-label.
+ */
+.climb-lives,
+.tries {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tries em {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+/* One line saying what the mode is, at the top of a run only. */
+.climb-how {
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r2);
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  border-left: 3px solid var(--accent);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+
 .climb-lives i {
   width: 8px;
   height: 8px;

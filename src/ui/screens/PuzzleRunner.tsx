@@ -83,10 +83,26 @@ export interface PuzzleRunnerProps {
   tierId?: string | null
   /** Hide the runner's own progress header — for hosts that already have one. */
   compact?: boolean
+  /**
+   * What the advance button says on the LAST puzzle of the array.
+   *
+   * It said "Finish" unconditionally, and the Climb serves exactly one puzzle
+   * at a time and then serves another — so every puzzle was the last one and
+   * the button that CONTINUES your run was labelled as the one that ends it.
+   * You would solve a puzzle, read "Finish", and have no reason to believe
+   * there was anything after it.
+   */
+  lastLabel?: string
   onDone: (result: { solved: number; total: number; points: number }) => void
 }
 
-export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }: PuzzleRunnerProps) {
+export function PuzzleRunner({
+  puzzles,
+  tierId = null,
+  compact = false,
+  lastLabel = 'Finish',
+  onDone,
+}: PuzzleRunnerProps) {
   const [index, setIndex] = useState(0)
   const puzzle = puzzles[index]
 
@@ -487,10 +503,18 @@ export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }
       <div className="card cat">
         <div className="row spread">
           <span className="cat-name">{category.name}</span>
+          {/*
+            Labelled, because the Climb puts its LIVES dots directly above
+            these TRIES dots: two rows of three green pips, same size, same
+            colour, ten pixels apart, meaning two different things. One is
+            wrong moves on this puzzle, the other is missed puzzles in the
+            run. Nothing on screen said which was which.
+          */}
           <span className="tries" aria-label={`${triesLeft} of ${MAX_TRIES} tries left`}>
             {Array.from({ length: MAX_TRIES }, (_, i) => (
               <i key={i} className={i < triesLeft ? 'live' : 'spent'} />
             ))}
+            <em>tries</em>
           </span>
         </div>
         <div className="small muted">{category.teaches}</div>
@@ -626,7 +650,13 @@ export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }
               disabled={hintUsed || phase !== 'solving'}
               onClick={takeHint}
             >
-              {hintUsed ? 'Nudge used' : `Nudge (−${POINTS_HINT})`}
+              {/*
+                "(−4)" with no unit, and in the Climb no points are displayed
+                anywhere — compact mode hides the header that shows them — so
+                it was a price in a currency the screen never mentions. Named
+                where it is real, dropped where it is not.
+              */}
+              {hintUsed ? 'Nudge used' : compact ? 'Nudge' : `Nudge (−${POINTS_HINT} pts)`}
             </button>
             <button
               className="ghost"
@@ -639,7 +669,7 @@ export function PuzzleRunner({ puzzles, tierId = null, compact = false, onDone }
           </>
         ) : (
           <button className="primary" style={{ flex: 1 }} onClick={next}>
-            {index + 1 >= puzzles.length ? 'Finish' : 'Next puzzle'}
+            {index + 1 >= puzzles.length ? lastLabel : 'Next puzzle'}
           </button>
         )}
       </div>
