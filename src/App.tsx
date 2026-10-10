@@ -175,11 +175,51 @@ export default function App() {
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
+  /*
+   * THE DEFAULT OPPONENT WAS 1400, FOR EVERYONE.
+   *
+   * The Play screen opens with a game already running — board up, clocks
+   * going — against whatever this seed says, and it said 1400 whoever you
+   * were. So a player rated 350 arrived mid-game against a bot a thousand
+   * points above them, under a card reading "1050 points above you. Expect to
+   * be under pressure." The app diagnosed it correctly and did it anyway.
+   *
+   * The roster's own header already named this failure once — "one number
+   * chosen from the wrong end of the range, silently making every
+   * recommendation wrong at once" — about a different default. This is the
+   * same mistake in the place it hurts most, because it is the first thing
+   * that happens when you tap Play.
+   *
+   * suggestedBot() has been sitting there the whole time: the nearest bot at
+   * or above your rating, which for 350 is Bud and for 1500 is Darius. The
+   * "NEXT UP" badge in the chooser below the board was already pointing at
+   * it. The board just was not listening.
+   */
   const [seed, setSeed] = useState<{ elo: number; style: Style; colour: 'white' | 'black' }>({
-    elo: 1400,
+    // A placeholder for the one render before Dexie answers. The effect below
+    // replaces it with the bot suggested for YOUR rating.
+    elo: suggestedBot(800).elo,
     style: 'human',
     colour: 'white',
   })
+
+  /*
+   * ...made yours as soon as the profile is in. Runs once, on mount, before
+   * there has been any chance to change a setting, so it cannot overwrite a
+   * choice — and `seed` is only read when a game is STARTED, so it cannot
+   * disturb one already running either.
+   */
+  useEffect(() => {
+    let cancelled = false
+    void getProfile().then((p) => {
+      if (cancelled) return
+      const want = suggestedBot(p.rating)
+      setSeed((cur) => ({ ...cur, elo: want.elo, style: want.style }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [session, setSession] = useState<DailySession | null>(null)
   const [result, setResult] = useState<string | null>(null)
   const [endgame, setEndgame] = useState<EndgamePosition | null>(null)
