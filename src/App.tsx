@@ -56,6 +56,7 @@ import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
 import { BOTS, botLabel, nearestBot, suggestedBot, type Bot } from './engine/roster'
 import { bookFor, bookDepth, currentLine } from './engine/book'
+import { theirPlan } from './coach/theirplan'
 import { recordFinishedGame, outcomeOf } from './coach/record'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
@@ -1340,23 +1341,77 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           humanColour === 'white' ? 'b' : 'w',
           chess.current.history(),
         )
-        if (!line) return null
+        /*
+         * IN BOOK the line is the better answer — it is specific, it is
+         * named, and it tells you what this exact opening wants. OUT OF
+         * BOOK, which is most of the game, theirPlan takes over.
+         *
+         * Sean: "I am not sure what's happening, and I mean the WHOLE GAME."
+         * The book commentary ran out after five to eleven plies and then
+         * the screen said nothing about the opponent for the next sixty
+         * moves. The most useful thing in the app stopped before the
+         * middlegame began.
+         */
+        const hist = chess.current.history()
+        const them: 'w' | 'b' = humanColour === 'white' ? 'b' : 'w'
+        const you: 'w' | 'b' = humanColour === 'white' ? 'w' : 'b'
+
+        if (line) {
+          return (
+            <div className="book-read">
+              <div className="row spread" style={{ alignItems: 'baseline' }}>
+                <span className="brief-key">They are playing</span>
+                <span className="small muted">{line.name}</span>
+              </div>
+              {line.wants && (
+                <div className="small">
+                  <b>Wants:</b> {line.wants}
+                </div>
+              )}
+              {line.answer && (
+                <div className="small">
+                  <b>You:</b> {line.answer}
+                </div>
+              )}
+            </div>
+          )
+        }
+
+        // Their last move, and the position before it, for "what did that do".
+        const replay = new Chess()
+        let fenBefore: string | undefined
+        let lastSan: string | undefined
+        for (let i = 0; i < hist.length; i++) {
+          const isTheirs = (i % 2 === 0) === (them === 'w')
+          if (isTheirs && i === hist.length - 1) {
+            fenBefore = replay.fen()
+            lastSan = hist[i]
+          }
+          try {
+            replay.move(hist[i]!)
+          } catch {
+            break
+          }
+        }
+
+        const plan = theirPlan({ fen, you, style, fenBefore, lastSan })
         return (
           <div className="book-read">
             <div className="row spread" style={{ alignItems: 'baseline' }}>
-              <span className="brief-key">They are playing</span>
-              <span className="small muted">{line.name}</span>
+              <span className="brief-key">What is going on</span>
+              <span className="small muted">{plan.phase}</span>
             </div>
-            {line.wants && (
+            {plan.did && (
               <div className="small">
-                <b>Wants:</b> {line.wants}
+                <b>They:</b> {plan.did}
               </div>
             )}
-            {line.answer && (
-              <div className="small">
-                <b>You:</b> {line.answer}
-              </div>
-            )}
+            <div className="small">
+              <b>Want:</b> {plan.wants}
+            </div>
+            <div className="small">
+              <b>You:</b> {plan.you}
+            </div>
           </div>
         )
       })()}

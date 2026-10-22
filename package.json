@@ -21,6 +21,7 @@
     "verify:policy": "tsx scripts/verify-policy.ts",
     "verify:climb": "tsx scripts/verify-climb.ts",
     "verify:book": "tsx scripts/verify-book.ts",
+    "verify:theirplan": "tsx scripts/verify-theirplan.ts",
     "verify:clarity": "tsx scripts/verify-clarity.ts",
     "verify:endgames": "tsx scripts/verify-endgames.ts",
     "verify:positional": "tsx scripts/verify-positional.ts",
