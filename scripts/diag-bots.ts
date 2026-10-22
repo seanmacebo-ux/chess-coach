@@ -29,6 +29,8 @@ import { Chess } from 'chess.js'
 import { NodeEngine } from './lib/engine-node'
 import { lineScore } from '../src/engine/types'
 import { profileFor, chooseMoveDetailed } from '../src/engine/policy'
+import { bookMove } from '../src/engine/book'
+import { nearestBot } from '../src/engine/roster'
 
 const arg = (name: string, fallback: number): number => {
   const i = process.argv.indexOf(`--${name}`)
@@ -52,6 +54,9 @@ const RATINGS = (() => {
 
 const EVAL_CAP = 1000
 const clamp = (cp: number) => Math.max(-EVAL_CAP, Math.min(EVAL_CAP, cp))
+
+/** Pass --no-book to measure the policy with no repertoire in front of it. */
+const USE_BOOK = !process.argv.includes('--no-book')
 
 const engine = new NodeEngine()
 
@@ -173,6 +178,7 @@ function seeded(seed: number): () => number {
 
 async function play(band: number): Promise<Sample[]> {
   const profile = profileFor(band)
+  const BOT_ID = USE_BOOK ? nearestBot(band).id : null
   const out: Sample[] = []
 
   for (let g = 0; g < GAMES; g++) {
@@ -185,9 +191,21 @@ async function play(band: number): Promise<Sample[]> {
       const fen = board.fen()
       const phase = phaseOf(board)
       const rng = board.turn() === 'w' ? rngW : rngB
-      const a = await engine.analyse(fen, { depth: profile.depth, multipv: profile.multipv })
-      const choice = chooseMoveDetailed(fen, a.lines, band, 'human', rng)
-      const uci = choice.uci ?? a.bestMove
+      /*
+       * The book, because it is what the app now plays. A book move is a
+       * DECIDED move, so a repertoire is a free pass through the phase where
+       * a weak bot would otherwise drift — which is exactly the risk this
+       * run exists to measure. Pass --no-book to see the policy alone.
+       */
+      let uci: string | null = null
+      let choice = { source: 'pool' as 'pool' | 'wild' | 'forced', spread: 0, candidates: 0 }
+      if (BOT_ID) uci = bookMove(BOT_ID, board.turn(), board.history(), fen, rng)
+      if (!uci) {
+        const a = await engine.analyse(fen, { depth: profile.depth, multipv: profile.multipv })
+        const c = chooseMoveDetailed(fen, a.lines, band, 'human', rng)
+        choice = c
+        uci = c.uci ?? a.bestMove
+      }
       if (!uci) break
 
       const loss = await lossOf(fen, uci)

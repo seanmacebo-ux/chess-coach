@@ -100,7 +100,7 @@ export function OpeningTrainer({
   const [thinking, setThinking] = useState(false)
   const bot = useMemo(() => suggestedBot(rating), [rating])
   const opponent = useMemo(
-    () => new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name }),
+    () => new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name, botId: bot.id }),
     [bot],
   )
   const chess = useRef(new Chess())
@@ -363,7 +363,7 @@ export function OpeningTrainer({
         return
       }
       void opponent
-        .move(chess.current.fen())
+        .move(chess.current.fen(), chess.current.history())
         .then((uci) => {
           if (!uci) return
           const b = new Chess(chess.current.fen())

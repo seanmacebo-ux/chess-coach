@@ -160,7 +160,7 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
     return BOTS.some((b) => b.elo === saved) ? saved : suggestedBot(rating).elo
   })
   const opponent = useMemo(
-    () => (bot ? new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name }) : null),
+    () => (bot ? new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name, botId: bot.id }) : null),
     [bot],
   )
 
@@ -329,7 +329,7 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
     const mine = generation.current
     setThinking(true)
     void opponent
-      .move(chess.current.fen())
+      .move(chess.current.fen(), chess.current.history())
       .then((uci) => {
         if (mine !== generation.current) return
         if (!uci) return

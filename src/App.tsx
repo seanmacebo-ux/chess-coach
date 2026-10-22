@@ -54,7 +54,8 @@ import { Captured } from './ui/Captured'
 import { openingOfPgn, type OpeningName } from './coach/eco'
 import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
-import { BOTS, botLabel, suggestedBot, type Bot } from './engine/roster'
+import { BOTS, botLabel, nearestBot, suggestedBot, type Bot } from './engine/roster'
+import { bookFor, bookDepth, currentLine } from './engine/book'
 import { recordFinishedGame, outcomeOf } from './coach/record'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
@@ -806,7 +807,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
    * beating Bud is a memory and beating Bot 350 is a log line.
    */
   const opponent = useMemo<Opponent>(
-    () => createOpponent({ elo, style, name: botLabel(elo, style) }),
+    // botId gives it an opening repertoire. The slider can sit on a number
+    // nobody is, so it takes the nearest character's book rather than none.
+    () => createOpponent({ elo, style, name: botLabel(elo, style), botId: nearestBot(elo).id }),
     [elo, style],
   )
 
@@ -957,7 +960,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
     setEngineState('thinking')
 
     opponent
-      .move(chess.current.fen())
+      .move(chess.current.fen(), chess.current.history())
       .then((uci) => {
         if (cancelled) return
         if (!uci) {
@@ -1319,6 +1322,45 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         is the whole design, because a coach that hands over the answer trains
         obedience and this is meant to train the habit of looking.
       */}
+      {/*
+        WHAT THEY ARE PLAYING, WHILE THEY ARE PLAYING IT.
+
+        Sean: "I am not learning the openings and moves the way I thought I
+        would." He could not. Measured, the bots played five different first
+        moves in five games and never e4 or d4, so no two games started the
+        same way and there was nothing to recognise, let alone learn. Now
+        each bot has a repertoire, and this names it on the board: what the
+        line is, what the opponent wants out of it, and what you do about it.
+        It disappears the moment they leave book, which is itself worth
+        knowing — that is the point where you are both on your own.
+      */}
+      {!gameEnded && (() => {
+        const line = currentLine(
+          nearestBot(elo).id,
+          humanColour === 'white' ? 'b' : 'w',
+          chess.current.history(),
+        )
+        if (!line) return null
+        return (
+          <div className="book-read">
+            <div className="row spread" style={{ alignItems: 'baseline' }}>
+              <span className="brief-key">They are playing</span>
+              <span className="small muted">{line.name}</span>
+            </div>
+            {line.wants && (
+              <div className="small">
+                <b>Wants:</b> {line.wants}
+              </div>
+            )}
+            {line.answer && (
+              <div className="small">
+                <b>You:</b> {line.answer}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {liveRead && !gameEnded && (
         <div className="live-read">
           <div className="row spread" style={{ alignItems: 'baseline' }}>
@@ -1653,13 +1695,50 @@ function BotCard({ bot }: { bot: Bot }) {
       <div className="small">
         <span className="brief-key">Plays</span> {bot.plays}
       </div>
+      {/*
+        THE OPENING IT ACTUALLY PLAYS, by name.
+
+        Sean: "I am not learning the openings the way I thought I would."
+        Part of that was that the bots had no repertoire at all — measured,
+        five games produced five different first moves and never e4 or d4 —
+        so there was no opening to learn. The other part is this: even now
+        they have one, nothing said what it was. Knowing Nadia opens with
+        the Scholar's Mate try before you sit down is the difference between
+        losing to it twice and looking it up once.
+      */}
+      {(() => {
+        const book = bookFor(bot.id)
+        if (!book) return null
+        const lines = [...new Set([...book.white, ...book.black].map((l) => l.name))]
+        return (
+          <>
+            <div className="small">
+              <span className="brief-key">Opening</span> {book.habit}
+            </div>
+            <div className="small muted bot-lines">
+              {lines.join(' · ')} — {bookDepth(bot.id)} plies of preparation, then it is
+              on its own.
+            </div>
+          </>
+        )
+      })()}
       <div className="small">
         <span className="brief-key">Weakness</span> {bot.weakness}
       </div>
+      {/*
+        The old text here said the bots "currently play stronger than their
+        labels" and blamed the move policy. Both halves were out of date: the
+        cause was a lookup that snapped every rating to one of eight bands,
+        that is fixed, and the ladder has since been measured descending —
+        226 / 197 / 140 / 73 acpl at 350 / 550 / 800 / 1400. Leaving a stale
+        warning on the card is worse than having none, because it tells you
+        not to trust a number that is now true.
+      */}
       {!bot.calibrated && (
         <div className="bot-caveat">
-          Aimed at {bot.elo}, not measured at it. The bots currently play stronger than their
-          labels — see FINDINGS.md. Fixed by replacing the move policy, not by relabelling.
+          Aimed at {bot.elo} rather than measured at it — four of the eleven have been
+          checked in self-play so far, and this is not one of them. The ladder itself is
+          measured and in order; see FINDINGS.md.
         </div>
       )}
     </div>

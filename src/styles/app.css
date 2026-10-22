@@ -5938,3 +5938,34 @@ button.act-cell.on {
 .setup .rule {
   margin: 2px 0;
 }
+
+
+/* The repertoire line under a bot's card: quieter than the prose above it. */
+.bot-lines {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+
+/*
+ * The opponent's opening, named on the board while it is happening.
+ * Deliberately NOT the live-read's styling: that panel is facts you could
+ * work out by looking, this one is what the other player is trying to do.
+ */
+.book-read {
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r2);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.45;
+}
+
+.book-read b {
+  color: var(--text);
+  font-weight: 600;
+}

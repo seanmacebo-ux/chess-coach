@@ -80,7 +80,7 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
 
   const bot = useMemo(() => suggestedBot(rating), [rating])
   const opponent = useMemo(
-    () => new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name }),
+    () => new EngineOpponent({ elo: bot.elo, style: bot.style, name: bot.name, botId: bot.id }),
     [bot],
   )
 
@@ -327,7 +327,7 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
         return
       }
       void opponent
-        .move(chess.current.fen())
+        .move(chess.current.fen(), chess.current.history())
         .then((uci) => {
           if (!uci) return
           const b = new Chess(chess.current.fen())

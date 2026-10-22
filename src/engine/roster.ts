@@ -219,6 +219,20 @@ export function botById(id: string): Bot | undefined {
  * precisely because you remember losing to Bud and do not remember losing to
  * human 911.
  */
+/**
+ * The roster bot closest to this rating.
+ *
+ * The Play screen keeps a number, not a bot — the slider can land on 1337,
+ * which nobody is. Without this, dragging it one notch off a named bot took
+ * the opening book away and the opponent went back to playing 1.g4. The
+ * nearest character's repertoire is a better answer than no character at all.
+ */
+export function nearestBot(elo: number): Bot {
+  return BOTS.reduce((best, b) =>
+    Math.abs(b.elo - elo) < Math.abs(best.elo - elo) ? b : best,
+  )
+}
+
 export function botLabel(elo: number, style: string): string {
   const exact = BOTS.find((b) => b.elo === elo)
   if (exact) return `${exact.face} ${exact.name}`
