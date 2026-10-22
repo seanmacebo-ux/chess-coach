@@ -187,6 +187,31 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  *
  * Before the band-snapping fix, 350, 550 and 800 were the same number,
  * because they were the same bot.
+ *
+ * THEN THE OPENING BOOK LANDED, AND IT MOVED ONE OF THEM.
+ *
+ * engine/book.ts gives every bot a repertoire, which means some of its moves
+ * are now DECIDED rather than sampled — and a decided move sheds nothing.
+ * Re-measured with the book in play (diag:bots runs it by default; pass
+ * --no-book for the policy alone):
+ *
+ *          target    without book     with book        verdict
+ *    350      210    226.5 +/- 17 ->  241.4 +/- 20     overlapping, no change
+ *    800      150    139.8 +/- 13 ->  164.0 +/- 15     barely overlapping
+ *   1400       75     72.9 +/-  6 ->   64.6 +/-  7     STRONGER, target now outside
+ *
+ * 1400 is the one to look at. Sofia carries nine to eleven plies of sound
+ * theory, which in a ninety-ply game is about 11% of her moves at near-zero
+ * loss — almost exactly the 11% drop. The weak bots have two-to-five-ply
+ * books and did not move.
+ *
+ * It is deliberately NOT tuned away, for two reasons. The sample is six
+ * games, and tuning on six games is the mistake recorded three paragraphs
+ * up. And there is a real question underneath it: a 1400 who has memorised
+ * eleven moves of the Queen's Gambit IS still a 1400, so a lower acpl may be
+ * the correct reading of the same playing strength rather than a drift in
+ * it. ACPL is a proxy; scripts/calibrate.ts measures RESULTS and is the
+ * thing that settles this one. Run that before touching 1400's temperature.
  */
 const ANCHORS: Anchor[] = [
   { elo: 350, targetAcpl: 210, temperature: 950, blunderChance: 0.45, depth: 4, multipv: 34 },
