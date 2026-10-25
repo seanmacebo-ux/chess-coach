@@ -12,7 +12,7 @@
 import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import { getEngine } from '../engine/uci'
-import { lineScore, type UciMove } from '../engine/types'
+import { lineScore, type Analysis, type UciMove } from '../engine/types'
 import { winChance } from '../ui/EvalMeter'
 
 export type Severity = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder'
@@ -282,11 +282,135 @@ export interface AnalyseOptions {
  * side-to-move POV, so the eval after the move gets negated — the same sign
  * trap that would otherwise report every move as brilliant.
  */
+/**
+ * One move, assessed.
+ *
+ * Pulled out of analyseGame so that rating a move AS IT IS PLAYED and rating
+ * it in the post-game review run the same code. Two implementations of "how
+ * bad was that" would disagree within a week, and the one the player sees
+ * first is the one they would stop trusting.
+ *
+ * `before` lets a caller hand in a search it already has. Play uses that: the
+ * position before your move can be searched while you are still deciding,
+ * which is free wall-clock time, so the only work left when you finally move
+ * is the search of what you moved to.
+ */
+export async function assessMove(
+  fenBefore: string,
+  played: { from: string; to: string; promotion?: string; san: string },
+  opts: { depth?: number; ply?: number; before?: Analysis } = {},
+): Promise<MoveAssessment | null> {
+  const engine = getEngine()
+  const depth = opts.depth ?? 14
+
+  // multipv 3 rather than 1: the extra lines share the same search tree, so
+  // the cost is a fraction of a second per move, and they are what makes a
+  // breakdown of your CHOICE possible rather than only of your mistake.
+  const before = opts.before ?? (await engine.analyse(fenBefore, { depth, multipv: CANDIDATES }))
+  const bestLine = before.lines[0]
+  const bestScore = bestLine ? clampEval(lineScore(bestLine)) : 0
+  const bestIsMate = Boolean(bestLine?.mate && bestLine.mate > 0)
+  const bestUci = before.bestMove
+  let bestSan: string | null = null
+  if (bestUci) {
+    const probe = new Chess(fenBefore)
+    try {
+      bestSan =
+        probe.move({
+          from: bestUci.slice(0, 2),
+          to: bestUci.slice(2, 4),
+          promotion: bestUci[4],
+        })?.san ?? null
+    } catch {
+      bestSan = null
+    }
+  }
+
+  /*
+   * Each multipv line named and scored, from the mover's point of view, with
+   * the one actually played marked. Lines that will not replay are dropped
+   * rather than shown as a move that does not exist.
+   */
+  const playedUci = `${played.from}${played.to}${played.promotion ?? ''}`
+  const alts = before.lines
+    .map((line) => {
+      const uci = line.pv?.[0]
+      if (!uci) return null
+      const probe = new Chess(fenBefore)
+      let san: string | null = null
+      try {
+        san = probe.move({
+          from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4],
+        })?.san ?? null
+      } catch {
+        san = null
+      }
+      if (!san) return null
+      return { san, cp: clampEval(lineScore(line)), played: uci === playedUci }
+    })
+    .filter((a): a is { san: string; cp: number; played: boolean } => a !== null)
+
+  const board = new Chess(fenBefore)
+  try {
+    board.move({ from: played.from, to: played.to, promotion: played.promotion })
+  } catch {
+    // The move does not belong to this position. Nothing honest to report.
+    return null
+  }
+
+  let lossCp = 0
+  let playedScore = bestScore
+  let pvPunish: UciMove[] = []
+  if (!board.isGameOver()) {
+    const after = await engine.analyse(board.fen(), { depth, multipv: 1 })
+    const afterLine = after.lines[0]
+    playedScore = afterLine ? clampEval(-lineScore(afterLine)) : bestScore
+    pvPunish = afterLine?.pv?.slice(0, 6) ?? []
+    lossCp = Math.max(0, bestScore - playedScore)
+  } else {
+    // Checkmate delivered by the played move is the best possible outcome;
+    // anything else terminal (stalemate, repetition) is dead level.
+    playedScore = board.isCheckmate() ? EVAL_CAP : 0
+    lossCp = Math.max(0, bestScore - playedScore)
+  }
+
+  const severity = severityOf(lossCp, bestScore, playedScore)
+  const phase = phaseOf(new Chess(fenBefore))
+  const tag =
+    severity === 'best' || severity === 'good'
+      ? null
+      : diagnose(fenBefore, playedUci, bestUci, bestIsMate, phase)
+
+  return {
+    cpBest: bestScore,
+    cpPlayed: playedScore,
+    ply: opts.ply ?? 0,
+    fen: fenBefore,
+    san: played.san,
+    uci: playedUci,
+    lossCp: Math.round(lossCp),
+    severity,
+    bestUci,
+    bestSan,
+    tag,
+    phase,
+    pvBest: bestLine?.pv?.slice(0, 6) ?? [],
+    pvPunish,
+    alts,
+  }
+}
+
+/**
+ * Walk a finished game and assess every move by `colour`.
+ *
+ * Evaluations are taken from the MOVER's point of view throughout. UCI reports
+ * side-to-move POV, so the eval after the move gets negated — the same sign
+ * trap that would otherwise report every move as brilliant.
+ */
 export async function analyseGame(
   pgnOrMoves: string[] | string,
   opts: AnalyseOptions,
 ): Promise<MoveAssessment[]> {
-  const engine = getEngine()
   const depth = opts.depth ?? 14
 
   const replay = new Chess()
@@ -302,100 +426,15 @@ export async function analyseGame(
   for (let ply = 0; ply < history.length; ply++) {
     const h = history[ply]!
     const fenBefore = board.fen()
-
-    if (h.color !== opts.colour) {
-      board.move({ from: h.from, to: h.to, promotion: h.promotion })
-      continue
-    }
-
-    // multipv 3 rather than 1: the extra lines share the same search tree, so
-    // the cost is a fraction of a second per move, and they are what makes a
-    // breakdown of your CHOICE possible rather than only of your mistake.
-    const before = await engine.analyse(fenBefore, { depth, multipv: CANDIDATES })
-    const bestLine = before.lines[0]
-    const bestScore = bestLine ? clampEval(lineScore(bestLine)) : 0
-    const bestIsMate = Boolean(bestLine?.mate && bestLine.mate > 0)
-    const bestUci = before.bestMove
-    let bestSan: string | null = null
-    if (bestUci) {
-      const probe = new Chess(fenBefore)
-      try {
-        bestSan =
-          probe.move({
-            from: bestUci.slice(0, 2),
-            to: bestUci.slice(2, 4),
-            promotion: bestUci[4],
-          })?.san ?? null
-      } catch {
-        bestSan = null
-      }
-    }
-
-    /*
-     * Each multipv line named and scored, from the mover's point of view, with
-     * the one actually played marked. Lines that will not replay are dropped
-     * rather than shown as a move that does not exist.
-     */
-    const playedUci = `${h.from}${h.to}${h.promotion ?? ''}`
-    const alts = before.lines
-      .map((line) => {
-        const uci = line.pv?.[0]
-        if (!uci) return null
-        const probe = new Chess(fenBefore)
-        let san: string | null = null
-        try {
-          san = probe.move({
-            from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4],
-          })?.san ?? null
-        } catch {
-          san = null
-        }
-        if (!san) return null
-        return { san, cp: clampEval(lineScore(line)), played: uci === playedUci }
-      })
-      .filter((a): a is { san: string; cp: number; played: boolean } => a !== null)
     board.move({ from: h.from, to: h.to, promotion: h.promotion })
+    if (h.color !== opts.colour) continue
 
-    let lossCp = 0
-    let playedScore = bestScore
-    let pvPunish: UciMove[] = []
-    if (!board.isGameOver()) {
-      const after = await engine.analyse(board.fen(), { depth, multipv: 1 })
-      const afterLine = after.lines[0]
-      playedScore = afterLine ? clampEval(-lineScore(afterLine)) : bestScore
-      pvPunish = afterLine?.pv?.slice(0, 6) ?? []
-      lossCp = Math.max(0, bestScore - playedScore)
-    } else {
-      // Checkmate delivered by the played move is the best possible outcome;
-      // anything else terminal (stalemate, repetition) is dead level.
-      playedScore = board.isCheckmate() ? EVAL_CAP : 0
-      lossCp = Math.max(0, bestScore - playedScore)
-    }
-
-    const severity = severityOf(lossCp, bestScore, playedScore)
-    const phase = phaseOf(new Chess(fenBefore))
-    const tag =
-      severity === 'best' || severity === 'good'
-        ? null
-        : diagnose(fenBefore, playedUci, bestUci, bestIsMate, phase)
-
-    out.push({
-      cpBest: bestScore,
-      cpPlayed: playedScore,
-      ply,
-      fen: fenBefore,
-      san: h.san,
-      uci: playedUci,
-      lossCp: Math.round(lossCp),
-      severity,
-      bestUci,
-      bestSan,
-      tag,
-      phase,
-      pvBest: bestLine?.pv?.slice(0, 6) ?? [],
-      pvPunish,
-      alts,
-    })
+    const a = await assessMove(
+      fenBefore,
+      { from: h.from, to: h.to, promotion: h.promotion, san: h.san },
+      { depth, ply },
+    )
+    if (a) out.push(a)
 
     opts.onProgress?.(++done, mine)
   }

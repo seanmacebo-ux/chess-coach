@@ -499,6 +499,22 @@ export function Settings({ theme, onTheme, colourMode, onColourMode }: SettingsP
 
         <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
           <span style={{ flex: 1 }}>
+            <div>Name my moves as I play them</div>
+            <div className="small muted">
+              Brilliant, Best, Inaccuracy, Blunder — the same ten labels the game review uses,
+              shown under the board after the opponent replies. It never delays the game and it
+              cannot change it.
+            </div>
+          </span>
+          <input
+            type="checkbox"
+            checked={prefs.moveRatings}
+            onChange={(e) => patchPrefs({ moveRatings: e.target.checked })}
+          />
+        </label>
+
+        <label className="row spread" style={{ gap: 12, cursor: 'pointer' }}>
+          <span style={{ flex: 1 }}>
             <div>Board coordinates</div>
             <div className="small muted">Files and ranks around the edge.</div>
           </span>

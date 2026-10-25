@@ -55,7 +55,14 @@ export const RATING_MEANING: Record<MoveRating, string> = {
   best: 'The engine plays this too.',
   excellent: 'As good as makes no difference.',
   good: 'Sound. A little was available elsewhere.',
-  book: 'Your repertoire move — this is prepared.',
+  /*
+   * NOT "your repertoire". This fires from coach/eco.ts's bookPlies, which
+   * reads the ECO table — every named opening anyone has ever played, not a
+   * repertoire you chose. Showing "your repertoire move" under 2.Qh5, which
+   * has a name and is still a beginner's mistake, claimed something about
+   * the player that was not true.
+   */
+  book: 'Still in known theory — this position has a name.',
   inaccuracy: 'Cost you 10 or more points of winning chances.',
   mistake: 'Cost you 20 or more.',
   blunder: 'Cost you 30 or more.',

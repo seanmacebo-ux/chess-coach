@@ -6009,3 +6009,48 @@ button.act-cell.on {
 .bot-record.unbeaten {
   color: var(--warn);
 }
+
+/* ==================================================================
+ * YOUR LAST MOVE, NAMED
+ *
+ * The same ten labels the review uses, shown during the game. The tone
+ * comes from the .rat-* classes defined with the review's legend, so a
+ * colour means one thing in both places by construction.
+ * ================================================================== */
+
+.live-rat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--rat, var(--border)) 45%, var(--border));
+  border-left: 3px solid var(--rat, var(--border));
+  background: color-mix(in srgb, var(--rat, var(--surface)) 10%, var(--surface));
+}
+
+.live-rat-move {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: var(--t-small);
+  color: var(--text);
+}
+
+.live-rat-label {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rat, var(--text-muted));
+}
+
+/* The meaning takes the whole second line rather than being squeezed in
+   beside the label — it is a sentence, and a sentence in a 90px column is
+   four words a line. */
+.live-rat-why {
+  flex-basis: 100%;
+  font-size: var(--t-small);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
