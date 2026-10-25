@@ -230,6 +230,28 @@ function impliedElo(score: number): number {
   return Math.round(-400 * Math.log10(1 / s - 1))
 }
 
+/**
+ * What a clean sweep is actually allowed to claim.
+ *
+ * A 6-0 reported "implied gap 798" — which is not a measurement, it is the
+ * clamp above printing itself. Six from six at 95% confidence is a true score
+ * anywhere from 0.61 upwards, i.e. a gap of at least 78 Elo and no more than
+ * that can be said. Printing 798 invites the reading that the bands are 800
+ * points apart, which six games cannot possibly establish.
+ *
+ * Wilson again, same as diag-punish, for the same reason: a number without an
+ * interval next to it is the number people quote.
+ */
+function eloFloor(points: number, games: number): number {
+  if (games === 0) return 0
+  const z = 1.96
+  const p = points / games
+  const d = 1 + (z * z) / games
+  const c = p + (z * z) / (2 * games)
+  const spread = z * Math.sqrt((p * (1 - p)) / games + (z * z) / (4 * games * games))
+  return impliedElo(Math.max(0, (c - spread) / d))
+}
+
 function bar(value: number, max: number, width = 22): string {
   const n = Math.max(0, Math.min(width, Math.round((value / max) * width)))
   return '#'.repeat(n) + '.'.repeat(width - n)
@@ -311,11 +333,19 @@ for (let i = runs('ladder') ? 1 : bands.length; i < bands.length; i++) {
   }
   const score = points / n
   const elo = impliedElo(score)
+  // What the sample actually licenses, as opposed to the point estimate.
+  const floor = eloFloor(points, n)
   pairRows.push({ higher, lower, score, impliedElo: elo, games: n })
-  const flag = elo < 40 ? '  <-- BANDS NOT SEPARATED' : ''
+  const flag =
+    floor < 40
+      ? '  <-- BANDS NOT SEPARATED'
+      : floor > 200
+        ? '  <-- GAP WIDER THAN THE LABELS CLAIM'
+        : ''
   console.log(
     `   ${lower} vs ${higher}:  ${higher} scored ${(score * 100).toFixed(0).padStart(3)}%  ` +
-      `implied gap ${String(elo).padStart(5)} (nominal 200)${flag}`,
+      `(${points}/${n})  gap at least ${String(floor).padStart(4)} ` +
+      `(nominal 200)${flag}`,
   )
 }
 
