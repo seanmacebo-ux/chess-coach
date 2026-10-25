@@ -43,29 +43,91 @@
  *      must beat the system preference in BOTH directions
  */
 :root {
-  --bg: #262421;
-  --surface: #312e2b;
-  --surface-hi: #3a3733;
-  --border: #3e3b37;
+  /*
+   * The surface ramp. #312e2b on #262421 was about five percent of luminance,
+   * so six cards read as one brown mass with text on it — these values are
+   * the wider ramp that fixed that. They used to live in a SECOND `:root`
+   * two thirds of the way down the file, which meant the palette you read
+   * here was not the palette that shipped. One block now.
+   */
+  --bg: #1c1a18;
+  --surface: #2a2724;
+  --surface-hi: #34302c;
+  --border: #423d38;
   --text: #e8e6e3;
   --text-muted: #a09b94;
 
   --accent: #81b64c;
   --accent-hi: #95d061;
   --accent-ink: #14240a;
+  /*
+   * Ink for text sitting ON a saturated chip — a blunder marker, a cleared
+   * rung. White in both themes, because the chip underneath it is saturated
+   * in both. Named so the two places that need it stop spelling `#fff`.
+   */
+  --ink-strong: #ffffff;
 
   /* Engine feedback. These are semantic, never decorative. */
   --danger: #ca3431;
+  /* The same red, legible as TEXT on a dark surface — it was a raw #ff8b88
+     inside .pill.loss, which is how a palette grows a seventh colour. */
+  --danger-hi: #ff8b88;
   --warn: #e6912c;
   --good: #5c8bb0;
   --brilliant: #26c2a3;
   --miss: #a35ed8;
 
+  /*
+   * Section tones. One colour per pillar, so a colour means the same thing
+   * on Learn, on Today's wall and on a dot in a list.
+   *
+   * They were typed out THREE times as raw hex — `.tone-*`, `.wall-row
+   * .tone-*`, `.tone-dot.tone-*` — with no light-mode variant anywhere, so
+   * the dark-mode greens and oranges stayed put on a white page. Defined
+   * once here, re-pointed per theme like everything else.
+   */
+  --tone-tactics: #d98b3a;
+  --tone-endgame: #5c8bb0;
+  --tone-positional: #81b64c;
+  --tone-strategy: #26c2a3;
+  --tone-opening: #9a7bd0;
+  --tone-ideas: #a09b94;
+
   --shadow-board: 0 4px 14px rgb(0 0 0 / 32%);
   --hover: #45413c;
 
+  /*
+   * Elevation. One ramp, three steps, and the inset top highlight lives IN
+   * the ramp rather than on the components — which is how the collision this
+   * replaces happened: `.card` carried its own tuned two-layer shadow, a
+   * later rule re-set it to `var(--e2)` at equal specificity, and the dark
+   * inset went dead while the light-mode override (higher specificity) still
+   * won. Cards were shadowed differently per theme by accident. Put the
+   * highlight in the token and both themes get the same recipe re-pointed.
+   */
+  --e1: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 1px 2px rgb(0 0 0 / 30%);
+  --e2:
+    0 1px 0 rgb(255 255 255 / 4%) inset,
+    0 2px 6px rgb(0 0 0 / 34%),
+    0 1px 2px rgb(0 0 0 / 24%);
+  --e3:
+    0 1px 0 rgb(255 255 255 / 5%) inset,
+    0 8px 24px rgb(0 0 0 / 40%),
+    0 2px 6px rgb(0 0 0 / 28%);
+
+  /*
+   * Corner ramp. Sixty-four raw radii against thirty-two token uses, so the
+   * ramp is the one that was already being drawn by hand: a hairline for
+   * bars and rules, three small steps for swatches and chips, two card
+   * steps, and the pill — which was typed as a raw 999px twenty times.
+   */
+  --radius-hair: 2px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius: 10px;
   --radius-lg: 14px;
+  --radius-pill: 999px;
 
   /*
    * Type scale. Previously everything was 15px with a 13px "small", which is
@@ -75,12 +137,25 @@
    * Ratio is roughly 1.2. Small enough that nothing shouts, big enough that
    * hierarchy is visible at arm's length on a phone.
    */
+  --t-micro: 10px;
   --t-caption: 12px;
   --t-small: 13px;
   --t-body: 15px;
   --t-lead: 17px;
   --t-title: 20px;
   --t-display: 30px;
+
+  /*
+   * Figures are not prose and do not belong on the prose scale. A rating, a
+   * streak, a win count — these are read as objects, so they get their own
+   * three steps. Keeping them here rather than inline is what stops the
+   * fourteen one-off sizes this replaces from coming back.
+   */
+  --t-fig: 22px;
+  --t-fig-lg: 27px;
+  --t-fig-xl: 34px;
+  --t-fig-2xl: 44px;
+  --t-fig-3xl: 62px;
 
   /*
    * Two registers, one system.
@@ -91,14 +166,34 @@
   --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --font-num: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
-  /* Spacing rhythm, 4pt based. */
+  /*
+   * Spacing rhythm, 4pt based — with the half steps, because a 4pt grid is
+   * the right rule for layout and the wrong rule for a chip's inside. 221
+   * declarations sat off the grid and most of them were 6px and 10px insets
+   * that a purist 8 or 12 would visibly fatten. So the halves are named
+   * rather than banned, and `h` means half a step up.
+   */
+  --s0: 2px;
   --s1: 4px;
+  --s1h: 6px;
   --s2: 8px;
+  --s2h: 10px;
   --s3: 12px;
+  --s3h: 14px;
   --s4: 16px;
+  --s4h: 20px;
   --s5: 24px;
+  --s6: 32px;
 
-  /* Set at runtime by theme.ts */
+  /*
+   * Set at runtime by theme.ts, as inline properties on <html> — which beat
+   * these, so what is written here is the default for a device that has not
+   * picked a board yet. They used to be spelled as `var(--x, #hex)`
+   * fallbacks at the point of use, which is a palette hiding in a component.
+   */
+  --coord-frame: #e8e4dc;
+  --coord-light: #6b665f;
+  --coord-dark: #ffffff;
   --board-bg: none;
   --sq-lastmove: rgba(247, 236, 116, 0.55);
   --sq-selected: rgba(247, 236, 116, 0.75);
@@ -114,25 +209,49 @@
  */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
-    --bg: #f4f2ef;
+    /* Light mode had white cards on near-white; the page is pushed back so
+       the cards read as objects sitting on it. */
+    --bg: #e9e6e1;
     --surface: #ffffff;
-    --surface-hi: #eceae6;
-    --border: #dcd8d2;
+    --surface-hi: #f6f4f1;
+    --border: #d8d3cc;
     --text: #23211f;
     --text-muted: #6b665f;
 
     --accent: #5d8c34;
     --accent-hi: #4f7a2b;
     --accent-ink: #ffffff;
+    --ink-strong: #ffffff;
 
     --danger: #b02622;
+    --danger-hi: #8e1d1a;
     --warn: #b26a12;
     --good: #3d6a8c;
     --brilliant: #0f8f78;
     --miss: #7b3fb0;
 
+    /* Darkened for a light surface. These are decoration rather than text,
+       so the bar is 3:1 for a UI component, not 4.5:1 — but the dark-mode
+       values sat under 2.5:1 on white, which fails even that. */
+    --tone-tactics: #a85f12;
+    --tone-endgame: #3d6a8c;
+    --tone-positional: #5d8c34;
+    --tone-strategy: #0f8f78;
+    --tone-opening: #7b3fb0;
+    --tone-ideas: #6b665f;
+
     --shadow-board: 0 3px 10px rgb(0 0 0 / 10%);
     --hover: #e2dfd9;
+
+    --e1: 0 1px 0 rgb(255 255 255 / 80%) inset, 0 1px 2px rgb(60 50 40 / 8%);
+    --e2:
+      0 1px 0 rgb(255 255 255 / 80%) inset,
+      0 2px 8px rgb(60 50 40 / 10%),
+      0 1px 2px rgb(60 50 40 / 8%);
+    --e3:
+      0 1px 0 rgb(255 255 255 / 80%) inset,
+      0 10px 28px rgb(60 50 40 / 14%),
+      0 2px 6px rgb(60 50 40 / 8%);
 
     color-scheme: light;
   }
@@ -140,25 +259,47 @@
 
 /* Explicit choice wins over the system in both directions. */
 :root[data-theme='light'] {
-  --bg: #f4f2ef;
+  --bg: #e9e6e1;
   --surface: #ffffff;
-  --surface-hi: #eceae6;
-  --border: #dcd8d2;
+  --surface-hi: #f6f4f1;
+  --border: #d8d3cc;
   --text: #23211f;
   --text-muted: #6b665f;
 
   --accent: #5d8c34;
   --accent-hi: #4f7a2b;
   --accent-ink: #ffffff;
+  --ink-strong: #ffffff;
 
   --danger: #b02622;
+  --danger-hi: #8e1d1a;
   --warn: #b26a12;
   --good: #3d6a8c;
   --brilliant: #0f8f78;
   --miss: #7b3fb0;
 
+  /* Darkened for a light surface. These are decoration rather than text,
+     so the bar is 3:1 for a UI component, not 4.5:1 — but the dark-mode
+     values sat under 2.5:1 on white, which fails even that. */
+  --tone-tactics: #a85f12;
+  --tone-endgame: #3d6a8c;
+  --tone-positional: #5d8c34;
+  --tone-strategy: #0f8f78;
+  --tone-opening: #7b3fb0;
+  --tone-ideas: #6b665f;
+
   --shadow-board: 0 3px 10px rgb(0 0 0 / 10%);
   --hover: #e2dfd9;
+
+    --e1: 0 1px 0 rgb(255 255 255 / 80%) inset, 0 1px 2px rgb(60 50 40 / 8%);
+  --e2:
+    0 1px 0 rgb(255 255 255 / 80%) inset,
+    0 2px 8px rgb(60 50 40 / 10%),
+    0 1px 2px rgb(60 50 40 / 8%);
+  --e3:
+    0 1px 0 rgb(255 255 255 / 80%) inset,
+    0 10px 28px rgb(60 50 40 / 14%),
+    0 2px 6px rgb(60 50 40 / 8%);
 
   color-scheme: light;
 }
@@ -186,7 +327,7 @@ body {
   color: var(--text);
   font-family:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  font-size: 15px;
+  font-size: var(--t-body);
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   /* Stop iOS rubber-banding the whole app while dragging a piece. */
@@ -227,7 +368,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--s2h);
   padding: calc(10px + env(safe-area-inset-top)) 2px 10px;
 }
 
@@ -241,10 +382,10 @@ body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--s2);
   font-weight: 700;
   letter-spacing: -0.02em;
-  font-size: 19px;
+  font-size: var(--t-title);
 }
 
 .brand .mark {
@@ -252,13 +393,13 @@ body {
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: linear-gradient(160deg, var(--accent-hi), var(--accent));
   color: var(--accent-ink);
-  font-size: 19px;
+  font-size: var(--t-title);
   line-height: 1;
   /* The glyph sits high in its em box; nudge it back onto the optical centre. */
-  padding-bottom: 2px;
+  padding-bottom: var(--s0);
   box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
   flex: none;
 }
@@ -310,7 +451,7 @@ body {
   --frame: 7px;
   --gutter: 14px;
   padding: var(--frame) var(--frame) var(--gutter) var(--gutter);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   /*
    * The frame takes its colour from the board's own dark squares, darkened.
    * Deriving it from the page surface instead made it near-white in light
@@ -344,7 +485,7 @@ body {
  * corner with no obvious cause. */
 .board-wrap .cg-wrap,
 .board-wrap > div:not(.board-coords) {
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -359,7 +500,7 @@ body {
   content: '';
   position: absolute;
   inset: var(--frame) var(--frame) var(--gutter) var(--gutter);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   pointer-events: none;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 22%);
   z-index: 3;
@@ -399,7 +540,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   /*
@@ -417,7 +558,7 @@ body {
    *
    * The fallback is for a first paint before applyTheme has run.
    */
-  color: var(--coord-frame, #e8e4dc);
+  color: var(--coord-frame);
   z-index: 2;
 }
 
@@ -528,42 +669,51 @@ body {
  * Kept subtle deliberately: this sits behind a board you stare at for fifteen
  * minutes, and heavy chrome competes with the position.
  */
-.card {
-  background: linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
+/*
+ * ONE card recipe.
+ *
+ * Six classes carried their own copy of "surface, 1px hairline border, large
+ * radius, sixteen of padding" — .card, .feature, .next-up, .q-board,
+ * .line-brief and .prog-panel. Six copies means six chances for the card
+ * edge to differ between screens, and it did: two of them had already
+ * drifted onto --surface-hi and --radius. The recipe lives here once and
+ * each class below keeps only its difference.
+ *
+ * The shadow comes from the elevation ramp with the other raised surfaces,
+ * not from here — three hand-tuned copies used to sit at this spot and a
+ * later rule silently overrode the dark one.
+ */
+.card,
+.sec-card,
+.feature,
+.next-up,
+.q-board,
+.line-brief,
+.prog-panel {
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 14px;
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 4%) inset,
-    0 1px 2px rgb(0 0 0 / 12%);
+  padding: var(--s4);
 }
 
-/* Light mode wants a brighter inset highlight and a softer drop, or the card
-   edge disappears against a white page. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) .card {
-    box-shadow:
-      0 1px 0 rgb(255 255 255 / 80%) inset,
-      0 1px 3px rgb(0 0 0 / 7%);
-  }
-}
-
-:root[data-theme='light'] .card {
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 80%) inset,
-    0 1px 3px rgb(0 0 0 / 7%);
+/* The cards are the ones with a lit top edge, and they run tighter than the
+   feature surfaces because they are the thing that appears six to a screen. */
+.card,
+.sec-card {
+  background: linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
+  padding: var(--s3h);
 }
 
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--s3);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2);
 }
 
 .spread {
@@ -584,6 +734,8 @@ body {
  * so cards had no titles. Uppercase with tracking reads as a label rather than
  * a sentence, which lets it stay quiet AND be findable.
  */
+/* The all-caps label above a block. Was built twice; the second copy sat
+   inside the piece-picker and was identical down to the letter-spacing. */
 .card > .small.muted:first-child,
 .card > .stack > .small.muted:first-child,
 /* Labels sitting opposite a counter — "The wall / 0 of 43 cleared". Only the
@@ -591,7 +743,8 @@ body {
 .card > .row.spread > .small.muted:first-child,
 .card > .stack > .row.spread > .small.muted:first-child,
 /* The eyebrow inside a collapsible header — "Idea". */
-.lesson-head > span > .small.muted:first-child {
+.lesson-head > span > .small.muted:first-child,
+.pick-group > .small.muted:first-child {
   font-size: var(--t-caption);
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -623,9 +776,9 @@ body {
   display: inline-block;
   width: 22px;
   height: 5px;
-  margin-left: 9px;
+  margin-left: var(--s2);
   vertical-align: 1px;
-  border-radius: 1px;
+  border-radius: var(--radius-hair);
   background: repeating-linear-gradient(
     90deg,
     var(--sq-dark, var(--border)) 0 5.5px,
@@ -643,7 +796,7 @@ button {
   border: 1px solid var(--border);
   background: var(--surface-hi);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: var(--s2h) var(--s3h);
   transition:
     background 0.12s ease,
     transform 0.06s ease;
@@ -707,14 +860,14 @@ button.ghost {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--s1h);
 }
 
 .chip {
   min-height: 34px;
-  padding: 6px 11px;
-  font-size: 13px;
-  border-radius: 999px;
+  padding: var(--s1h) var(--s3);
+  font-size: var(--t-small);
+  border-radius: var(--radius-pill);
 }
 
 .chip[aria-pressed='true'] {
@@ -755,8 +908,8 @@ button.ghost {
   width: 44px;
   height: 44px;
   min-height: 44px;
-  padding: 6px;
-  border-radius: 12px;
+  padding: var(--s1h);
+  border-radius: var(--radius-lg);
   border: 2px solid transparent;
   /* Swatches ask boardBackground() for a 2x2 board rather than shrinking the
      8x8 one — at 32px a full board is unreadable mush and every material
@@ -774,8 +927,8 @@ button.ghost {
 label.field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
+  gap: var(--s1h);
+  font-size: var(--t-small);
   color: var(--text-muted);
 }
 
@@ -789,9 +942,9 @@ input[type='range'] {
 .status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2);
   min-height: 24px;
-  font-size: 14px;
+  font-size: var(--t-body);
 }
 
 .dot {
@@ -866,7 +1019,7 @@ input[type='range'] {
   font-size: var(--t-title);
   font-weight: 700;
   letter-spacing: -0.015em;
-  margin-bottom: 2px;
+  margin-bottom: var(--s0);
 }
 
 /* Lesson card ---------------------------------------------------------- */
@@ -880,13 +1033,13 @@ input[type='range'] {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--s3);
   width: 100%;
   text-align: left;
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 14px;
+  padding: var(--s3h);
 }
 
 .lesson-head:hover {
@@ -896,35 +1049,38 @@ input[type='range'] {
 .lesson-head > span:first-child {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--s0);
 }
 
-.lesson-title {
+/* A block heading. The lesson and the Learn section wanted the same thing
+   and each wrote it out. */
+.lesson-title,
+.sec-name {
   font-size: var(--t-lead);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 .chev {
-  font-size: 20px;
+  font-size: var(--t-title);
   line-height: 1;
   color: var(--text-muted);
   flex: none;
 }
 
 .lesson-body {
-  padding: 0 14px 14px;
+  padding: 0 var(--s3h) var(--s3h);
   border-top: 1px solid var(--border);
 }
 
 .lesson-body p {
-  margin: 12px 0 0;
+  margin: var(--s3) 0 0;
 }
 
 .lesson-body .source {
   font-style: italic;
   border-top: 1px solid var(--border);
-  padding-top: 10px;
+  padding-top: var(--s2h);
 }
 
 /* Session steps -------------------------------------------------------- */
@@ -932,7 +1088,7 @@ input[type='range'] {
 .step {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--s2h);
 }
 
 /*
@@ -964,7 +1120,7 @@ input[type='range'] {
   font-weight: 800;
   display: grid;
   place-items: center;
-  margin-top: 2px;
+  margin-top: var(--s0);
   color: var(--accent-ink);
   position: relative;
   z-index: 1;
@@ -975,7 +1131,7 @@ input[type='range'] {
 .bricks {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--s1h);
 }
 
 .brick {
@@ -983,11 +1139,11 @@ input[type='range'] {
   overflow: hidden;
   flex: 1 1 auto;
   min-width: 96px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: var(--s2) var(--s2h);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-hi);
-  font-size: 12px;
+  font-size: var(--t-caption);
 }
 
 /* Progress fill sits behind the label rather than resizing the brick. */
@@ -1039,7 +1195,7 @@ input[type='range'] {
 .hgrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: var(--s2h);
 }
 
 @media (max-width: 380px) {
@@ -1049,8 +1205,8 @@ input[type='range'] {
 }
 
 .hist-row {
-  gap: 8px;
-  padding: 6px 0;
+  gap: var(--s2);
+  padding: var(--s1h) 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1067,12 +1223,12 @@ input[type='range'] {
 }
 
 .pill {
-  font-size: 11px;
+  font-size: var(--t-caption);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 3px 8px;
-  border-radius: 999px;
+  padding: var(--s1) var(--s2);
+  border-radius: var(--radius-pill);
   background: var(--surface-hi);
   flex: none;
 }
@@ -1084,7 +1240,7 @@ input[type='range'] {
 
 .pill.loss {
   background: color-mix(in srgb, var(--danger) 26%, transparent);
-  color: #ff8b88;
+  color: var(--danger-hi);
 }
 
 .pill.draw {
@@ -1093,30 +1249,30 @@ input[type='range'] {
 
 .weak .meter {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-hi);
   overflow: hidden;
-  margin-top: 5px;
+  margin-top: var(--s1);
 }
 
 .weak .meter i {
   display: block;
   height: 100%;
   background: var(--danger);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 /* Puzzle history as a dot strip — dense enough to show a trend at a glance. */
 .dots {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--s1);
 }
 
 .pdot {
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--radius-hair);
   background: var(--surface-hi);
 }
 
@@ -1134,7 +1290,7 @@ input[type='range'] {
    the list stays scannable — you read progress down the edge in one pass. */
 .lvl {
   border-left: 3px solid var(--border);
-  padding: 6px 0 6px 10px;
+  padding: var(--s1h) 0 var(--s1h) var(--s2h);
 }
 
 .lvl.now {
@@ -1160,9 +1316,9 @@ input[type='email'] {
   background: var(--surface-hi);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 11px 12px;
+  padding: var(--s3) var(--s3);
   /* 16px minimum stops iOS zooming the whole page on focus. */
-  font-size: 16px;
+  font-size: var(--t-lead);
   min-height: 44px;
   width: 100%;
 }
@@ -1182,7 +1338,7 @@ input[type='email'] {
   bottom: 0;
   z-index: 20;
   display: flex;
-  gap: 6px;
+  gap: var(--s1h);
   max-width: 560px;
   margin-inline: auto;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
@@ -1208,11 +1364,11 @@ input[type='email'] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  font-size: 11px;
+  gap: var(--s0);
+  font-size: var(--t-caption);
   font-weight: 600;
   letter-spacing: 0.01em;
-  padding: 6px 2px;
+  padding: var(--s1h) var(--s0);
   border-color: transparent;
   background: transparent;
   color: var(--text-muted);
@@ -1245,7 +1401,7 @@ input[type='email'] {
 /* Detected patterns — a finding, its evidence, and what to do. */
 .pattern {
   border-left: 3px solid var(--good);
-  padding: 8px 0 8px 10px;
+  padding: var(--s2) 0 var(--s2) var(--s2h);
 }
 
 /*
@@ -1266,8 +1422,8 @@ input[type='email'] {
   width: 88px;
   height: 40px;
   min-height: 40px;
-  padding: 3px 0;
-  border-radius: 10px;
+  padding: var(--s1) 0;
+  border-radius: var(--radius);
   border: 2px solid transparent;
   /* Clipped to the padding box so the three colour bands line up exactly with
      the three flex children, whatever the border does. */
@@ -1311,14 +1467,16 @@ input[type='email'] {
      badge on every second line. */
   top: 2px;
   right: 2px;
-  font-size: 8px;
+  font-size: 8px; /* off-scale: decorative glyph, not text */
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.02em;
-  padding: 2px 3px;
-  border-radius: 4px;
+  padding: var(--s0) var(--s1);
+  border-radius: var(--radius-xs);
   color: var(--bg);
-  background: var(--muted);
+  /* Was `var(--muted)`, which is not a token here — so this badge had no
+     background whatsoever and its --bg-coloured text sat on the swatch. */
+  background: var(--text-muted);
 }
 
 /* ------------------------------------------------------ puzzle category */
@@ -1329,20 +1487,20 @@ input[type='email'] {
  * reads as a result, which is the opposite of the intent.
  */
 .card.cat {
-  padding: 10px 14px;
+  padding: var(--s2h) var(--s3h);
   border-left: 3px solid var(--accent);
 }
 
 .cat-name {
   font-weight: 650;
-  font-size: 15px;
+  font-size: var(--t-body);
 }
 
 /* Remaining tries, as pips. Two states so "one left" is visible at a glance
    without reading a number. */
 .tries {
   display: inline-flex;
-  gap: 5px;
+  gap: var(--s1);
   align-items: center;
 }
 
@@ -1378,9 +1536,9 @@ input[type='email'] {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   width: calc(100% - 12px);
-  margin: 6px;
+  margin: var(--s1h);
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background-size: 100% 100%;
   background-repeat: no-repeat;
@@ -1410,7 +1568,7 @@ input[type='email'] {
  */
 .tp-sq .co {
   position: absolute;
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 800;
   line-height: 1;
   pointer-events: none;
@@ -1426,11 +1584,11 @@ input[type='email'] {
  * versa — exactly how a printed diagram does it.
  */
 .tp-sq.sq-light .co {
-  color: var(--coord-light, #6b665f);
+  color: var(--coord-light);
 }
 
 .tp-sq.sq-dark .co {
-  color: var(--coord-dark, #fff);
+  color: var(--coord-dark);
 }
 
 .tp-sq .co.rank {
@@ -1462,7 +1620,7 @@ input[type='email'] {
 /* The move list. Laid out as running text rather than a table so a 13-ply
    line wraps naturally on a phone instead of forcing a horizontal scroll. */
 .moves {
-  margin-top: 8px;
+  margin-top: var(--s2);
   line-height: 2;
   font-variant-numeric: tabular-nums;
 }
@@ -1470,17 +1628,17 @@ input[type='email'] {
 .movenum {
   color: var(--text-muted);
   font-weight: 600;
-  font-size: 13px;
-  margin-right: 3px;
+  font-size: var(--t-small);
+  margin-right: var(--s1);
 }
 
 .moves .move {
   min-height: 0;
-  padding: 2px 6px;
-  margin-right: 4px;
-  font-size: 13px;
+  padding: var(--s0) var(--s1h);
+  margin-right: var(--s1);
+  font-size: var(--t-small);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
 }
@@ -1499,7 +1657,7 @@ input[type='email'] {
 .swatch-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--s1);
 }
 
 /* Background picker: wider than tall so a gradient is actually readable. */
@@ -1508,7 +1666,7 @@ input[type='email'] {
   height: 44px;
   min-height: 44px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: var(--radius);
   border: 2px solid var(--border);
   background-size: cover;
 }
@@ -1535,7 +1693,7 @@ input[type='email'] {
 
 .sec-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--s3);
   /* auto-fill rather than a fixed count: three across on the desk monitor,
      two on a laptop, one on a phone, without a single breakpoint. */
   grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
@@ -1545,15 +1703,11 @@ input[type='email'] {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: var(--s2);
   text-align: left;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--surface-hi) 0%, var(--surface) 38%);
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 4%) inset,
-    0 1px 2px rgb(0 0 0 / 12%);
+  /* Recipe, gradient and shadow all come from the card rules — this carried
+     its own copy of the first two and a third hand-tuned shadow that a later
+     rule replaced wholesale. */
 }
 
 .sec-card:hover:not(:disabled) {
@@ -1561,17 +1715,11 @@ input[type='email'] {
   border-color: var(--accent);
 }
 
-.sec-name {
-  font-size: var(--t-lead);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
 /* What is actually inside the section. The index is a menu, and a menu without
    prices on it is just a list of words. */
 .sec-contents {
   border-top: 1px solid var(--border);
-  padding-top: 8px;
+  padding-top: var(--s2);
   margin-top: auto;
 }
 
@@ -1588,44 +1736,11 @@ input[type='email'] {
  * fixed width anywhere, because these ratings sit in the 400-900 range for a
  * beginner and a four-digit slot would leave a hole next to every one.
  */
-.rchip {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: baseline;
-  gap: 2px 6px;
-  flex: none;
-  font-variant-numeric: tabular-nums;
-}
-
-.rchip .n {
-  font-size: var(--t-title);
-  font-weight: 750;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-
-/* Provisional ratings are greyed rather than hidden. Visible because watching
-   it move is motivating; grey because it is going to move a lot. */
-.rchip.prov .n {
-  color: var(--text-muted);
-}
-
-.rchip .trend {
-  font-size: var(--t-small);
-  font-weight: 700;
-}
-
-.rchip .trend.up {
-  color: var(--accent);
-}
-
-.rchip .trend.down {
-  color: var(--danger);
-}
-
-.tag,
-.rchip .tag {
+/* The caption under a rating. This used to also carry `.rchip .tag`, the last
+   living line of a second rating-chip component — same number, same trend,
+   same caption, built twice. The other one (`.ratechip`, in learn/) is the one
+   the app actually renders; this one had no markup behind it at all. */
+.tag {
   font-size: var(--t-caption);
   color: var(--text-muted);
   flex-basis: 100%;
@@ -1641,16 +1756,16 @@ input[type='email'] {
 .expl-line {
   display: block;
   border-left: 2px solid var(--border);
-  padding-left: 8px;
+  padding-left: var(--s2);
 }
 
 .expl {
   border-top: 1px solid var(--border);
-  padding-top: 10px;
+  padding-top: var(--s2h);
 }
 
 .expl p {
-  margin: 6px 0 0;
+  margin: var(--s1h) 0 0;
 }
 
 /* Progress, drawn as progress. "3/20" in muted grey is a fact; a bar is a
@@ -1659,7 +1774,7 @@ input[type='email'] {
   display: block;
   width: 100%;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-hi);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -1669,7 +1784,7 @@ input[type='email'] {
   display: block;
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .bar.ok {
@@ -1681,11 +1796,11 @@ input[type='email'] {
 .secbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--s3);
 }
 
 button.back {
-  padding: 8px 12px;
+  padding: var(--s2) var(--s3);
   min-height: 38px;
   font-weight: 650;
 }
@@ -1703,7 +1818,7 @@ button.back {
  */
 .split {
   display: grid;
-  gap: 16px;
+  gap: var(--s4);
   align-items: start;
   grid-template-columns: 1fr;
 }
@@ -1718,10 +1833,10 @@ button.back {
 }
 
 .card.split-list {
-  padding: 8px;
+  padding: var(--s2);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--s0);
 }
 
 @media (min-width: 900px) {
@@ -1736,33 +1851,25 @@ button.back {
 }
 
 .pick-group {
-  padding: 10px 8px 4px;
-}
-
-.pick-group > .small.muted:first-child {
-  font-size: var(--t-caption);
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  padding: var(--s2h) var(--s2) var(--s1);
 }
 
 .pick-note {
-  margin-top: 3px;
+  margin-top: var(--s1);
 }
 
 .pick {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--s2);
   width: 100%;
   text-align: left;
   min-height: 0;
-  padding: 8px 10px;
+  padding: var(--s2) var(--s2h);
   border: 1px solid transparent;
   border-left: 3px solid var(--border);
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   background: transparent;
 }
 
@@ -1790,7 +1897,7 @@ button.back {
 .pick-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--s0);
   min-width: 0;
 }
 
@@ -1808,7 +1915,7 @@ button.back {
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 11px;
+  font-size: var(--t-caption);
   font-weight: 800;
   vertical-align: 1px;
 }
@@ -1828,7 +1935,7 @@ button.back {
    screen they sit as four, not as a column you scroll. */
 .prose-cols {
   display: grid;
-  gap: 10px 24px;
+  gap: var(--s2h) var(--s5);
   grid-template-columns: 1fr;
 }
 
@@ -1842,14 +1949,14 @@ button.back {
 
 .cat-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--s3);
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
 .cat-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--s1h);
 }
 
 /* The board question for a positional or strategy level. Accented because it
@@ -1859,7 +1966,7 @@ button.back {
   font-size: var(--t-small);
   color: var(--accent-hi);
   border-left: 2px solid var(--accent);
-  padding-left: 8px;
+  padding-left: var(--s2);
   margin-top: auto;
 }
 
@@ -1893,8 +2000,8 @@ button.back {
   position: relative;
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
-  gap: 4px 12px;
-  padding: 8px 0 12px;
+  gap: var(--s1) var(--s3);
+  padding: var(--s2) 0 var(--s3);
 }
 
 /* The rail. Runs between the markers so the rungs read as one sequence rather
@@ -1918,11 +2025,11 @@ button.back {
   border: 1px solid var(--border);
   background: var(--surface-hi);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--t-caption);
   font-weight: 800;
   line-height: 1;
   align-self: start;
-  margin-top: 2px;
+  margin-top: var(--s0);
   position: relative;
   z-index: 1;
   flex: none;
@@ -1931,7 +2038,7 @@ button.back {
 .rung.done .rung-mark {
   background: var(--good);
   border-color: var(--good);
-  color: #fff;
+  color: var(--ink-strong);
 }
 
 .rung.now .rung-mark {
@@ -1949,8 +2056,8 @@ button.back {
    ladder, "where am I" has to survive a glance. */
 .rung.now .rung-body {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border-radius: var(--radius);
+  padding: var(--s2) var(--s2h);
   margin: -4px -10px 0;
 }
 
@@ -1966,7 +2073,7 @@ button.back {
 .rung-state {
   font-size: var(--t-small);
   font-weight: 650;
-  margin-top: 4px;
+  margin-top: var(--s1);
 }
 
 .rung.done .rung-state {
@@ -1985,8 +2092,8 @@ button.back {
 .rung-bars {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px 16px;
-  margin-top: 8px;
+  gap: var(--s2) var(--s4);
+  margin-top: var(--s2);
 }
 
 @media (min-width: 560px) {
@@ -1998,7 +2105,7 @@ button.back {
 .rung-bar {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--s1);
 }
 
 /* "You are here" — the single marker that turns a list into a position. */
@@ -2006,8 +2113,8 @@ button.back {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: var(--s2h);
+  margin-bottom: var(--s2);
   font-size: var(--t-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -2032,16 +2139,16 @@ button.back {
  */
 .secrate-grid {
   display: grid;
-  gap: 10px;
+  gap: var(--s2h);
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 
 .secrate {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  gap: var(--s1);
+  padding: var(--s2) var(--s2h);
+  border-radius: var(--radius);
   background: var(--surface-hi);
   border: 1px solid var(--border);
 }
@@ -2119,7 +2226,7 @@ button.back {
   padding: 0;
   display: grid;
   place-items: center;
-  font-size: 26px;
+  font-size: var(--t-fig-lg);
   line-height: 1;
   border-radius: 50%;
   border: 1px solid var(--border);
@@ -2139,10 +2246,12 @@ button.back {
   line-height: 1.15;
 }
 
-.view-sub {
+/* The quiet line under a heading. */
+.view-sub,
+.feature-hook {
   font-size: var(--t-small);
   color: var(--text-muted);
-  margin-top: 1px;
+  margin-top: var(--s0);
 }
 
 /* Lede paragraphs carry the explanation that used to sit in a card.
@@ -2177,7 +2286,11 @@ button.back {
   border: 1px solid var(--border);
 }
 
-.hero-rating {
+/* A figure in its own column with a rule down the right-hand side. Three
+   screens needed it; three screens wrote it. */
+.hero-rating,
+.climb-main,
+.learn-top-num {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2193,9 +2306,11 @@ button.back {
   line-height: 1;
 }
 
-.hero-cap {
-  margin-top: 2px;
-  font-size: 10px;
+/* The caption under that figure. */
+.hero-cap,
+.climb-cap {
+  margin-top: var(--s0);
+  font-size: var(--t-micro);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -2238,7 +2353,7 @@ button.back {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--s0);
   text-align: left;
   padding: var(--s3);
   min-height: 112px;
@@ -2253,14 +2368,19 @@ button.back {
   background: var(--surface-hi);
 }
 
-.mod-tactics { --mod-tone: #d98b3a; }
-.mod-endgame { --mod-tone: var(--good); }
-.mod-opening { --mod-tone: #9a7bd0; }
-.mod-positional { --mod-tone: var(--accent); }
-.mod-strategy { --mod-tone: var(--brilliant); }
-.mod-ideas { --mod-tone: var(--text-muted); }
+/* The fourth place the six pillar colours were written down, two of them as
+   raw hex and four as whichever palette token happened to match. All six now
+   read the tone, so a pillar is one colour in one place. */
+.mod-tactics { --mod-tone: var(--tone-tactics); }
+.mod-endgame { --mod-tone: var(--tone-endgame); }
+.mod-opening { --mod-tone: var(--tone-opening); }
+.mod-positional { --mod-tone: var(--tone-positional); }
+.mod-strategy { --mod-tone: var(--tone-strategy); }
+.mod-ideas { --mod-tone: var(--tone-ideas); }
 
-.mod-name {
+/* A tile title. */
+.mod-name,
+.feature-title {
   font-size: var(--t-lead);
   font-weight: 650;
   letter-spacing: -0.015em;
@@ -2271,7 +2391,10 @@ button.back {
   color: var(--text-muted);
 }
 
-.mod-stat {
+/* The footer line of a tile, pushed to the bottom so tiles of different
+   heights still line up along it. */
+.mod-stat,
+.op-meta {
   margin-top: auto;
   padding-top: var(--s2);
   font-size: var(--t-caption);
@@ -2294,8 +2417,8 @@ button.back {
 }
 
 .mod-live {
-  padding: 1px 7px;
-  border-radius: 999px;
+  padding: var(--s0) var(--s2);
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--mod-tone) 20%, transparent);
   color: var(--mod-tone);
   font-weight: 600;
@@ -2336,7 +2459,7 @@ button.back {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--s0);
   text-align: left;
   padding: 0;
   min-height: 0;
@@ -2371,11 +2494,11 @@ button.back {
   place-items: center;
   width: 20px;
   height: 20px;
-  margin-right: 4px;
+  margin-right: var(--s1);
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 11px;
+  font-size: var(--t-caption);
   font-weight: 700;
   vertical-align: 1px;
 }
@@ -2384,11 +2507,10 @@ button.back {
 
 /* The one thing on the screen that should be tapped first. Exactly one
    per view — the moment there are two, neither is a feature. */
+/* One step up the surface ramp: a feature is a card that wants to be read
+   first. */
 .feature {
-  padding: var(--s4);
-  border-radius: var(--radius-lg);
   background: var(--surface-hi);
-  border: 1px solid var(--border);
 }
 
 .feature-top {
@@ -2400,18 +2522,6 @@ button.back {
 .feature-top > div {
   flex: 1;
   min-width: 0;
-}
-
-.feature-title {
-  font-size: var(--t-lead);
-  font-weight: 650;
-  letter-spacing: -0.015em;
-}
-
-.feature-hook {
-  font-size: var(--t-small);
-  color: var(--text-muted);
-  margin-top: 2px;
 }
 
 .feature-body {
@@ -2431,11 +2541,8 @@ button.back {
 
 /* -------------------------------------------------------- next up */
 
+/* Nothing of its own — the recipe is the whole of it. */
 .next-up {
-  padding: var(--s4);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .next-head {
@@ -2467,7 +2574,7 @@ button.back {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: var(--s0);
   text-align: left;
   padding: var(--s2) var(--s3);
   border-radius: var(--radius);
@@ -2491,11 +2598,9 @@ button.back {
   line-height: 1.4;
 }
 
+/* Tighter, because a board wants the frame close. */
 .q-board {
   padding: var(--s3);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .q-ask {
@@ -2579,7 +2684,11 @@ button.back {
   font-weight: 600;
 }
 
-.lvl-band {
+/* A muted figure in tabular numerals — a level band, a solved count, a bot
+   rating. The same caption three times. */
+.lvl-band,
+.wall-count,
+.bot-elo {
   font-size: var(--t-caption);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -2620,7 +2729,7 @@ button.back {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: var(--s1);
   text-align: left;
   padding: var(--s3);
   border-radius: var(--radius);
@@ -2648,14 +2757,6 @@ button.back {
   opacity: 0.85;
 }
 
-.op-meta {
-  margin-top: auto;
-  padding-top: var(--s2);
-  font-size: var(--t-caption);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
 /* ------------------------------------------------- variation tabs */
 
 /*
@@ -2668,7 +2769,7 @@ button.back {
   gap: var(--s2);
   overflow-x: auto;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  padding-bottom: var(--s0);
   margin: 0 calc(-1 * var(--s3));
   padding-inline: var(--s3);
 }
@@ -2682,7 +2783,7 @@ button.back {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: var(--s0);
   text-align: left;
   padding: var(--s2) var(--s3);
   border-radius: var(--radius);
@@ -2703,7 +2804,7 @@ button.back {
 .role-sideline { --role-tone: var(--text-muted); }
 
 .var-role {
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2718,11 +2819,8 @@ button.back {
 
 /* --------------------------------------------------- line briefing */
 
+/* Nothing of its own. */
 .line-brief {
-  padding: var(--s4);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface);
 }
 
 /*
@@ -2733,8 +2831,8 @@ button.back {
 .eval-badge {
   display: inline-block;
   margin-bottom: var(--s3);
-  padding: 3px 10px;
-  border-radius: 999px;
+  padding: var(--s1) var(--s2h);
+  border-radius: var(--radius-pill);
   font-size: var(--t-caption);
   font-weight: 650;
 }
@@ -2768,7 +2866,7 @@ button.back {
 .brief-key {
   display: inline-block;
   min-width: 54px;
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -2781,12 +2879,12 @@ button.back {
 }
 
 .field-label {
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 2px;
+  margin-bottom: var(--s0);
 }
 
 .field-text {
@@ -2798,7 +2896,7 @@ button.back {
 
 .plan {
   margin: var(--s1) 0 0;
-  padding-left: 18px;
+  padding-left: var(--s4);
   font-size: var(--t-small);
   line-height: 1.6;
 }
@@ -2839,7 +2937,7 @@ button.back {
   padding: 0;
   display: grid;
   place-items: center;
-  font-size: 15px;
+  font-size: var(--t-body);
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
@@ -2908,7 +3006,7 @@ button.back {
 
 .moves .move.current.blunder {
   background: var(--danger);
-  color: #fff;
+  color: var(--ink-strong);
 }
 
 /* ==================================================================
@@ -2924,12 +3022,14 @@ button.back {
 .ratechip {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--s1h);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-.ratechip-num {
+/* The number a card is about, and the section name that is set to match it. */
+.ratechip-num,
+.sec-card .sec-name {
   font-size: var(--t-title);
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -2947,7 +3047,7 @@ button.back {
 /* Provisional is a state, not a warning — it should read as a caveat
    attached to the number rather than compete with it. */
 .ratechip-prov {
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3009,12 +3109,6 @@ button.back {
   color: var(--text-muted);
 }
 
-.wall-count {
-  font-size: var(--t-caption);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
 .wall-rows {
   display: flex;
   flex-direction: column;
@@ -3070,9 +3164,9 @@ button.back {
 }
 
 .wall-prog {
-  margin-top: 6px;
+  margin-top: var(--s1h);
   height: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-hi);
   overflow: hidden;
 }
@@ -3137,7 +3231,7 @@ button.back {
 .rat-bar {
   display: flex;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -3157,7 +3251,7 @@ button.back {
 .rat-item {
   display: inline-flex;
   align-items: baseline;
-  gap: 5px;
+  gap: var(--s1);
   font-size: var(--t-caption);
 }
 
@@ -3203,7 +3297,7 @@ button.back {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 2px;
+  gap: var(--s0);
   width: 100%;
   padding: var(--s3);
   text-align: left;
@@ -3244,8 +3338,8 @@ button.back {
 }
 
 .moment-who {
-  margin-top: 2px;
-  font-size: 10px;
+  margin-top: var(--s0);
+  font-size: var(--t-micro);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -3284,7 +3378,7 @@ button.back {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--s0);
   text-align: left;
   padding: var(--s2) var(--s3);
   border-radius: var(--radius);
@@ -3307,7 +3401,7 @@ button.back {
 }
 
 .rev-opt-label {
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3363,7 +3457,7 @@ button.back {
 }
 
 .bot-face {
-  font-size: 22px;
+  font-size: var(--t-fig);
   line-height: 1;
 }
 
@@ -3378,21 +3472,15 @@ button.back {
   font-weight: 650;
 }
 
-.bot-elo {
-  font-size: var(--t-caption);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
 .bot-tag {
   position: absolute;
   top: -7px;
   right: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
+  padding: var(--s0) var(--s1h);
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3431,7 +3519,7 @@ button.back {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--s0);
   width: 100%;
   text-align: left;
   padding: var(--s3) var(--s4);
@@ -3492,7 +3580,7 @@ button.back {
 }
 
 .coach-role {
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -3578,7 +3666,7 @@ button.back {
 .meter {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--s1);
 }
 
 .meter-top {
@@ -3589,7 +3677,7 @@ button.back {
 }
 
 .meter-label {
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -3606,7 +3694,7 @@ button.back {
 .meter-track {
   position: relative;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-hi);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -3615,7 +3703,7 @@ button.back {
 .meter-fill {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   transition: width 220ms ease;
 }
@@ -3655,28 +3743,12 @@ button.back {
   background: var(--surface);
 }
 
-.climb-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-right: var(--s4);
-  border-right: 1px solid var(--border);
-}
-
 .climb-num {
   font-size: var(--t-display);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-}
-
-.climb-cap {
-  margin-top: 2px;
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 
 .climb-stats {
@@ -3693,7 +3765,7 @@ button.back {
   font-size: var(--t-body);
   color: var(--text);
   font-variant-numeric: tabular-nums;
-  margin-right: 3px;
+  margin-right: var(--s1);
 }
 
 .climb-stats .hot b {
@@ -3705,7 +3777,7 @@ button.back {
    rather than calculation. */
 .climb-lives {
   display: flex;
-  gap: 4px;
+  gap: var(--s1);
   margin-left: auto;
 }
 
@@ -3718,23 +3790,23 @@ button.back {
 .tries {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--s1);
 }
 
 .tries em {
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--t-micro);
   letter-spacing: 0.02em;
   color: var(--text-muted);
-  margin-left: 2px;
+  margin-left: var(--s0);
 }
 
 /* One line saying what the mode is, at the top of a run only. */
 .climb-how {
   margin: 0;
   padding: var(--s2) var(--s3);
-  border-radius: var(--r2);
-  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  border-radius: var(--radius);
+  background: var(--surface-hi);
   border-left: 3px solid var(--accent);
   font-size: var(--t-small);
   line-height: 1.5;
@@ -3772,46 +3844,14 @@ button.back {
  *      texture is what "flat" actually means here.
  *
  * Fixed by widening the surface ramp, giving each section a tone, and
- * making elevation real. Everything below overrides earlier rules on
- * purpose — this block is last in the file.
+ * making elevation real.
+ *
+ * The palette and the elevation ramp this pass introduced now live in the
+ * single token block at the top of the file, where they belong. They used to
+ * be re-declared here, 3700 lines down, under a comment claiming this block
+ * was last in the file — 2200 lines follow it. What is left below is the
+ * component work: tones, bars, and the raised surfaces.
  * ================================================================== */
-
-:root {
-  /* A real ramp instead of three shades of the same brown. */
-  --bg: #1c1a18;
-  --surface: #2a2724;
-  --surface-hi: #34302c;
-  --border: #423d38;
-
-  --e1: 0 1px 2px rgb(0 0 0 / 30%);
-  --e2: 0 2px 6px rgb(0 0 0 / 34%), 0 1px 2px rgb(0 0 0 / 24%);
-  --e3: 0 8px 24px rgb(0 0 0 / 40%), 0 2px 6px rgb(0 0 0 / 28%);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    /* Light mode had white cards on near-white. Push the page back so
-       the cards read as objects sitting on it. */
-    --bg: #e9e6e1;
-    --surface: #ffffff;
-    --surface-hi: #f6f4f1;
-    --border: #d8d3cc;
-
-    --e1: 0 1px 2px rgb(60 50 40 / 8%);
-    --e2: 0 2px 8px rgb(60 50 40 / 10%), 0 1px 2px rgb(60 50 40 / 8%);
-    --e3: 0 10px 28px rgb(60 50 40 / 14%), 0 2px 6px rgb(60 50 40 / 8%);
-  }
-}
-
-:root[data-theme='light'] {
-  --bg: #e9e6e1;
-  --surface: #ffffff;
-  --surface-hi: #f6f4f1;
-  --border: #d8d3cc;
-  --e1: 0 1px 2px rgb(60 50 40 / 8%);
-  --e2: 0 2px 8px rgb(60 50 40 / 10%), 0 1px 2px rgb(60 50 40 / 8%);
-  --e3: 0 10px 28px rgb(60 50 40 / 14%), 0 2px 6px rgb(60 50 40 / 8%);
-}
 
 .card,
 .feature,
@@ -3853,22 +3893,16 @@ button.back {
   background: var(--tone, var(--border));
 }
 
-.tone-tactics { --tone: #d98b3a; }
-.tone-endgame { --tone: #5c8bb0; }
-.tone-positional { --tone: #81b64c; }
-.tone-strategy { --tone: #26c2a3; }
-.tone-opening { --tone: #9a7bd0; }
-.tone-ideas { --tone: #a09b94; }
-
-.sec-card .sec-name {
-  font-size: var(--t-title);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
+.tone-tactics { --tone: var(--tone-tactics); }
+.tone-endgame { --tone: var(--tone-endgame); }
+.tone-positional { --tone: var(--tone-positional); }
+.tone-strategy { --tone: var(--tone-strategy); }
+.tone-opening { --tone: var(--tone-opening); }
+.tone-ideas { --tone: var(--tone-ideas); }
 
 /* The rating is the number you came to see — let it carry weight. */
 .sec-card .ratechip-num {
-  font-size: 26px;
+  font-size: var(--t-fig-lg);
 }
 
 /* ------------------------------------------------------ visible bar */
@@ -3927,14 +3961,6 @@ button.back {
   box-shadow: var(--e2);
 }
 
-.learn-top-num {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-right: var(--s4);
-  border-right: 1px solid var(--border);
-}
-
 .learn-top-facts {
   flex: 1;
   min-width: 0;
@@ -3952,7 +3978,7 @@ button.back {
 }
 
 .learn-top-sub {
-  margin-top: 3px;
+  margin-top: var(--s1);
   font-size: var(--t-small);
   color: var(--text-muted);
   line-height: 1.4;
@@ -3969,7 +3995,7 @@ button.back {
  */
 .plan-block {
   border-left: 3px solid var(--accent);
-  padding: 2px 0 2px 10px;
+  padding: var(--s0) 0 var(--s0) var(--s2h);
 }
 
 /* Their plan is stated first and deliberately reads as the opposition. */
@@ -3978,26 +4004,28 @@ button.back {
 }
 
 .plan-label {
-  font-size: 11px;
+  font-size: var(--t-caption);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  /* Another `var(--muted)`: undefined, so this label simply inherited the
+     paragraph colour and was never muted at all. */
+  color: var(--text-muted);
 }
 
 .plan-body {
-  margin: 3px 0 0;
-  font-size: 14px;
+  margin: var(--s1) 0 0;
+  font-size: var(--t-body);
   line-height: 1.5;
 }
 
 .plan-steps {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--s4h);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 14px;
+  gap: var(--s2);
+  font-size: var(--t-body);
   line-height: 1.5;
 }
 
@@ -4010,18 +4038,18 @@ button.back {
 .plan-steps.compact {
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--s1h);
   padding: 0;
   list-style: none;
-  font-size: 12px;
+  font-size: var(--t-caption);
 }
 
 .plan-steps.compact li {
-  padding: 4px 9px;
-  border-radius: 999px;
+  padding: var(--s1) var(--s2);
+  border-radius: var(--radius-pill);
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .plan-steps.compact li.on {
@@ -4037,7 +4065,7 @@ button.back {
 }
 
 .q-item.plan-item {
-  gap: 4px;
+  gap: var(--s1);
 }
 
 /* ------------------------------------------------ screen headers */
@@ -4079,26 +4107,21 @@ button.back {
   position: relative;
 }
 
-/* The wall on Today, per pillar — the same six tones as the Learn cards, so a
-   colour means the same thing on both screens. */
-.wall-row.tone-tactics { --wall: #d98b3a; }
-.wall-row.tone-endgame { --wall: #5c8bb0; }
-.wall-row.tone-positional { --wall: #81b64c; }
-.wall-row.tone-strategy { --wall: #26c2a3; }
-.wall-row.tone-opening { --wall: #9a7bd0; }
-
+/* The wall on Today, per pillar. The tone comes from the shared `.tone-*`
+   classes, so a colour means the same thing on both screens by construction
+   rather than by two lists of hex agreeing with each other. */
 .wall-row {
-  border-left: 3px solid var(--wall, var(--border));
-  padding-left: 10px;
+  border-left: 3px solid var(--tone, var(--border));
+  padding-left: var(--s2h);
 }
 
 /* Untried categories, one chip each. NOT `.tag` — that class is scoped to the
    rating chip, where it is a full-width right-aligned caption, so reusing it
    here produced eight lines of right-aligned grey text rather than chips. */
 .cat-chip {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
+  font-size: var(--t-caption);
+  padding: var(--s1) var(--s2h);
+  border-radius: var(--radius-pill);
   background: var(--surface-hi);
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -4112,14 +4135,10 @@ button.back {
   height: 8px;
   border-radius: 50%;
   flex: 0 0 8px;
-  background: var(--dot, var(--muted));
+  /* Fallback was `var(--muted)`, which is not a token in this file and never
+     has been — an untoned dot rendered with no background at all. */
+  background: var(--tone, var(--text-muted));
 }
-
-.tone-dot.tone-tactics { --dot: #d98b3a; }
-.tone-dot.tone-endgame { --dot: #5c8bb0; }
-.tone-dot.tone-positional { --dot: #81b64c; }
-.tone-dot.tone-strategy { --dot: #26c2a3; }
-.tone-dot.tone-opening { --dot: #9a7bd0; }
 
 /* ------------------------------------------------- review progress */
 
@@ -4135,7 +4154,7 @@ button.back {
 .review-progress {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--s2);
   padding: var(--s3) var(--s4);
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -4144,14 +4163,14 @@ button.back {
 }
 
 .rp-title {
-  font-size: 13px;
+  font-size: var(--t-small);
   font-weight: 650;
 }
 
 /* Tabular figures so the count does not jiggle the layout as it counts up —
    a number that shifts sideways every second reads as noise, not progress. */
 .rp-count {
-  font-size: 13px;
+  font-size: var(--t-small);
   font-weight: 700;
   color: var(--accent-hi);
   font-variant-numeric: tabular-nums;
@@ -4169,7 +4188,7 @@ button.back {
 .coached-cta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--s1);
   text-align: left;
   padding: var(--s4);
   border-radius: var(--radius-lg);
@@ -4183,7 +4202,7 @@ button.back {
 }
 
 .coached-kicker {
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -4191,20 +4210,20 @@ button.back {
 }
 
 .coached-title {
-  font-size: 18px;
+  font-size: var(--t-lead);
   font-weight: 700;
 }
 
 .style-banner {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--s0);
   padding: var(--s2) var(--s3);
   border-left: 3px solid var(--accent);
 }
 
 .style-name {
-  font-size: 12px;
+  font-size: var(--t-caption);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -4213,23 +4232,23 @@ button.back {
 
 /* The ladder's rules of the game, said once above the rows. */
 .wall-how {
-  margin: 2px 0 6px;
+  margin: var(--s0) 0 var(--s1h);
   line-height: 1.5;
 }
 
 .climb-floor {
   flex-basis: 100%;
-  margin-top: 4px;
+  margin-top: var(--s1);
 }
 
 /* The coached game's end-of-game score: the style's claim, audited. */
 .receipt-title {
-  font-size: 12px;
+  font-size: var(--t-caption);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--accent-hi);
-  margin-bottom: 6px;
+  margin-bottom: var(--s1h);
 }
 
 .receipt-lines {
@@ -4238,7 +4257,7 @@ button.back {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--s1);
   line-height: 1.45;
 }
 
@@ -4249,25 +4268,25 @@ button.back {
 .prog-trends {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--s1h);
 }
 
 .prog-trend {
-  font-size: 12px;
+  font-size: var(--t-caption);
   font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 999px;
+  padding: var(--s1) var(--s2h);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
 }
 
 .prog-trend.up { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
 .prog-trend.down { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
-.prog-trend.flat { color: var(--muted); }
+.prog-trend.flat { color: var(--text-muted); }
 
 .prog-habit.better { color: var(--good); }
 .prog-habit.worse { color: var(--warn); }
-.prog-habit.flat { color: var(--muted); }
+.prog-habit.flat { color: var(--text-muted); }
 
 
 /* ---------------------------------------------------- game review graph */
@@ -4360,7 +4379,7 @@ button.back {
 .rev-graph-cap {
   position: absolute;
   right: 8px;
-  font-size: 10px;
+  font-size: var(--t-micro);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -4372,7 +4391,7 @@ button.back {
 
 .rev-order {
   display: flex;
-  gap: 8px;
+  gap: var(--s2);
 }
 
 /* ================================================================== */
@@ -4426,8 +4445,8 @@ button.back {
  */
 .rule {
   height: 7px;
-  margin: 2px 0;
-  border-radius: 1px;
+  margin: var(--s0) 0;
+  border-radius: var(--radius-hair);
   /*
    * The BOARD's two squares, not two greys. The first version alternated the
    * border colour with transparent, which renders as a dashed line — the
@@ -4512,7 +4531,7 @@ button.back {
 
 .day-num {
   font-family: var(--font-display);
-  font-size: 62px;
+  font-size: var(--t-fig-3xl);
   line-height: 0.82;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -4521,14 +4540,14 @@ button.back {
 .day-hero-side {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding-bottom: 5px;
+  gap: var(--s0);
+  padding-bottom: var(--s1);
 }
 
 .day-block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--s1h);
 }
 
 .day-kicker {
@@ -4542,7 +4561,7 @@ button.back {
 
 .day-lead {
   font-family: var(--font-display);
-  font-size: 29px;
+  font-size: var(--t-display);
   line-height: 1.08;
   letter-spacing: -0.01em;
 }
@@ -4555,7 +4574,7 @@ button.back {
 }
 
 .day-steps .step {
-  padding: 13px 0;
+  padding: var(--s3) 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -4600,8 +4619,8 @@ button.back {
 
 .day-steps .day-actions {
   display: flex;
-  gap: 8px;
-  padding-top: 16px;
+  gap: var(--s2);
+  padding-top: var(--s4);
 }
 
 .day-idea {
@@ -4619,7 +4638,7 @@ button.back {
 
 .day-idea .lesson-title {
   font-family: var(--font-display);
-  font-size: 21px;
+  font-size: var(--t-fig);
   line-height: 1.15;
   font-weight: 400;
 }
@@ -4643,29 +4662,29 @@ button.back {
 .prog-sec {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--s2);
 }
 
 .prog-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--s3);
 }
 
 .prog-label,
 .prog-note {
   font-family: var(--font-num);
-  font-size: 10px;
+  font-size: var(--t-micro);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
+/* The panel clips its rows to the corner, and carries no padding because the
+   rows supply their own. */
 .prog-panel {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 0;
   overflow: hidden;
 }
 
@@ -4673,8 +4692,8 @@ button.back {
 .prog-row {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 12px;
+  gap: var(--s3);
+  padding: var(--s2h) var(--s3);
   border-bottom: 1px solid var(--border);
 }
 
@@ -4689,17 +4708,17 @@ button.back {
   height: 18px;
   display: grid;
   place-items: center;
-  border-radius: 3px;
+  border-radius: var(--radius-hair);
   background: var(--surface-hi);
   font-family: var(--font-num);
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-weight: 600;
   color: var(--text-muted);
 }
 
 .prog-task-text {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--t-small);
   line-height: 1.4;
 }
 
@@ -4713,40 +4732,40 @@ button.back {
 .prog-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-  gap: 8px;
+  gap: var(--s2);
 }
 
 .prog-cell {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 11px;
+  gap: var(--s2);
+  padding: var(--s3);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
 }
 
 .prog-cell-name {
-  font-size: 11.5px;
+  font-size: var(--t-caption);
   color: var(--text-muted);
 }
 
 .prog-cell-num {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: var(--s1);
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
 }
 
 .prog-cell-num b {
-  font-size: 19px;
+  font-size: var(--t-title);
   font-weight: 600;
   line-height: 1;
 }
 
 .prog-cell-num span {
-  font-size: 10.5px;
+  font-size: var(--t-micro);
   color: var(--text-muted);
 }
 
@@ -4757,13 +4776,13 @@ button.back {
 .prog-bars {
   display: flex;
   align-items: flex-end;
-  gap: 3px;
+  gap: var(--s1);
   height: 28px;
 }
 
 .prog-bars i {
   flex: 1;
-  border-radius: 1px;
+  border-radius: var(--radius-hair);
   background: var(--surface-hi);
 }
 
@@ -4775,19 +4794,19 @@ button.back {
 
 .prog-row-name {
   flex: 1;
-  font-size: 12.5px;
+  font-size: var(--t-caption);
 }
 
 .prog-delta {
   flex: none;
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--t-caption);
   color: var(--text-muted);
 }
 
 .prog-delta i {
-  padding: 0 4px;
+  padding: 0 var(--s1);
   color: var(--border);
   font-style: normal;
 }
@@ -4801,7 +4820,7 @@ button.back {
   width: 62px;
   text-align: right;
   font-family: var(--font-num);
-  font-size: 10px;
+  font-size: var(--t-micro);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -4815,20 +4834,20 @@ button.back {
 .prog-ladder {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--s2);
 }
 
 .prog-lrow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s2h);
 }
 
 .prog-lname {
   flex: none;
   width: 66px;
   font-family: var(--font-num);
-  font-size: 10px;
+  font-size: var(--t-micro);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -4837,13 +4856,13 @@ button.back {
 .prog-lcells {
   flex: 1;
   display: flex;
-  gap: 3px;
+  gap: var(--s1);
 }
 
 .prog-lcells i {
   flex: 1;
   height: 14px;
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   background: var(--surface-hi);
 }
 
@@ -4863,15 +4882,15 @@ button.back {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 2px 2px;
+  gap: var(--s3);
+  padding: var(--s0) var(--s0);
 }
 
 .side-who {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: var(--s2);
+  font-size: var(--t-body);
   color: var(--text-muted);
 }
 
@@ -4889,14 +4908,14 @@ button.back {
 
 .side-clock {
   font-family: var(--font-display);
-  font-size: 27px;
+  font-size: var(--t-fig-lg);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
 
 .side-clock.yours {
-  font-size: 33px;
+  font-size: var(--t-fig-xl);
   color: var(--text);
 }
 
@@ -4914,21 +4933,21 @@ button.back {
 .alts {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
+  gap: var(--s1h);
+  margin-top: var(--s1);
 }
 
 .alt-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--s1);
 }
 
 .alt {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: var(--s2h);
+  font-size: var(--t-small);
   color: var(--text-muted);
 }
 
@@ -4942,7 +4961,7 @@ button.back {
 .alt-bar {
   flex: 1;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-hair);
   background: var(--surface-hi);
   overflow: hidden;
 }
@@ -4959,7 +4978,7 @@ button.back {
   text-align: right;
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--t-caption);
 }
 
 /*
@@ -4988,10 +5007,10 @@ button.back {
 /* What a game against this bot is worth, on the bot itself. */
 .bot-stakes {
   display: flex;
-  gap: 6px;
+  gap: var(--s1h);
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-style: normal;
 }
 
@@ -5013,17 +5032,17 @@ button.back {
 .reading {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
+  gap: var(--s1);
+  margin-top: var(--s1);
 }
 
 .read-lines {
   margin: 0;
-  padding-left: 16px;
+  padding-left: var(--s4);
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 13px;
+  gap: var(--s1);
+  font-size: var(--t-small);
   line-height: 1.45;
   color: var(--text);
 }
@@ -5032,7 +5051,7 @@ button.back {
 button.alt {
   width: 100%;
   min-height: 0;
-  padding: 5px 0;
+  padding: var(--s1) 0;
   border: none;
   background: none;
   border-radius: 0;
@@ -5050,8 +5069,8 @@ button.alt.open .alt-san {
 
 .weighed {
   display: flex;
-  gap: 12px;
-  padding: 8px 0 10px 8px;
+  gap: var(--s3);
+  padding: var(--s2) 0 var(--s2h) var(--s2);
   margin-left: 54px;
   border-left: 1px solid var(--border);
 }
@@ -5060,12 +5079,12 @@ button.alt.open .alt-san {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--s1);
 }
 
 .weigh-head {
   font-family: var(--font-num);
-  font-size: 10px;
+  font-size: var(--t-micro);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -5075,11 +5094,11 @@ button.alt.open .alt-san {
 
 .weigh-col ul {
   margin: 0;
-  padding-left: 14px;
+  padding-left: var(--s3h);
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 12px;
+  gap: var(--s1);
+  font-size: var(--t-caption);
   line-height: 1.4;
   color: var(--text-muted);
 }
@@ -5088,14 +5107,14 @@ button.alt.open .alt-san {
 .live-read {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px 2px 2px;
+  gap: var(--s1);
+  padding: var(--s2h) var(--s0) var(--s0);
   border-top: 1px solid var(--border);
 }
 
 .prog-drills {
   font-family: var(--font-num);
-  font-size: 10.5px;
+  font-size: var(--t-micro);
   color: var(--text-muted);
 }
 
@@ -5161,7 +5180,7 @@ button.alt.open .alt-san {
   /* The headline is 34px on a screen that opens at the top of the scroll
      area, so without this the first thing you read after winning a game is
      clipped by the status bar. */
-  padding-top: 4px;
+  padding-top: var(--s1);
 }
 
 /*
@@ -5171,7 +5190,7 @@ button.alt.open .alt-san {
  */
 .over-head {
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: var(--t-fig-xl);
   line-height: 1.02;
   letter-spacing: -0.015em;
   margin: 0;
@@ -5194,12 +5213,12 @@ button.alt.open .alt-san {
 .over-rating {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--s2h);
 }
 
 .over-rating-n {
   font-family: var(--font-display);
-  font-size: 44px;
+  font-size: var(--t-fig-2xl);
   line-height: 1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -5223,7 +5242,7 @@ button.alt.open .alt-san {
 /* The one sentence about the game. Big enough to be the thing you read. */
 .over-say {
   font-family: var(--font-display);
-  font-size: 21px;
+  font-size: var(--t-fig);
   line-height: 1.25;
   letter-spacing: -0.005em;
   margin: 0;
@@ -5232,7 +5251,7 @@ button.alt.open .alt-san {
 
 .over-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--s2h);
   align-items: center;
   padding-top: var(--s2);
 }
@@ -5240,7 +5259,7 @@ button.alt.open .alt-san {
 .over-actions .primary.big {
   flex: 1;
   font-size: var(--t-body);
-  padding: 15px 18px;
+  padding: var(--s4) var(--s4);
 }
 
 /*
@@ -5249,18 +5268,18 @@ button.alt.open .alt-san {
  * than as the first three characters of the sentence after it.
  */
 .view-sub.opening {
-  margin-top: 3px;
+  margin-top: var(--s1);
 }
 
 .view-sub .eco {
   display: inline-block;
-  padding: 1px 5px;
-  margin-right: 4px;
-  border-radius: 4px;
+  padding: var(--s0) var(--s1);
+  margin-right: var(--s1);
+  border-radius: var(--radius-xs);
   background: var(--surface-hi);
   border: 1px solid var(--border);
   font-family: var(--font-num);
-  font-size: 11px;
+  font-size: var(--t-caption);
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--text);
@@ -5280,9 +5299,9 @@ button.alt.open .alt-san {
 
 .act {
   display: flex;
-  gap: 6px;
+  gap: var(--s1h);
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding-bottom: var(--s0);
   scrollbar-width: none;
 
   /*
@@ -5308,12 +5327,12 @@ button.alt.open .alt-san {
 .act-days {
   display: grid;
   grid-template-rows: repeat(7, 1fr);
-  gap: 3px;
+  gap: var(--s1);
   flex: none;
-  font-size: 10px;
+  font-size: var(--t-micro);
   line-height: 1;
   color: var(--text-muted);
-  padding-top: 1px;
+  padding-top: var(--s0);
 }
 
 .act-days span {
@@ -5324,13 +5343,13 @@ button.alt.open .alt-san {
 
 .act-grid {
   display: flex;
-  gap: 3px;
+  gap: var(--s1);
 }
 
 .act-col {
   display: grid;
   grid-template-rows: repeat(7, 1fr);
-  gap: 3px;
+  gap: var(--s1);
 }
 
 /*
@@ -5341,7 +5360,7 @@ button.alt.open .alt-san {
 .act-cell {
   width: var(--cell, 11px);
   height: var(--cell, 11px);
-  border-radius: 3px;
+  border-radius: var(--radius-hair);
   background: var(--surface-hi);
 }
 
@@ -5350,27 +5369,42 @@ button.alt.open .alt-san {
 .act-cell.l3 { background: color-mix(in srgb, var(--sq-dark, var(--accent)) 80%, var(--surface-hi)); }
 .act-cell.l4 { background: var(--sq-dark, var(--accent)); }
 
-.act-stats {
+/*
+ * Four figures in a row, with a caption under each.
+ *
+ * Built twice, once as `.act-stat*` on Progression and once as `.them-stat*`
+ * on the game review, with identical declarations down to the tabular
+ * numerals — the only difference between them was 0.04em against 0.05em of
+ * letter-spacing on the caption, which is not a difference. One family now,
+ * named for what it is rather than for the screen that first needed it.
+ */
+.figrow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--s2);
 }
 
-.act-stat {
+.fig {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--s0);
 }
 
-.act-stat-n {
+.fig-n {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: var(--t-fig);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-.act-stat-l {
-  font-size: 10px;
+/* The denominator, quieter than the count but never absent. */
+.fig-of {
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+}
+
+.fig-l {
+  font-size: var(--t-micro);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -5391,7 +5425,7 @@ button.alt.open .alt-san {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--s2);
-  margin-bottom: 4px;
+  margin-bottom: var(--s1);
 }
 
 .trend-label {
@@ -5454,14 +5488,14 @@ button.alt.open .alt-san {
  * interpret."
  */
 .trend-what {
-  margin-top: 1px;
-  font-size: 10px;
+  margin-top: var(--s0);
+  font-size: var(--t-micro);
   letter-spacing: 0.01em;
 }
 
 .trend-foot {
-  margin-top: 5px;
-  font-size: 10px;
+  margin-top: var(--s1);
+  font-size: var(--t-micro);
   line-height: 1.45;
 }
 
@@ -5478,8 +5512,8 @@ button.alt.open .alt-san {
 .prog-answer {
   margin: 0 0 var(--s2);
   padding: var(--s2) var(--s3);
-  border-radius: var(--r2);
-  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  border-radius: var(--radius);
+  background: var(--surface-hi);
   border-left: 3px solid var(--accent);
   font-size: var(--t-small);
   line-height: 1.5;
@@ -5496,9 +5530,9 @@ button.alt.open .alt-san {
 
 /* Each hero tile says its own unit, so none of them needs the caption. */
 .hgrid-sub {
-  margin-top: 2px;
+  margin-top: var(--s0);
   min-height: 2.6em;
-  font-size: 10px;
+  font-size: var(--t-micro);
   line-height: 1.3;
   color: var(--text-muted);
   letter-spacing: 0.01em;
@@ -5507,7 +5541,7 @@ button.alt.open .alt-san {
 .trend.empty {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--s0);
   padding-bottom: var(--s2);
 }
 
@@ -5542,7 +5576,7 @@ button.alt.open .alt-san {
   align-items: center;
   /* Overlapped, the way they sit in a real captured pile, so eight pawns
      take the width of four and the row never pushes the clock off. */
-  margin-left: 7px;
+  margin-left: var(--s2);
   /*
    * On a LIGHT SQUARE, always.
    *
@@ -5551,8 +5585,8 @@ button.alt.open .alt-san {
    * mode. Standing them on the board's own light square is the fix chess has
    * used for centuries: both colours are designed to read against it.
    */
-  padding: 2px 7px 2px 5px;
-  border-radius: 999px;
+  padding: var(--s0) var(--s2) var(--s0) var(--s1);
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sq-light, #fff) 30%, transparent);
 }
 
@@ -5564,7 +5598,7 @@ button.alt.open .alt-san {
 }
 
 .taken-edge {
-  margin-left: 9px;
+  margin-left: var(--s2);
   font-family: var(--font-num);
   font-size: var(--t-caption);
   font-weight: 700;
@@ -5577,7 +5611,7 @@ button.alt.open .alt-san {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  row-gap: 2px;
+  row-gap: var(--s0);
 }
 
 /* ==================================================================
@@ -5592,15 +5626,15 @@ button.alt.open .alt-san {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
   gap: var(--s2);
-  margin-bottom: 8px;
+  margin-bottom: var(--s2);
 }
 
 .preset {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 5px;
-  padding: 5px;
+  gap: var(--s1);
+  padding: var(--s1);
   min-height: 0;
   border-radius: var(--radius);
   background: var(--surface);
@@ -5631,7 +5665,7 @@ button.alt.open .alt-san {
 }
 
 .preset-name {
-  font-size: 10px;
+  font-size: var(--t-micro);
   line-height: 1.2;
   color: var(--text-muted);
 }
@@ -5647,8 +5681,8 @@ button.alt.open .alt-san {
  * another grey line that reads as more instructions.
  */
 .from-game {
-  margin-top: 4px;
-  padding-left: 8px;
+  margin-top: var(--s1);
+  padding-left: var(--s2);
   border-left: 2px solid var(--accent);
   color: var(--text);
 }
@@ -5673,7 +5707,7 @@ button.alt.open .alt-san {
   grid-template-columns: 74px 1fr auto;
   align-items: center;
   gap: var(--s2);
-  padding: 5px 0;
+  padding: var(--s1) 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -5689,7 +5723,7 @@ button.alt.open .alt-san {
 .phase-bar {
   display: block;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-hi);
   overflow: hidden;
 }
@@ -5698,7 +5732,7 @@ button.alt.open .alt-san {
   display: block;
   height: 100%;
   background: var(--warn);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .phase-n {
@@ -5712,7 +5746,7 @@ button.alt.open .alt-san {
 /* Sits under the row it belongs to rather than squeezing the bar. */
 .phase-worst {
   grid-column: 1 / -1;
-  font-size: 11px;
+  font-size: var(--t-caption);
   color: var(--text-muted);
   font-family: var(--font-num);
 }
@@ -5720,41 +5754,9 @@ button.alt.open .alt-san {
 .them-say {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: var(--t-title);
   line-height: 1.25;
   max-width: 36ch;
-}
-
-.them-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--s2);
-}
-
-.them-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.them-stat-n {
-  font-family: var(--font-display);
-  font-size: 21px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-/* The denominator, quieter than the count but never absent. */
-.them-stat-of {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.them-stat-l {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 
 /* ==================================================================
@@ -5772,10 +5774,10 @@ button.alt.open .alt-san {
 
 button.rat-item {
   min-height: 0;
-  padding: 3px 7px;
+  padding: var(--s1) var(--s2);
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   /* Dotted, so it reads as "there is more here" rather than as a link. */
   border-bottom-color: color-mix(in srgb, var(--text-muted) 35%, transparent);
 }
@@ -5803,7 +5805,7 @@ button.phase-row {
   border-bottom: 1px solid var(--border);
   border-radius: 0;
   text-align: left;
-  padding: 7px 4px;
+  padding: var(--s2) var(--s1);
 }
 
 button.phase-row:hover:not(:disabled) {
@@ -5829,7 +5831,7 @@ button.phase-row.on .phase-name {
   align-items: center;
   justify-content: space-between;
   gap: var(--s2);
-  padding: 9px 12px;
+  padding: var(--s2) var(--s3);
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
@@ -5838,7 +5840,7 @@ button.phase-row.on .phase-name {
 
 .focused .chip {
   min-height: 0;
-  padding: 5px 11px;
+  padding: var(--s1) var(--s3);
   font-size: var(--t-caption);
 }
 
@@ -5913,7 +5915,7 @@ button.act-cell.on {
 }
 
 .trend-picked {
-  margin-top: 4px;
+  margin-top: var(--s1);
   font-size: var(--t-caption);
   font-family: var(--font-num);
   color: var(--text-muted);
@@ -5936,14 +5938,14 @@ button.act-cell.on {
 }
 
 .setup .rule {
-  margin: 2px 0;
+  margin: var(--s0) 0;
 }
 
 
 /* The repertoire line under a bot's card: quieter than the prose above it. */
 .bot-lines {
-  margin-top: 2px;
-  font-size: 10px;
+  margin-top: var(--s0);
+  font-size: var(--t-micro);
   line-height: 1.45;
   opacity: 0.85;
 }
@@ -5956,12 +5958,12 @@ button.act-cell.on {
  */
 .book-read {
   padding: var(--s2) var(--s3);
-  border-radius: var(--r2);
+  border-radius: var(--radius);
   border-left: 3px solid var(--accent);
-  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  background: var(--surface-hi);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--s1);
   line-height: 1.45;
 }
 
@@ -5997,7 +5999,7 @@ button.act-cell.on {
  */
 .bot-record {
   font-family: var(--font-num);
-  font-size: 10px;
+  font-size: var(--t-micro);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   color: var(--text-muted);

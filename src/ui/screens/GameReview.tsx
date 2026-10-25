@@ -421,7 +421,7 @@ export function GameReview({
         <div className="them">
           <span className="brief-key">What they were doing</span>
           <p className="them-say">{them.verdict}</p>
-          <div className="them-stats">
+          <div className="figrow">
             <TraitStat n={them.captures} of={them.moves} label="captures" />
             <TraitStat n={them.checks} of={them.moves} label="checks" />
             <TraitStat n={them.atYourKing} of={them.moves} label="at your king" />
@@ -1118,12 +1118,12 @@ function Weighed({ fen, san }: { fen: string; san: string }) {
  */
 function TraitStat({ n, of, label }: { n: number; of: number; label: string }) {
   return (
-    <div className="them-stat">
-      <span className="them-stat-n">
+    <div className="fig">
+      <span className="fig-n">
         {n}
-        <span className="them-stat-of">/{of}</span>
+        <span className="fig-of">/{of}</span>
       </span>
-      <span className="them-stat-l">{label}</span>
+      <span className="fig-l">{label}</span>
     </div>
   )
 }

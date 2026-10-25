@@ -331,7 +331,7 @@ export function Progression({ activity }: { activity: Activity }) {
         )}
       </div>
 
-      <div className="act-stats">
+      <div className="figrow">
         <Stat n={activity.currentRun} label="day run" />
         <Stat n={activity.activeDays} label="days trained" />
         <Stat n={activity.totalPuzzles} label="puzzles" />
@@ -390,9 +390,9 @@ export function Progression({ activity }: { activity: Activity }) {
 
 function Stat({ n, label }: { n: number; label: string }) {
   return (
-    <div className="act-stat">
-      <span className="act-stat-n">{n}</span>
-      <span className="act-stat-l">{label}</span>
+    <div className="fig">
+      <span className="fig-n">{n}</span>
+      <span className="fig-l">{label}</span>
     </div>
   )
 }
