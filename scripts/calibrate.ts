@@ -52,6 +52,21 @@ const GAMES = arg('games', 4)
 const MAX_PLIES = arg('max-plies', 200)
 const STYLE_BAND = arg('style-band', 1400) as Band
 const QUICK = process.argv.includes('--quick')
+/**
+ * Run only some of the three sections, e.g. `--only ladder,style`.
+ *
+ * The sections are deterministic — same seeds, same games, same numbers — so
+ * re-running one you already have costs forty minutes of a single core and
+ * tells you nothing you did not already know. The ladder is usually the
+ * section with the answer in it, and it is the one that runs last.
+ */
+const ONLY = (() => {
+  const i = process.argv.indexOf('--only')
+  const raw = i >= 0 ? process.argv[i + 1] : undefined
+  if (!raw) return null
+  return new Set(raw.split(',').map((x) => x.trim()))
+})()
+const runs = (section: 'acpl' | 'ladder' | 'style'): boolean => !ONLY || ONLY.has(section)
 /** Eval margin (cp) above which a ply-capped game is scored as won. */
 const ADJUDICATE_CP = arg('adjudicate-cp', 150)
 
@@ -232,7 +247,6 @@ const bands = QUICK ? ([1200, 1400, 1600] as Band[]) : BANDS
 
 /* --- 1. ACPL per band ------------------------------------------------- */
 
-console.log('1. ACPL per band (self-play, style=human)')
 const bandRows: {
   band: Band
   targetAcpl: number
@@ -241,7 +255,8 @@ const bandRows: {
   moves: number
 }[] = []
 
-for (const band of bands) {
+if (runs('acpl')) console.log('1. ACPL per band (self-play, style=human)')
+for (const band of runs('acpl') ? bands : []) {
   const all: number[] = []
   for (let g = 0; g < GAMES; g++) {
     const r = await playGame(
@@ -274,11 +289,11 @@ for (const band of bands) {
 
 /* --- 2. Ladder: does higher actually beat lower? ---------------------- */
 
-console.log('\n2. Ladder (higher band vs next lower, colours alternated)')
+if (runs('ladder')) console.log('\n2. Ladder (higher band vs next lower, colours alternated)')
 const pairRows: { higher: Band; lower: Band; score: number; impliedElo: number; games: number }[] =
   []
 
-for (let i = 1; i < bands.length; i++) {
+for (let i = runs('ladder') ? 1 : bands.length; i < bands.length; i++) {
   const higher = bands[i]!
   const lower = bands[i - 1]!
   let points = 0
@@ -306,10 +321,10 @@ for (let i = 1; i < bands.length; i++) {
 
 /* --- 3. Style parity at one band -------------------------------------- */
 
-console.log(`\n3. Style parity at ${STYLE_BAND} (each style vs human, same band)`)
+if (runs('style')) console.log(`\n3. Style parity at ${STYLE_BAND} (each style vs human, same band)`)
 const styleRows: { style: Style; score: number; acpl: number; games: number }[] = []
 
-for (const s of STYLES) {
+for (const s of runs('style') ? STYLES : []) {
   if (s.id === 'human') continue
   let points = 0
   const losses: number[] = []

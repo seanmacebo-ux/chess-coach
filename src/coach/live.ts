@@ -25,6 +25,15 @@
  * the opponent's reply rather than in front of it, because a game that pauses
  * to grade you is a game that stops feeling like a game. The badge arrives a
  * beat after the position does, and that is the right order.
+ *
+ * MEASURED, because "it costs nothing" is the sort of claim that should not
+ * be made on reasoning alone. Driving six moves in a browser with the setting
+ * off and then on, the opponent's reply took ~380ms against ~390ms, with one
+ * move at 886ms. That outlier is the one case the design does not cover: a
+ * primed search can still be in the queue when you move, and the engine has
+ * no way to stop a search once it is running. Giving the UCI wrapper a stop
+ * would fix it properly; half a second once in a while did not seem worth
+ * destabilising the engine core for.
  */
 
 import { getEngine } from '../engine/uci'
