@@ -94,6 +94,7 @@ import { Chess } from 'chess.js'
 import type { Band, Line, Style, UciMove } from './types'
 import { BANDS, lineScore, nearestBand } from './types'
 import { factorFor, registerTargets } from './calibration'
+import { isBlindTo } from './vision'
 
 export interface BandProfile {
   band: Band
@@ -577,10 +578,17 @@ function styleNeutralTemperature(losses: number[], styleW: number[], t0: number)
 
 export interface Candidate {
   uci: UciMove
-  /** Centipawns worse than the engine's best move. Always >= 0. */
+  /** Centipawns worse than the engine's best move. Always >= 0. TRUE loss. */
   loss: number
   weight: number
   features: MoveFeatures | null
+  /**
+   * The bot could not see this move's refutation, so it looks fine to it.
+   *
+   * `loss` stays the truth — it is what the diagnostics measure and what the
+   * coach would report. This flag is why the weight disagrees with it.
+   */
+  blind?: boolean
 }
 
 export type Rng = () => number
@@ -590,7 +598,50 @@ export type Rng = () => number
  * the weighted pool. Exported separately from `chooseMove` so the UI can show
  * "here's what it was considering and why" — useful for the coach view.
  */
-export function weighCandidates(fen: string, lines: Line[], elo: number, style: Style): Candidate[] {
+/**
+ * How close a move the bot cannot refute looks to the best one.
+ *
+ * Not equal to it: a blind candidate should be competitive with the engine's
+ * choice, not preferred over it, or every bot would play nothing but moves it
+ * has misjudged.
+ */
+const BLIND_RESIDUAL_CP = 12
+
+/**
+ * How many moves the bot actually weighs up before it commits.
+ *
+ * Blindness applies to these and no further, and the reason is a measurement.
+ * Applied to every candidate, band 800 shed 252.9 acpl against a 150 target
+ * and punished free material 8.4% of the time — WORSE than the 350, which is
+ * the non-monotonic failure the whole model exists to remove.
+ *
+ * The cause is that multipv is 28 at that band. Blinding a third of
+ * twenty-eight candidates lifts nearly ten moves to within twelve centipawns
+ * of the best, and a softmax over ten equals is close to a coin.
+ *
+ * But nobody considers twenty-eight moves. A person shortlists a handful and
+ * then asks "does this work?" — and the answer to THAT is what they get
+ * wrong. The wide candidate list was only ever a device for letting a softmax
+ * reach a bad move; blindness does that job properly, so it should operate
+ * where a person's attention actually is.
+ */
+const SHORTLIST = 5
+
+export function weighCandidates(
+  fen: string,
+  lines: Line[],
+  elo: number,
+  style: Style,
+  /**
+   * Supplied by the move-choosing path, withheld by `explain`.
+   *
+   * With it, candidates whose refutation this rating would miss are re-scored
+   * as the bot sees them. Without it the function is pure and returns the
+   * engine's truth, which is what the coach view wants — it should show what
+   * the position IS, not what the bot hallucinated about it.
+   */
+  rng?: Rng,
+): Candidate[] {
   if (lines.length === 0) return []
 
   const profile = bandProfile(elo)
@@ -598,25 +649,73 @@ export function weighCandidates(fen: string, lines: Line[], elo: number, style: 
 
   const scored = lines
     .filter((l) => l.pv.length > 0)
-    .map((l) => ({ uci: l.pv[0] as UciMove, score: lineScore(l) }))
+    .map((l) => ({ uci: l.pv[0] as UciMove, score: lineScore(l), reply: l.pv[1] }))
 
   if (scored.length === 0) return []
 
   const best = Math.max(...scored.map((s) => s.score))
+  // The truth, kept whatever the bot believes — diagnostics measure this.
   const losses = scored.map((s) => Math.max(0, best - s.score))
+
+  /*
+   * WHAT THE BOT THINKS IT IS CHOOSING BETWEEN.
+   *
+   * For each candidate, `reply` is the refutation the engine already found.
+   * Roll against whether a player at this rating would see it; when they
+   * would not, the move is lifted to just under the best, because "I cannot
+   * see what is wrong with this" is exactly what that means.
+   *
+   * Lifting rather than modelling what the refutation WINS is deliberate: a
+   * fork, a discovered attack, a back-rank mate and a plain recapture all go
+   * through the same line, because the only question asked is whether they
+   * would have spotted that move.
+   */
+  const blind: boolean[] = scored.map(() => false)
+  /*
+   * The moves actually under consideration, by true score. Blindness applies
+   * to these; everything further down the list is not misjudged, it is simply
+   * never looked at, and temperature already decides how far down the bot
+   * reaches.
+   */
+  const shortlist = new Set(
+    scored
+      .map((s, i) => ({ i, score: s.score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, SHORTLIST)
+      .map((x) => x.i),
+  )
+  const perceived = scored.map((s, i) => {
+    if (!rng || !shortlist.has(i)) return s.score
+    const board = new Chess(fen)
+    let dest: string
+    try {
+      const m = board.move({ from: s.uci.slice(0, 2), to: s.uci.slice(2, 4), promotion: s.uci[4] })
+      if (!m) return s.score
+      dest = m.to
+    } catch {
+      return s.score
+    }
+    if (!isBlindTo(board.fen(), s.reply, dest, elo, rng)) return s.score
+    blind[i] = true
+    return Math.max(s.score, best - BLIND_RESIDUAL_CP)
+  })
+  const perceivedLoss = perceived.map((p) => Math.max(0, best - p))
+
   const features = scored.map((s) => describeMove(fen, s.uci))
   const styleW = features.map((f) => (f ? styleWeight(f, style) : 1))
 
   // Style decides WHICH of the equally-costly moves gets played, never how
   // costly the move is. Re-solving temperature enforces that rather than
   // assuming it — see styleNeutralTemperature.
-  const t = style === 'human' ? t0 : styleNeutralTemperature(losses, styleW, t0)
+  const t = style === 'human' ? t0 : styleNeutralTemperature(perceivedLoss, styleW, t0)
 
-  return scored.map(({ uci }, i) => {
-    const loss = losses[i] ?? 0
-    const weight = Math.exp(-loss / t) * (styleW[i] ?? 1)
-    return { uci, loss, weight, features: features[i] ?? null }
-  })
+  return scored.map(({ uci }, i) => ({
+    uci,
+    loss: losses[i] ?? 0,
+    weight: Math.exp(-(perceivedLoss[i] ?? 0) / t) * (styleW[i] ?? 1),
+    features: features[i] ?? null,
+    blind: blind[i],
+  }))
 }
 
 function sample(candidates: Candidate[], rng: Rng): Candidate | null {
@@ -748,7 +847,7 @@ export function chooseMoveDetailed(
   style: Style,
   rng: Rng = Math.random,
 ): Choice {
-  const candidates = weighCandidates(fen, lines, elo, style)
+  const candidates = weighCandidates(fen, lines, elo, style, rng)
   const spread =
     candidates.length > 1 ? Math.max(...candidates.map((c) => c.loss)) : 0
   const none: Choice = { uci: null, source: 'forced', loss: null, spread: 0, candidates: 0 }

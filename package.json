@@ -16,6 +16,7 @@
     "tune-bands": "tsx scripts/tune-bands.ts",
     "measure-acpl": "tsx scripts/measure-acpl.ts",
     "diag:bots": "tsx scripts/diag-bots.ts",
+    "diag:punish": "tsx scripts/diag-punish.ts",
     "diag:character": "tsx scripts/diag-character.ts",
     "diag:floor": "tsx scripts/diag-floor.ts",
     "verify:policy": "tsx scripts/verify-policy.ts",
