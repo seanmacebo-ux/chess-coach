@@ -115,6 +115,24 @@ export function standing(rec: Record): string {
   return `${rec.wins}-${rec.losses} overall.`
 }
 
+/**
+ * The part of `standing` a scoreline does NOT already say.
+ *
+ * Today shows the score as a chip next to the bot's name, so repeating
+ * "1-2 overall" underneath it is a line of text that tells you nothing twice.
+ * What is worth the space is the thing a scoreline cannot carry: that you
+ * have never beaten them, that you have never lost, or that the last three
+ * went one way. Null when the score says it all.
+ */
+export function form(rec: Record): string | null {
+  if (rec.played === 0) return 'You have never played them.'
+  if (rec.wins === 0) {
+    return rec.played === 1 ? 'Lost the only one. Never beaten.' : 'Never beaten them.'
+  }
+  if (rec.losses === 0) return rec.played === 1 ? 'Beaten once, first time.' : 'Never lost to them.'
+  return runFrom(rec.recent)
+}
+
 /** A run of the same result at the top of the form line, if there is one. */
 function runFrom(recent: Record['recent']): string | null {
   const first = recent[0]

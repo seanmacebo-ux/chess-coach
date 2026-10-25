@@ -13,6 +13,10 @@ import { tierStatuses, type TierStatus } from '../../coach/profile'
 import { PILLARS } from '../../coach/tiers'
 import { categoriesIn } from '../../coach/categories'
 import { MasterPosition } from '../MasterPosition'
+import { botById } from '../../engine/roster'
+import { form, recordVs, scoreline } from '../../coach/headtohead'
+import { db } from '../../data/db'
+import type { Record as HeadToHead } from '../../coach/headtohead'
 import type { Style } from '../../engine/types'
 
 export interface DailyProps {
@@ -24,6 +28,13 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
   const [session, setSession] = useState<DailySession | null>(null)
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [tiers, setTiers] = useState<TierStatus[]>([])
+  /*
+   * Your record against today's opponent.
+   *
+   * This is the whole reason Today names a bot. "One game vs human bot 800"
+   * is a setting; "Nadia — 2 games, never beaten" is a reason to sit down.
+   */
+  const [head, setHead] = useState<HeadToHead | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lessonOpen, setLessonOpen] = useState(false)
 
@@ -36,7 +47,10 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
         setSession(s)
         setLesson(pickLesson(s.rating, s.focus?.themes ?? []))
         const t = await tierStatuses(s.rating)
-        if (!cancelled) setTiers(t)
+        if (cancelled) return
+        setTiers(t)
+        const games = await db.games.toArray()
+        if (!cancelled) setHead(recordVs(games, s.game.botId))
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err))
       }
@@ -156,10 +170,24 @@ export function Daily({ onStartGame, onStartPuzzles }: DailyProps) {
           <span className="step-n pc king white" role="img" aria-label="Step 1" />
           <div style={{ flex: 1 }}>
             <div>
-              <strong>One game</strong> as {session.game.colour} vs {session.game.style} bot{' '}
-              {session.game.elo}
+              <strong>One game</strong> as {session.game.colour} vs{' '}
+              {(() => {
+                const bot = botById(session.game.botId)
+                return bot ? `${bot.face} ${bot.name}` : `a ${session.game.elo} bot`
+              })()}{' '}
+              <span className="muted">{session.game.elo}</span>
+              {/* The score, where the decision is made. Nothing to show before
+                  the first game, and a blank is better than "0-0". */}
+              {head && scoreline(head) && (
+                <span className="pill draw" style={{ marginLeft: 6 }}>
+                  {scoreline(head)}
+                </span>
+              )}
             </div>
-            <div className="small muted">{session.game.why}</div>
+            <div className="small muted">
+              {head && form(head) ? `${form(head)} ` : ''}
+              {session.game.why}
+            </div>
           </div>
         </div>
 

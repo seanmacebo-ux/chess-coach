@@ -24,9 +24,26 @@ import { buildRedoSet } from './redo'
 import { computeStreak, computeWeaknesses, nextTier, type Weakness } from './profile'
 import { puzzleRating } from './rating'
 import { LICHESS_MOTIFS, isExerciseBacked, puzzleThemes, type Tier } from './tiers'
+import { BOTS, suggestedBot, type Bot } from '../engine/roster'
 import type { Style } from '../engine/types'
 
 export interface SessionGame {
+  /**
+   * Who you are playing. A roster id, not a rating.
+   *
+   * Today used to emit `{elo: round(rating/100)*100, style}` and the screen
+   * printed it: "One game as black vs human bot 800" — the opponent's STYLE
+   * and a rounded number, which is the exact failure botLabel() was written
+   * to fix on two other screens. You do not remember losing to human 800.
+   * You remember losing to Bud.
+   *
+   * It also meant the number Today asked for was nobody: at 870 it asked for
+   * a 900 bot, the roster has none, and Play fell back to the nearest
+   * character — so the opponent you got and the opponent Today described
+   * could differ, and the opening book that came with it belonged to a third
+   * bot. Picking from the roster makes those one thing.
+   */
+  botId: string
   elo: number
   style: Style
   colour: 'white' | 'black'
@@ -50,6 +67,61 @@ export interface DailySession {
   drillIsExercise: boolean
   /** True when there's no history yet and the ladder is driving alone. */
   coldStart: boolean
+}
+
+/**
+ * Who, off the roster, you play today.
+ *
+ * The style the weakness profile asks for is a PREFERENCE over the bots
+ * within reach, never a reason to reach past them: handing a 500 a 1600
+ * because the 1600 is the tactical one is not coaching. If nobody in range
+ * plays that style, range wins and the reason shown changes to match — the
+ * alternative is a screen that says "tactical bot" above a positional one.
+ *
+ * Within the shortlist, the nearest AT OR ABOVE you, which is the same rule
+ * suggestedBot uses and for the same reason: the opponent is a test, not a
+ * mirror.
+ */
+function gameFor(
+  rating: number,
+  style: Style,
+  colour: 'white' | 'black',
+  styleWhy: string,
+): SessionGame {
+  const bot = botForToday(rating, style)
+  return {
+    botId: bot.id,
+    // The bot's OWN rating and style, not the ones we asked for — Play
+    // resolves the character from the rating, so these have to agree or you
+    // are told about one opponent and given another.
+    elo: bot.elo,
+    style: bot.style,
+    colour,
+    why:
+      bot.style === style
+        ? styleWhy
+        : `${bot.name} is the closest test at your rating. ${bot.plays}`,
+  }
+}
+
+export function botForToday(rating: number, style: Style): Bot {
+  const reach = BOTS.filter((b) => b.elo >= rating - 150 && b.elo <= rating + 250)
+  const pool = reach.length > 0 ? reach : [suggestedBot(rating)]
+  const atOrAbove = (xs: Bot[]): Bot | undefined =>
+    [...xs].filter((b) => b.elo >= rating).sort((a, b) => a.elo - b.elo)[0]
+
+  /*
+   * Style is a tie-break among the bots that are already a test. A style
+   * match BELOW you is not worth taking: it drops the one thing the opponent
+   * is for, and "we found you a tactical bot" is poor consolation for an
+   * easier game. The last fallback only fires once you have outgrown the
+   * roster entirely.
+   */
+  return (
+    atOrAbove(pool.filter((b) => b.style === style)) ??
+    atOrAbove(pool) ??
+    [...pool].sort((a, b) => b.elo - a.elo)[0]!
+  )
 }
 
 /**
@@ -180,7 +252,7 @@ export async function buildDailySession(opts: BuildOptions = {}): Promise<DailyS
     rating: profile.rating,
     streak: await computeStreak(now),
     focus,
-    game: { elo: Math.round(profile.rating / 100) * 100, style, colour, why },
+    game: gameFor(profile.rating, style, colour, why),
     puzzles,
     ownCount: own.length,
     drill,

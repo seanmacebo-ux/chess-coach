@@ -8,7 +8,9 @@
  *   npm run verify:headtohead
  */
 
-import { records, recordVs, scoreline, standing } from '../src/coach/headtohead'
+import { form, records, recordVs, scoreline, standing } from '../src/coach/headtohead'
+import { BOTS, nearestBot } from '../src/engine/roster'
+import { botForToday } from '../src/coach/session'
 import type { GameRow } from '../src/data/db'
 
 let fail = 0
@@ -90,16 +92,17 @@ const ordered = [
   game({ result: 'win', playedAt: '2026-02-02T00:00:00.000Z' }),
   game({ result: 'win', playedAt: '2026-02-03T00:00:00.000Z' }),
 ]
-const form = recordVs(ordered, 'nadia')
-check('the most recent result comes first', form.recent[0] === 'win', form.recent.join(','))
-check('the oldest comes last', form.recent[form.recent.length - 1] === 'loss', form.recent.join(','))
-check('lastPlayed is the latest game', form.lastPlayed === '2026-02-03T00:00:00.000Z',
-      String(form.lastPlayed))
+const inOrder = recordVs(ordered, 'nadia')
+check('the most recent result comes first', inOrder.recent[0] === 'win', inOrder.recent.join(','))
+check('the oldest comes last',
+      inOrder.recent[inOrder.recent.length - 1] === 'loss', inOrder.recent.join(','))
+check('lastPlayed is the latest game', inOrder.lastPlayed === '2026-02-03T00:00:00.000Z',
+      String(inOrder.lastPlayed))
 
 /* Rows arriving out of order must still sort. */
 const shuffled = [ordered[2]!, ordered[0]!, ordered[1]!]
 check('out-of-order rows are sorted before being read',
-      recordVs(shuffled, 'nadia').recent.join(',') === form.recent.join(','),
+      recordVs(shuffled, 'nadia').recent.join(',') === inOrder.recent.join(','),
       recordVs(shuffled, 'nadia').recent.join(','))
 
 /* The form line is capped so a hundred games do not become a hundred pips. */
@@ -153,6 +156,89 @@ check('an undated row does not crash the sort',
 
 check('records() and recordVs() agree',
       records(mixed).get('nadia')?.wins === recordVs(mixed, 'nadia').wins)
+
+/*
+ * `form` exists so Today can show a chip AND a line without saying the same
+ * thing twice. The rule it has to keep: whenever there is a score to show,
+ * form must not repeat it.
+ */
+{
+  const scored = [
+    game({ botId: 'pip', result: 'win' }),
+    game({ botId: 'pip', result: 'loss' }),
+    game({ botId: 'pip', result: 'loss' }),
+  ]
+  const rec = recordVs(scored, 'pip')
+  check('form never repeats the scoreline', !String(form(rec) ?? '').includes(scoreline(rec)!),
+        `${scoreline(rec)} / ${form(rec)}`)
+  check('an unplayed bot says so', form(recordVs([], 'pip')) === 'You have never played them.',
+        String(form(recordVs([], 'pip'))))
+  const allLosses = recordVs(
+    [game({ botId: 'pip', result: 'loss' }), game({ botId: 'pip', result: 'loss' })], 'pip')
+  check('never beaten is said plainly', form(allLosses) === 'Never beaten them.',
+        String(form(allLosses)))
+}
+
+/*
+ * Today names a bot, and Play resolves that bot back from its RATING — the
+ * slider is a number, so nearestBot() is the only way back. That round trip
+ * is only lossless while no two bots share a rating, and nothing else in the
+ * app would notice if two ever did: Today would describe one opponent, Play
+ * would hand you another, and the opening book would belong to whichever the
+ * reduce() happened to keep.
+ */
+const elos = BOTS.map((b) => b.elo)
+check(
+  'no two bots share a rating',
+  new Set(elos).size === elos.length,
+  `${elos.length} bots, ${new Set(elos).size} distinct ratings`,
+)
+const roundTrip = BOTS.filter((b) => nearestBot(b.elo).id !== b.id)
+check(
+  'every bot survives the rating round trip Play does',
+  roundTrip.length === 0,
+  roundTrip.map((b) => `${b.id}@${b.elo} -> ${nearestBot(b.elo).id}`).join(', '),
+)
+
+/*
+ * And the opponent Today picks has to BE one of them, at their own rating.
+ * This is the check that would have caught the thing it replaces: Today
+ * asked for round(rating/100)*100, which at 870 is 900, and the roster has
+ * nobody at 900 at all — so the bot you were told about and the bot Play
+ * resolved from that number could differ, book and all.
+ */
+for (const rating of [200, 316, 420, 600, 800, 870, 1000, 1337, 1600, 2000, 2600]) {
+  for (const style of ['human', 'tactical', 'aggressive', 'positional', 'solid'] as const) {
+    const bot = botForToday(rating, style)
+    check(
+      `${rating} / ${style} picks a real bot at its own rating`,
+      BOTS.some((b) => b.id === bot.id && b.elo === bot.elo && b.style === bot.style),
+      `${bot.id}@${bot.elo}`,
+    )
+  }
+}
+
+/*
+ * Reach, not style, is the hard constraint. A 500 asking for a tactical bot
+ * gets the nearest bot in range even if the only tactical one is 1700 —
+ * otherwise "play to your weakness" quietly becomes "play someone 1200
+ * points above you", which is the opposite of coaching.
+ */
+const tooFar = [200, 420, 600, 800, 1000].filter(
+  (r) => Math.abs(botForToday(r, 'tactical').elo - r) > 400,
+)
+check(
+  'the style preference never reaches past your rating',
+  tooFar.length === 0,
+  tooFar.map((r) => `${r} -> ${botForToday(r, 'tactical').elo}`).join(', '),
+)
+
+/* And it is a test rather than a mirror: at or above you wherever the roster
+   can manage it. */
+const below = [350, 550, 800, 950, 1100, 1250, 1400].filter(
+  (r) => botForToday(r, 'human').elo < r,
+)
+check('the opponent is at or above your rating', below.length === 0, below.join(', '))
 
 console.log(fail === 0 ? '\n✓ the record says what actually happened' : `\n✗ ${fail} FAILED`)
 process.exit(fail === 0 ? 0 : 1)
