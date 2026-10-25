@@ -15,13 +15,30 @@
  *   games, so exactly where the claim needed evidence there were a handful of
  *   chances and the interval swallowed the difference.
  *
- * So: one fixed exam, every band sits it. A corpus of positions where the
- * reference engine's best move IS a capture that wins at least a piece net of
- * the recapture — so "did not take it" is unambiguously a miss rather than a
- * difference of opinion. Each band plays each position once, with its own
- * depth, multipv and temperature, through the same chooseMoveDetailed the app
- * calls. Equal N, identical questions, and a Wilson interval on every rate so
- * that a difference either clears the noise or is not claimed.
+ * So: one fixed exam, every band sits it. Each band plays each position once,
+ * with its own depth, multipv and temperature, through the same
+ * chooseMoveDetailed the app calls. Equal N, identical questions, and a
+ * Wilson interval on every rate so that a difference either clears the noise
+ * or is not claimed.
+ *
+ * WHAT MAKES A POSITION ADMISSIBLE, and this took two goes to get right. The
+ * first version asked only that the reference engine's best move BE the
+ * capture, and the result was a 2200 taking free material 53.8% of the time
+ * — which is not a finding about the 2200, it is a broken exam. Measuring the
+ * corpus said why: the median gap between best and second best was 141
+ * centipawns, 32 of 80 positions had a gap under 100, and the median position
+ * was already won by more than a rook. In a position you are winning by 500,
+ * declining a free knight costs you almost nothing, so "did not take it" was
+ * never an error and the rate was really a temperature reading.
+ *
+ * Three filters now, and all three are about making a miss cost something:
+ *
+ *   1. A capture winning 300+ net of the recapture. Mechanical, and the same
+ *      shape a person sees when they look at the board for two seconds.
+ *   2. The reference engine's own best move IS that capture.
+ *   3. It beats the second-best move by at least CLEAR_MARGIN, and the game
+ *      is still a game if you miss it. Without this an exam position can be
+ *      one where everything wins.
  *
  *   npm run diag:punish                      (uses/creates the cached corpus)
  *   npm run diag:punish -- --build 120       (rebuild the corpus at 120 seats)
@@ -33,6 +50,7 @@ import { dirname } from 'node:path'
 import { Chess } from 'chess.js'
 import { NodeEngine } from './lib/engine-node'
 import { profileFor, chooseMoveDetailed } from '../src/engine/policy'
+import { lineScore } from '../src/engine/types'
 
 const arg = (name: string, fallback: number): number => {
   const i = process.argv.indexOf(`--${name}`)
@@ -42,6 +60,23 @@ const arg = (name: string, fallback: number): number => {
 const CORPUS = 'scripts/data/punish-corpus.json'
 const BUILD = process.argv.includes('--build') ? arg('build', 120) : 0
 const REF_DEPTH = arg('ref-depth', 14)
+/**
+ * How much the capture has to beat everything else by.
+ *
+ * Two pawns. Below that, not taking it is a difference of opinion rather
+ * than a miss, and an exam full of those measures how tightly a band ranks
+ * near-equal moves — which is the thing a player cannot feel and precisely
+ * what this script was written to stop reporting.
+ */
+const CLEAR_MARGIN = arg('margin', 200)
+/**
+ * And the position must still be a game if the capture is missed.
+ *
+ * Declining a free knight while winning by a rook is not a blunder worth
+ * counting. The cap is on what the SECOND best move leaves you with, since
+ * that is where missing it actually lands.
+ */
+const STILL_A_GAME = arg('still-a-game', 400)
 const SEATS = arg('seats', 0)
 
 const RATINGS = (() => {
@@ -86,6 +121,8 @@ interface Seat {
   uci: string
   /** Material won, net of the recapture. */
   net: number
+  /** How far ahead of the second-best move it is, in centipawns. */
+  margin: number
 }
 
 function rng(seed: number): () => number {
@@ -97,17 +134,13 @@ function rng(seed: number): () => number {
 }
 
 /**
- * Find positions where a piece is simply there for the taking.
+ * Find positions where a piece is there for the taking and missing it hurts.
  *
  * Random legal play, which produces loose material at a useful rate and —
  * more importantly — produces it INDEPENDENTLY of any band, so no bot is
- * examined on positions its own kind of opponent created.
- *
- * Two filters. The material one is mechanical: a capture winning 300+ net of
- * the recapture. The second is the engine's, at reference depth: its best
- * move must BE that capture. Without it the corpus fills up with positions
- * where there is a piece hanging and something better to do, and a bot that
- * finds the better thing is marked wrong.
+ * examined on positions its own kind of opponent created. It also produces a
+ * lot of already-decided rubbish, which is what the margin filter is for;
+ * expect roughly one position in six to survive.
  */
 async function build(target: number): Promise<Seat[]> {
   const seats: Seat[] = []
@@ -132,9 +165,16 @@ async function build(target: number): Promise<Seat[]> {
     if (!free) continue
     seen.add(key)
 
-    const a = await engine.analyse(fen, { depth: REF_DEPTH, multipv: 1 })
+    const a = await engine.analyse(fen, { depth: REF_DEPTH, multipv: 2 })
     if (a.bestMove !== free.uci) continue
-    seats.push({ fen, uci: free.uci, net: free.net })
+    const scores = a.lines.map(lineScore).sort((x, y) => y - x)
+    const second = scores[1]
+    // A position with only one legal move teaches nothing either.
+    if (second === undefined) continue
+    const margin = (scores[0] ?? 0) - second
+    if (margin < CLEAR_MARGIN) continue
+    if (Math.abs(second) > STILL_A_GAME) continue
+    seats.push({ fen, uci: free.uci, net: free.net, margin })
     if (seats.length % 10 === 0) process.stdout.write(`\r  built ${seats.length}/${target}  `)
   }
   process.stdout.write('\r')
@@ -158,7 +198,11 @@ async function main() {
   let seats: Seat[]
   if (BUILD > 0 || !existsSync(CORPUS)) {
     const n = BUILD > 0 ? BUILD : 120
-    console.log(`Building the exam — ${n} positions where taking is the engine's own best move.`)
+    console.log(
+      `Building the exam — ${n} positions where taking is the engine's own best\n` +
+        `move, beats the second best by ${CLEAR_MARGIN}cp, and leaves a game still worth\n` +
+        `playing. Roughly one position in six survives that, so this takes a while.`,
+    )
     seats = await build(n)
     mkdirSync(dirname(CORPUS), { recursive: true })
     writeFileSync(CORPUS, JSON.stringify(seats, null, 1))
@@ -168,9 +212,12 @@ async function main() {
   }
   if (SEATS > 0) seats = seats.slice(0, SEATS)
 
+  const margins = seats.map((s) => s.margin).sort((a, b) => a - b)
   console.log(
     `\nFree material: ${seats.length} positions, every band sits the same exam.\n` +
-      `A hit is playing the capture the reference engine plays.\n`,
+      `A hit is playing the capture the reference engine plays. Missing it costs\n` +
+      `at least ${CLEAR_MARGIN}cp — median ${margins[Math.floor(margins.length / 2)] ?? 0}cp — ` +
+      `and leaves a game still worth playing.\n`,
   )
 
   const rows: { elo: number; hits: number; n: number; lo: number; hi: number }[] = []
