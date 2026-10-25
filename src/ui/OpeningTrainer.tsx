@@ -242,6 +242,7 @@ export function OpeningTrainer({
       reason: outcome.reason,
       opponentElo: bot.elo,
       opponentStyle: bot.style,
+      botId: bot.id,
       source: 'opening-trainer',
     })
       .then(({ delta }) => {

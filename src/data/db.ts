@@ -17,6 +17,26 @@ export interface GameRow {
   humanColour: 'w' | 'b'
   opponentElo: number
   opponentStyle: string
+  /**
+   * Which roster bot you played, when it was one.
+   *
+   * Absent on rows written before this field existed and on chess.com
+   * imports, which have no bot at all. Until now a game stored only an elo
+   * and a style, and the bot was GUESSED back from the elo at display time —
+   * which is fine for a label and useless for a record, because two bots can
+   * share a rating and the slider can land between them. You cannot have a
+   * head-to-head against a number.
+   */
+  botId?: string
+  /**
+   * Where the game came from.
+   *
+   * FinishedGame has declared this since it was written and documented it as
+   * load-bearing, and recordFinishedGame never wrote it — so a game from the
+   * Play tab and a play-on at the end of a trainer drill have been
+   * indistinguishable in the database the whole time.
+   */
+  source?: string
   result: 'win' | 'loss' | 'draw'
   reason: string
   pgn: string
@@ -170,6 +190,16 @@ export class CoachDb extends Dexie {
     // nothing.
     this.version(2).stores({
       sectionRatings: 'section',
+    })
+    /*
+     * v3 adds botId and source to `games`. Both are optional and neither is
+     * indexed — the head-to-head reads every game anyway, and the table is a
+     * few hundred rows. Dexie needs no upgrade function to ADD a field, so
+     * existing rows simply carry undefined, which is the honest value: those
+     * games really were recorded without a bot id.
+     */
+    this.version(3).stores({
+      games: '++id, playedAt, result, analysedAt',
     })
   }
 }

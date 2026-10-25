@@ -45,7 +45,15 @@ export interface FinishedGame {
    * one played from the initial position, and pretending otherwise would make
    * the opening-phase numbers in any future stats meaningless.
    */
-  source?: 'play' | 'opening-trainer' | 'middlegame-trainer'
+  source?: 'play' | 'opening-trainer' | 'middlegame-trainer' | 'coached'
+  /**
+   * The roster bot, when there was one.
+   *
+   * Every caller already holds it — all four pass `bot.id` to EngineOpponent
+   * so the opening book works — and every one of them dropped it here. You
+   * cannot keep a record against an opponent you did not write down.
+   */
+  botId?: string
 }
 
 export interface RecordOptions {
@@ -89,6 +97,10 @@ export async function recordFinishedGame(
     humanColour: game.humanColour,
     opponentElo: game.opponentElo,
     opponentStyle: game.opponentStyle,
+    botId: game.botId,
+    // Declared on FinishedGame since it was written, documented as
+    // load-bearing, and never actually stored until now.
+    source: game.source,
     result: game.result,
     reason: game.reason,
     pgn: game.pgn,

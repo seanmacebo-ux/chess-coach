@@ -58,6 +58,7 @@ import { BOTS, botLabel, nearestBot, suggestedBot, type Bot } from './engine/ros
 import { bookFor, bookDepth, currentLine } from './engine/book'
 import { theirPlan } from './coach/theirplan'
 import { recordFinishedGame, outcomeOf } from './coach/record'
+import { records, scoreline, standing, type Record as H2H } from './coach/headtohead'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
 import { loadPrefs, savePrefs } from './data/settings'
@@ -866,6 +867,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   }, [])
   /** Needed alongside the rating: K scales with it, so the stakes do too. */
   const [myRd, setMyRd] = useState<number | null>(null)
+  const [h2h, setRecords] = useState<Map<string, H2H>>(() => new Map())
   const [sections, setSections] = useState<Record<SectionId, SectionRating> | null>(null)
 
   const humanColour = orientation
@@ -896,10 +898,14 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
     void (async () => {
       const p = await getProfile()
       const s = await getSectionRatings()
+      // Your history against each bot. Read here rather than in BotRoster so
+      // the roster stays a presentational component.
+      const h2h = records(await db.games.toArray())
       if (cancelled) return
       setMyRating(p.rating)
       setMyRd(p.ratingDeviation)
       setSections(s)
+      setRecords(h2h)
     })()
     return () => {
       cancelled = true
@@ -1082,6 +1088,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
           reason: flagged ? 'out of time' : s.text,
           opponentElo: elo,
           opponentStyle: style,
+          // The bot you actually sat across from, so a head-to-head is
+          // possible. nearestBot because the slider can land between two.
+          botId: nearestBot(elo).id,
           source: 'play',
         },
         {
@@ -1657,6 +1666,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       <BotRoster
         rating={myRating ?? 800}
         ratingDeviation={myRd ?? 250}
+        records={h2h}
         elo={elo}
         style={style}
         onPick={(b) => {
@@ -1774,12 +1784,15 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 function BotRoster({
   rating,
   ratingDeviation,
+  records: h2h,
   elo,
   style,
   onPick,
 }: {
   rating: number
   ratingDeviation: number
+  /** Your history against each bot, keyed by bot id. */
+  records: Map<string, H2H>
   elo: number
   style: Style
   onPick: (b: Bot) => void
@@ -1834,18 +1847,43 @@ function BotRoster({
                   )
                 })()}
               </span>
+              {/*
+                THE RECORD, where the decision is made.
+
+                Eleven bots with faces and bios are still eleven settings
+                until one of them has beaten you. "3-1" turns a difficulty
+                dial into an opponent you have a history with. Until this
+                landed the app could not show it at all: games stored an elo
+                and a style and the bot was guessed back from the rating, and
+                you cannot keep a record against a number.
+              */}
+              {(() => {
+                const rec = h2h.get(b.id)
+                const line = rec ? scoreline(rec) : null
+                if (!line) return null
+                return (
+                  <span
+                    className={'bot-record' + (rec!.wins === 0 ? ' unbeaten' : '')}
+                    title={standing(rec!)}
+                  >
+                    {line}
+                  </span>
+                )
+              })()}
               {isNext && <span className="bot-tag">next up</span>}
             </button>
           )
         })}
       </div>
 
-      {openId && <BotCard bot={BOTS.find((b) => b.id === openId)!} />}
+      {openId && (
+        <BotCard bot={BOTS.find((b) => b.id === openId)!} record={h2h.get(openId) ?? null} />
+      )}
     </div>
   )
 }
 
-function BotCard({ bot }: { bot: Bot }) {
+function BotCard({ bot, record }: { bot: Bot; record: H2H | null }) {
   return (
     <div className="bot-card">
       <div className="bot-bio">
@@ -1887,6 +1925,11 @@ function BotCard({ bot }: { bot: Bot }) {
       <div className="small">
         <span className="brief-key">Weakness</span> {bot.weakness}
       </div>
+      {record && (
+        <div className="small">
+          <span className="brief-key">Record</span> {standing(record)}
+        </div>
+      )}
       {/*
         The old text here said the bots "currently play stronger than their
         labels" and blamed the move policy. Both halves were out of date: the

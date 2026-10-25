@@ -201,6 +201,7 @@ export function MiddlegameTrainer({ plan, rating, onExit }: MiddlegameTrainerPro
       reason: outcome.reason,
       opponentElo: bot.elo,
       opponentStyle: bot.style,
+      botId: bot.id,
       source: 'middlegame-trainer',
     })
       .then(({ delta }) => {

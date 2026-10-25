@@ -446,7 +446,8 @@ export function CoachedGame({ rating, colour, onExit }: CoachedGameProps) {
       reason: outcome.reason,
       opponentElo: bot.elo,
       opponentStyle: bot.style,
-      source: 'play',
+      botId: bot.id,
+      source: 'coached',
     })
       .then(({ delta }) => {
         setGameNote(

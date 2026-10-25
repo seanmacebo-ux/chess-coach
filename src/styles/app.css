@@ -5986,3 +5986,24 @@ button.act-cell.on {
   font-size: var(--t-small);
   line-height: 1.4;
 }
+
+
+/*
+ * YOUR RECORD AGAINST THIS BOT, on the tile where you choose one.
+ *
+ * Quiet by default — it is a fact, not a call to action — and lit when you
+ * have never beaten them, because that is the one version of it worth
+ * crossing the screen for.
+ */
+.bot-record {
+  font-family: var(--font-num);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.bot-record.unbeaten {
+  color: var(--warn);
+}

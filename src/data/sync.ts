@@ -59,6 +59,12 @@ async function pushTables(userId: string): Promise<number> {
         human_colour: g.humanColour,
         opponent_elo: g.opponentElo,
         opponent_style: g.opponentStyle,
+        // New in v3. A remote table without these columns will reject the
+        // upsert, so they are added here and in the pull below together —
+        // a field that exists locally and not remotely is a field that
+        // silently stops existing the moment you sync.
+        bot_id: g.botId ?? null,
+        source: g.source ?? null,
         result: g.result,
         reason: g.reason,
         pgn: g.pgn,
@@ -181,6 +187,8 @@ async function pullTables(): Promise<number> {
           humanColour: r.human_colour,
           opponentElo: r.opponent_elo,
           opponentStyle: r.opponent_style,
+          botId: r.bot_id ?? undefined,
+          source: r.source ?? undefined,
           result: r.result,
           reason: r.reason,
           pgn: r.pgn,
