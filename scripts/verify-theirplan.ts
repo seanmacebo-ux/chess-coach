@@ -16,7 +16,14 @@
  */
 
 import { Chess } from 'chess.js'
-import { describeTheirMove, phaseOf, theirPlan, yourMove, theirIntent } from '../src/coach/theirplan'
+import {
+  describeTheirMove,
+  freePiece,
+  phaseOf,
+  theirPlan,
+  yourMove,
+  theirIntent,
+} from '../src/coach/theirplan'
 import { STYLES } from '../src/engine/types'
 
 let fail = 0
@@ -219,6 +226,78 @@ check('no stray characters in anything shown to a player', odd.length === 0, odd
   const said = describeTheirMove(before, san, board.fen(), 'w')
   check('a centre pawn is not reported as an attack on your king',
         said === null || !/at your king/.test(said), String(said))
+}
+
+/* ------------------------------------------- something of theirs is free -- */
+
+/*
+ * The loudest claim the panel makes, so the one most worth being sure of.
+ * A false "take it" costs a piece.
+ */
+{
+  const b = new Chess()
+  b.move('e4'); b.move('e5'); b.move('Nf3'); b.move('Nc6')
+  b.move('Nxe5')          // the knight on e5 is attacked by Nc6 and undefended
+  const g = freePiece(b.fen(), 'b')
+  check('a piece sitting en prise is reported', g !== null, JSON.stringify(g))
+  if (g) {
+    const probe = new Chess(b.fen())
+    const piece = probe.get(g.square as never)
+    check('the square it names really holds one of THEIR pieces',
+          Boolean(piece) && piece!.color === 'w', `${g.square} → ${JSON.stringify(piece)}`)
+    check('and that piece really is attacked and undefended',
+          probe.isAttacked(g.square as never, 'b') && !probe.isAttacked(g.square as never, 'w'),
+          g.square)
+  }
+}
+
+{
+  // Nothing loose: it must stay silent rather than reach for something.
+  const b = new Chess()
+  b.move('e4'); b.move('e5'); b.move('Nf3')
+  check('a quiet position reports nothing free',
+        freePiece(b.fen(), 'b') === null, JSON.stringify(freePiece(b.fen(), 'b')))
+}
+
+/*
+ * THE CASE A LIVE GAME CAUGHT. Nadia plays 2.Qh5 — safe. You answer 2...Nf6
+ * and NOW her queen is attacked and undefended. Her move did not hang it;
+ * yours did. The first version only looked at what their move changed and
+ * stayed silent through the most takeable moment in the opening.
+ */
+{
+  const b = new Chess()
+  b.move('e4'); b.move('e5'); b.move('Qh5')
+  check('her queen is safe the moment she plays it',
+        freePiece(b.fen(), 'b') === null, JSON.stringify(freePiece(b.fen(), 'b')))
+  b.move('Nf6')
+  const g = freePiece(b.fen(), 'b')
+  check('...and free once YOUR move attacks it',
+        g !== null && g.square === 'h5' && g.piece === 'queen', JSON.stringify(g))
+}
+
+{
+  // Pawns are deliberately out of scope.
+  const b = new Chess()
+  b.move('e4'); b.move('e5')
+  const g = freePiece(b.fen(), 'w')
+  check('a loose pawn is not announced', g === null || g.piece !== 'pawn', JSON.stringify(g))
+}
+
+{
+  /*
+   * Several loose: it must name the most expensive, not the first found.
+   * A knight on e5 attacks g4 and d3 (the first fixture here used f4, which
+   * a knight on e5 does not attack at all — the test was wrong, not the code).
+   */
+  const fen = '4k3/8/8/4n3/6Q1/3B4/8/4K3 b - - 0 1'
+  const probe = new Chess(fen)
+  check('the fixture really has both hanging',
+        probe.isAttacked('g4', 'b') && !probe.isAttacked('g4', 'w') &&
+        probe.isAttacked('d3', 'b') && !probe.isAttacked('d3', 'w'))
+  const g = freePiece(fen, 'b')
+  check('with a choice it names the most valuable',
+        g !== null && g.piece === 'queen' && g.square === 'g4', JSON.stringify(g))
 }
 
 console.log(fail === 0 ? '\n✓ the whole-game read never claims what the board does not show'

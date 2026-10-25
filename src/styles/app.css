@@ -5969,3 +5969,20 @@ button.act-cell.on {
   color: var(--text);
   font-weight: 600;
 }
+
+
+/*
+ * The opponent has just hung something. This is the one line on the panel
+ * that is allowed to interrupt, because it is the one moment in a game where
+ * acting now and acting in three moves are completely different outcomes.
+ */
+.book-read.gift {
+  border-left-color: var(--accent-hi);
+}
+
+.gift-line {
+  font-weight: 650;
+  color: var(--accent-hi);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}

@@ -48,6 +48,29 @@ export interface TheirPlan {
   wants: string
   /** The next thing for you to check or do. */
   you: string
+  /**
+   * Something of theirs is free right now. The best one, if there are several.
+   *
+   * Sean: "I want it to find blunders." Half of that is yours and the Play
+   * screen already asks about those. The other half is theirs, and it was
+   * mentioned in a line of prose with no more weight than the phase name.
+   *
+   * THE FIRST VERSION ONLY FIRED WHEN THEIR MOVE CREATED IT, and a live game
+   * showed why that is wrong. Nadia plays 2.Qh5; the queen is safe there. You
+   * answer 2...Nf6 and now it is attacked and undefended. Her move did not
+   * hang it — YOURS did — and the alert stayed silent through the single
+   * most takeable moment in the opening.
+   *
+   * So it reports what is free, whoever made it so.
+   *
+   * It does NOT track novelty, and that is a decision rather than an
+   * omission: it keeps saying so while the piece sits there. Suppressing the
+   * repeat would mean remembering what was last announced, which is state
+   * that has to survive a re-render and a take-back — and a piece you have
+   * been told about twice and still not taken is not a message that has
+   * failed, it is one you have not acted on.
+   */
+  gift: { square: string; piece: string } | null
 }
 
 const NAME: Record<string, string> = {
@@ -259,6 +282,25 @@ export function yourMove(fen: string, you: Side, phase: Phase, style: Style): st
   }
 }
 
+/**
+ * The best piece of theirs that is free right now.
+ *
+ * Whoever caused it. Their move can hang a piece, and so can yours — you
+ * attack something they had left undefended — and from your side of the
+ * board those are the same opportunity.
+ *
+ * Pawns are left out, the same rule the coached game applies: hoovering
+ * loose pawns is not the habit being built, and flagging every one drowns
+ * the piece that matters.
+ */
+export function freePiece(fen: string, you: Side): { square: string; piece: string } | null {
+  const loose = hanging(new Chess(fen), other(you)).filter((h) => h.type !== 'p')
+  if (loose.length === 0) return null
+  // The most expensive one, because that is the one worth interrupting for.
+  const best = loose.reduce((a, c) => ((VALUE[c.type] ?? 0) > (VALUE[a.type] ?? 0) ? c : a))
+  return { square: best.square, piece: NAME[best.type] ?? 'piece' }
+}
+
 /** The whole read, for one position. */
 export function theirPlan(args: {
   fen: string
@@ -278,5 +320,6 @@ export function theirPlan(args: {
         : null,
     wants: theirIntent(args.style, phase),
     you: yourMove(args.fen, args.you, phase, args.style),
+    gift: freePiece(args.fen, args.you),
   }
 }

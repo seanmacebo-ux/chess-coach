@@ -60,7 +60,7 @@ import { theirPlan } from './coach/theirplan'
 import { recordFinishedGame, outcomeOf } from './coach/record'
 import { db, getProfile } from './data/db'
 import { pickPuzzles, type Puzzle } from './data/puzzles'
-import { loadPrefs } from './data/settings'
+import { loadPrefs, savePrefs } from './data/settings'
 import { loosePieces } from './coach/exercises'
 import { readPosition } from './coach/position'
 import { applyTheme, loadTheme, resolveTheme, saveTheme, type ThemeChoice } from './theme/theme'
@@ -816,7 +816,20 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
   // Read once per game rather than per render — flipping the setting
   // mid-game would change the rules underneath you.
-  const [blunderCheck] = useState(() => loadPrefs().blunderCheck)
+  const [blunderCheck, setBlunderCheck] = useState(() => loadPrefs().blunderCheck)
+  /*
+   * OFFERED ONCE, TO THE PEOPLE IT WAS BUILT FOR.
+   *
+   * The blunder check is off by default and settings.ts gives a real reason:
+   * it changes how a game feels, so turning it on should be a choice you
+   * made rather than one you have to undo. That argument holds. What it did
+   * not survive is that "off by default" became "never discovered" for a
+   * beginner who does not read the settings screen — which is exactly who
+   * hangs pieces.
+   *
+   * So it is put in front of them once, below 900, before the first move of
+   * a game, and the answer is remembered either way.
+   */
   /*
    * Read once per game for the same reason as the blunder check: flipping a
    * training aid on halfway through changes the rules of a game already in
@@ -825,7 +838,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const [liveRead] = useState(() => loadPrefs().liveRead)
   const [showReview, setShowReview] = useState(false)
   /** Set while a move is on the board but not yet committed. */
-  const [pending, setPending] = useState<{ loose: string[] } | null>(null)
+  const [pending, setPending] = useState<{ loose: string[]; missed: string[] } | null>(null)
 
   /**
    * Your own numbers, for the panel next to the strength slider.
@@ -836,6 +849,21 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
    * makes people stop trusting the whole display.
    */
   const [myRating, setMyRating] = useState<number | null>(null)
+
+  const [offerCheck, setOfferCheck] = useState(false)
+  useEffect(() => {
+    const prefs = loadPrefs()
+    if (prefs.blunderCheck || prefs.blunderCheckAsked) return
+    if (myRating === null || myRating >= 900) return
+    setOfferCheck(true)
+  }, [myRating])
+
+  const answerOffer = useCallback((on: boolean) => {
+    const prefs = loadPrefs()
+    savePrefs({ ...prefs, blunderCheck: on, blunderCheckAsked: true })
+    setBlunderCheck(on)
+    setOfferCheck(false)
+  }, [])
   /** Needed alongside the rating: K scales with it, so the stakes do too. */
   const [myRd, setMyRd] = useState<number | null>(null)
   const [sections, setSections] = useState<Record<SectionId, SectionRating> | null>(null)
@@ -1111,6 +1139,7 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
    */
   const onMove = useCallback(
     (from: Key, to: Key) => {
+      const fenBefore = chess.current.fen()
       try {
         chess.current.move({ from, to, promotion: 'q' })
       } catch {
@@ -1120,7 +1149,26 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       sync()
       if (blunderCheck) {
         const mine = humanColour === 'white' ? 'w' : 'b'
-        setPending({ loose: loosePieces(chess.current.fen(), mine) })
+        const theirs = mine === 'w' ? 'b' : 'w'
+        /*
+         * Both halves of the check, not just one.
+         *
+         * It only ever asked "is anything of MINE hanging" — the defensive
+         * half. The other half is the move you are about to waste: something
+         * of theirs was free and you are playing elsewhere. At this rating
+         * that is the more common loss, and it is the same board query with
+         * the colours swapped.
+         *
+         * Read from the position BEFORE your move, because that is where the
+         * free piece was. Pawns are excluded for the same reason the coached
+         * game excludes them: hoovering loose pawns is not the habit, and
+         * flagging every one drowns the piece that matters.
+         */
+        const was = new Chess(fenBefore)
+        const missed = loosePieces(fenBefore, theirs).filter(
+          (sq) => was.get(sq)?.type !== 'p' && sq !== to,
+        )
+        setPending({ loose: loosePieces(chess.current.fen(), mine), missed })
       }
     },
     [sync, blunderCheck, humanColour],
@@ -1396,7 +1444,21 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
 
         const plan = theirPlan({ fen, you, style, fenBefore, lastSan })
         return (
-          <div className="book-read">
+          <div className={'book-read' + (plan.gift ? ' gift' : '')}>
+            {/*
+              THE MOMENT THE GAME TURNS, marked as one.
+
+              Sean: "I want it to find blunders." The free piece was already
+              computed and already mentioned — in a line of prose alongside
+              the phase and their plan, with no more weight than anything
+              else on the panel. A blunder you have to read carefully to
+              notice is not being found for you.
+            */}
+            {plan.gift && (
+              <div className="gift-line">
+                They just left the {plan.gift.piece} on {plan.gift.square}. Take it.
+              </div>
+            )}
             <div className="row spread" style={{ alignItems: 'baseline' }}>
               <span className="brief-key">What is going on</span>
               <span className="small muted">{plan.phase}</span>
@@ -1430,10 +1492,38 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         </div>
       )}
 
+      {offerCheck && chess.current.history().length === 0 && (
+        <div className="card stack" style={{ borderColor: 'var(--accent)' }}>
+          <div>
+            <strong>Want a safety check before each move?</strong>{' '}
+            <span className="muted">
+              Before your move plays, it asks whether anything of yours is hanging — and whether
+              you are walking past something of theirs. It is the habit that costs the most games
+              at this level, and you can switch it off any time in Settings.
+            </span>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="primary" style={{ flex: 1 }} onClick={() => answerOffer(true)}>
+              Yes, check my moves
+            </button>
+            <button className="ghost" style={{ flex: 1 }} onClick={() => answerOffer(false)}>
+              No thanks
+            </button>
+          </div>
+        </div>
+      )}
+
       {pending && (
         <div
           className="card stack"
-          style={{ borderColor: pending.loose.length > 0 ? 'var(--warn)' : 'var(--accent)' }}
+          style={{
+            borderColor:
+              pending.loose.length > 0
+                ? 'var(--warn)'
+                : pending.missed.length > 0
+                  ? 'var(--accent-hi)'
+                  : 'var(--accent)',
+          }}
         >
           <div>
             <strong>Before it plays — anything hanging?</strong>{' '}
@@ -1445,6 +1535,23 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
                   : `${pending.loose.length} of your pieces are attacked and undefended: ${pending.loose.join(', ')}.`}
             </span>
           </div>
+          {/*
+            The other half, and at this level the more expensive one: there
+            was something free and you played elsewhere. The check only ever
+            looked at your own pieces, which catches the move that loses
+            material and misses the move that fails to win it.
+          */}
+          {pending.missed.length > 0 && (
+            <div>
+              <strong style={{ color: 'var(--accent-hi)' }}>And you are leaving this:</strong>{' '}
+              <span className="muted">
+                {pending.missed.length === 1
+                  ? `their piece on ${pending.missed[0]} is attacked and undefended.`
+                  : `their pieces on ${pending.missed.join(' and ')} are attacked and undefended.`}{' '}
+                Check it is really free before you take it.
+              </span>
+            </div>
+          )}
           <div className="row" style={{ gap: 8 }}>
             <button className="primary" style={{ flex: 1 }} onClick={commitMove}>
               Play it
