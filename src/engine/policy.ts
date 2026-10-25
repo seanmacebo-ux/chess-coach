@@ -161,6 +161,45 @@ export interface BandProfile {
  * improve, and it gives the three of them genuinely different characters
  * rather than three settings of the same dial.
  */
+/*
+ * THE CLIFF AT 800, AND WHAT IT DOES TO THE LADDER.
+ *
+ * `blunderChance` is the share of moves taken from the one-ply policy, and it
+ * falls 0.45 -> 0.29 -> 0.022 across the bottom three bands. That is a
+ * thirteenfold drop in one step, and it has a consequence nobody looked for
+ * until scripts/diag-punish.ts measured it: naiveMove GRABS MATERIAL, because
+ * faceValue is what it maximises. So the two weakest bots in the roster have
+ * a greedy reflex and the 800 does not.
+ *
+ * Measured, on one fixed exam of positions where taking is the engine's own
+ * best move and beats everything else by two pawns:
+ *
+ *     350   22.5%   [15-33]
+ *     550   28.7%   [20-39]
+ *     800   21.3%   [14-31]     <-- below both bots beneath it
+ *    1100   41.3%   [31-52]
+ *    1400   58.8%   [48-69]
+ *    2200   80.0%   [70-87]
+ *
+ * The rung is real rather than noise, and it points at something larger than
+ * one anchor being wrong. At 800 every move comes from a softmax at
+ * temperature 286 across 28 candidates, and a capture that is 200cp better
+ * than the alternatives only gets exp(200/286) = twice the weight of any one
+ * of them. Spread over twenty-seven others, the free piece loses most of the
+ * time — which is what the 21.3% is.
+ *
+ * But nobody considers twenty-eight moves. The wide candidate list is a
+ * device for letting a softmax reach a bad move, and engine/vision.ts now
+ * does that job properly by modelling what a player at this rating does not
+ * SEE. The two mechanisms are redundant, and the softmax one is the one that
+ * also throws away moves a player would obviously find.
+ *
+ * The fix this points to is to narrow the softmax to a shortlist and let
+ * blindness supply the errors — the same argument vision.ts makes, applied to
+ * the other half of the policy. It would move every band's acpl and so needs
+ * a full recalibration behind it, which is why it is written down here rather
+ * than done in passing.
+ */
 interface Anchor extends Omit<BandProfile, 'band'> {
   elo: number
 }
