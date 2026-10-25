@@ -46,6 +46,18 @@ export interface Prefs {
    * exists to build. Off by default so a normal game stays a normal game.
    */
   liveRead: boolean
+  /**
+   * Name your move as you play it — Brilliant, Best, Inaccuracy, Blunder.
+   *
+   * ON by default, which is a deliberate break from the rule above it. The
+   * blunder check is off by default because it INTERVENES: it stops your move
+   * before it commits and makes you answer a question. This one is
+   * commentary. It arrives after the opponent has already replied, it cannot
+   * change the move or the game, and the labels have existed in the post-game
+   * review the whole time — the only thing that changes is that you are told
+   * while you are still looking at the move rather than ten minutes later.
+   */
+  moveRatings: boolean
 }
 
 export const PUZZLE_COUNTS = [3, 5, 8, 12, 20] as const
@@ -64,6 +76,7 @@ const DEFAULT: Prefs = {
   showCoordinates: true,
   sound: false,
   liveRead: false,
+  moveRatings: true,
 }
 
 function clampCount(n: unknown): number {
@@ -85,6 +98,7 @@ export function loadPrefs(): Prefs {
         typeof p.showCoordinates === 'boolean' ? p.showCoordinates : DEFAULT.showCoordinates,
       sound: typeof p.sound === 'boolean' ? p.sound : DEFAULT.sound,
       liveRead: typeof p.liveRead === 'boolean' ? p.liveRead : DEFAULT.liveRead,
+      moveRatings: typeof p.moveRatings === 'boolean' ? p.moveRatings : DEFAULT.moveRatings,
     }
   } catch {
     return DEFAULT

@@ -15,6 +15,8 @@ import { Chess } from 'chess.js'
 import type { Key } from 'chessground/types'
 
 import { Board } from './ui/Board'
+import { LiveRater, type RatedMove } from './coach/live'
+import { RATING_LABEL, RATING_MEANING } from './coach/report'
 import { Daily } from './ui/screens/Daily'
 import { PuzzleRunner } from './ui/screens/PuzzleRunner'
 import { History } from './ui/screens/History'
@@ -51,7 +53,7 @@ import { acpl, performanceRating, type MoveAssessment } from './coach/analysis'
 import { GameReview } from './ui/screens/GameReview'
 import { GameOver } from './ui/screens/GameOver'
 import { Captured } from './ui/Captured'
-import { openingOfPgn, type OpeningName } from './coach/eco'
+import { bookPlies, openingOfPgn, type OpeningName } from './coach/eco'
 import { ReviewProgress } from './ui/ReviewProgress'
 import { Climb } from './ui/screens/Climb'
 import { BOTS, botLabel, nearestBot, suggestedBot, type Bot } from './engine/roster'
@@ -770,6 +772,28 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   /** What the game's opening was called, once the book has been consulted. */
   const [opening, setOpening] = useState<OpeningName | null>(null)
 
+  /*
+   * YOUR LAST MOVE, NAMED.
+   *
+   * Brilliant / Great / Best / Excellent / Good / Book / Inaccuracy /
+   * Mistake / Blunder / Missed win have existed in coach/report.ts since it
+   * was written, and only ever appeared AFTER the game. During the game
+   * nothing said a word about the move you had just made.
+   *
+   * Same labels, same code, said at the moment it is about the move you are
+   * still looking at. `rater` holds the search it starts while you think,
+   * which is what makes this nearly free — see coach/live.ts.
+   */
+  const [rated, setRated] = useState<RatedMove | null>(null)
+  const rater = useRef(new LiveRater())
+  /** The move waiting to be rated, held until the opponent has replied. */
+  const toRate = useRef<{
+    fenBefore: string
+    played: { from: string; to: string; promotion?: string; san: string }
+    ply: number
+    pgn: string
+  } | null>(null)
+
   /** The preference (live) and the value the CURRENT game was dealt. */
   const [clockMin, setClockMin] = useState(loadClockMin)
   const activeClockMin = useRef(clockMin)
@@ -837,6 +861,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
    * progress.
    */
   const [liveRead] = useState(() => loadPrefs().liveRead)
+  /* Read once per game, like the others — a toggle flipped mid-game would
+     start grading from move 14 with nothing before it. */
+  const [moveRatings] = useState(() => loadPrefs().moveRatings)
   const [showReview, setShowReview] = useState(false)
   /** Set while a move is on the board but not yet committed. */
   const [pending, setPending] = useState<{ loose: string[]; missed: string[] } | null>(null)
@@ -1021,6 +1048,64 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
     }
   }, [fen, humanColour, opponent, booted, sync, pending, flagged])
 
+  /*
+   * RATE THE MOVE YOU JUST MADE — after the opponent has answered it.
+   *
+   * The wait is the design. Rating needs a search, the engine is one worker
+   * shared with the opponent, and putting the grade in front of the reply
+   * would mean every one of your moves is followed by a pause while the app
+   * marks your work. So the badge arrives a beat after the position does.
+   *
+   * The gate is the BOARD rather than engineState, deliberately: effects in
+   * one commit see the state of the render they were queued from, so reading
+   * engineState here would fire this before the opponent had started. "Is it
+   * my turn again, or is the game over" cannot be wrong about that.
+   */
+  useEffect(() => {
+    if (!moveRatings) return
+    const job = toRate.current
+    if (!job) return
+    const over = statusOf(chess.current).over || flagged !== null
+    if (!over && colourOf(chess.current) !== humanColour) return
+    toRate.current = null
+
+    let cancelled = false
+    void (async () => {
+      try {
+        // Book is worked out from the game so far. A line that only becomes
+        // theory again by transposing later would read Best here and Book in
+        // the review — rare, and the honest answer at the time.
+        const named = await openingOfPgn(job.pgn)
+        const r = await rater.current.rate(job.fenBefore, job.played, {
+          ply: job.ply,
+          inBook: bookPlies(named).has(job.ply),
+        })
+        if (!cancelled && r) setRated(r)
+      } catch {
+        // A rating that cannot be computed is simply not shown. It is a
+        // commentary track, and it must never be able to break a game.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [fen, humanColour, flagged, moveRatings])
+
+  /*
+   * Think about the position while the human is thinking about it.
+   *
+   * The expensive half of rating a move is the search of the position BEFORE
+   * it, and that position is on the board for as long as they take to decide.
+   * Starting it now is wall-clock the engine would otherwise spend idle.
+   */
+  useEffect(() => {
+    if (!booted || !moveRatings) return
+    if (flagged || statusOf(chess.current).over) return
+    if (colourOf(chess.current) !== humanColour) return
+    if (pending) return
+    rater.current.prime(chess.current.fen())
+  }, [fen, humanColour, booted, flagged, pending, moveRatings])
+
   /* ---------------------------------------------- save + analyse */
 
   /**
@@ -1149,13 +1234,24 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const onMove = useCallback(
     (from: Key, to: Key) => {
       const fenBefore = chess.current.fen()
+      const ply = chess.current.history().length
+      let played
       try {
-        chess.current.move({ from, to, promotion: 'q' })
+        played = chess.current.move({ from, to, promotion: 'q' })
       } catch {
         setFen(chess.current.fen())
         return
       }
       sync()
+      // Queued, not run: the rating waits for the opponent's reply so that
+      // grading you never delays the game. See the effect below.
+      setRated(null)
+      toRate.current = {
+        fenBefore,
+        played: { from, to, promotion: 'q', san: played.san },
+        ply,
+        pgn: chess.current.pgn(),
+      }
       if (blunderCheck) {
         const mine = humanColour === 'white' ? 'w' : 'b'
         const theirs = mine === 'w' ? 'b' : 'w'
@@ -1188,6 +1284,11 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
   const takeBack = useCallback(() => {
     chess.current.undo()
     setPending(null)
+    // The move is gone, so its grade has to go with it — and the primed
+    // search is for a position that is on the board again, not before it.
+    toRate.current = null
+    setRated(null)
+    rater.current.reset()
     sync()
   }, [sync])
 
@@ -1200,6 +1301,9 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
       setPending(null)
       setReview({ phase: 'idle' })
       setShowReview(false)
+      toRate.current = null
+      setRated(null)
+      rater.current.reset()
       setOutcomeCard(null)
       setReviewPly(null)
       setOpening(null)
@@ -1352,6 +1456,33 @@ function Play(props: { initialElo: number; initialStyle: Style; initialColour: '
         check={chess.current.isCheck()}
         onMove={onMove}
       />
+
+      {/*
+        YOUR LAST MOVE, NAMED, WHILE IT IS STILL THE MOVE YOU ARE LOOKING AT.
+        Directly under the board rather than in a panel below the fold,
+        because a grade you have to scroll to is a grade you read after you
+        have stopped caring about that move.
+      */}
+      {rated && !gameEnded && (
+        <div className={`live-rat rat-${rated.rating}`}>
+          <span className="live-rat-move">{rated.assessment.san}</span>
+          <span className="live-rat-label">{RATING_LABEL[rated.rating]}</span>
+          <span className="live-rat-why">
+            {RATING_MEANING[rated.rating]}
+            {/*
+              The alternative, but only when there was one worth naming. On a
+              Best or a Brilliant the engine's move IS yours, and printing
+              "better was Nf3" next to the move you played would be a lie.
+            */}
+            {rated.assessment.bestSan && rated.assessment.lossCp >= 50 && (
+              <>
+                {' '}
+                <b>{rated.assessment.bestSan}</b> held more.
+              </>
+            )}
+          </span>
+        </div>
+      )}
 
       <div className="side-strip">
         <span className="side-who">
