@@ -44,6 +44,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { PILLARS, tiersFor, type Pillar } from '../../coach/tiers'
+import { db } from '../../data/db'
+import {
+  progress as repertoireProgress,
+  dueLines as repertoireDue,
+} from '../../coach/repertoire'
 import { tierStatuses, type TierStatus } from '../../coach/profile'
 import { getProfile } from '../../data/db'
 import { getSectionRatings, type SectionId, type SectionRating } from '../../coach/rating'
@@ -82,7 +87,7 @@ const SECTIONS: { key: SectionKey; name: string; blurb: string }[] = [
 
 /** What is actually in each section, stated on its card so the index is a menu
  *  with prices on it rather than six identical tiles. */
-function contentsOf(key: SectionKey, lessonsAtLevel: number): string {
+function contentsOf(key: SectionKey, lessonsAtLevel: number, dueLines = 0): string {
   switch (key) {
     case 'tactics':
       return `${CATEGORIES.length} categories to drill, plus the candidate-move trainer`
@@ -93,7 +98,15 @@ function contentsOf(key: SectionKey, lessonsAtLevel: number): string {
     case 'strategy':
       return `${tiersFor('strategy').length} board questions, plus the threat trainer`
     case 'opening':
-      return `${OPENINGS.length} openings with the plan behind each one`
+      /*
+       * The due count belongs HERE rather than only inside the section,
+       * because a line that has gone quiet is the one thing you will never
+       * go looking for. "Hard to tell and to track" is not solved by a
+       * number you have to open two screens to find.
+       */
+      return dueLines > 0
+        ? `${dueLines} ${dueLines === 1 ? 'line is' : 'lines are'} ready for another look`
+        : `${OPENINGS.length} openings with the plan behind each one`
     case 'ideas':
       return `${LESSONS.length} concept cards, ${lessonsAtLevel} of them aimed at you`
   }
@@ -135,6 +148,8 @@ export function Learn({
   const [progress, setProgress] = useState<ProgressReport | null>(null)
   /** Twelve weeks of what was actually done, and whether it moved anything. */
   const [activity, setActivity] = useState<Activity | null>(null)
+  /** Opening lines you had clean once and have not shown in a while. */
+  const [openingDue, setOpeningDue] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -144,7 +159,16 @@ export function Learn({
       const r = await getSectionRatings()
       const rep = await buildProgress(p.rating)
       const act = await loadActivity()
+      // Lines you have had clean before and have not shown in a while.
+      let due = 0
+      try {
+        const rows = await db.puzzleAttempts.where('puzzleId').startsWith('opening:').toArray()
+        due = repertoireDue(repertoireProgress(rows)).length
+      } catch {
+        // A count that cannot be read is simply not shown.
+      }
       if (cancelled) return
+      setOpeningDue(due)
       setActivity(act)
       setRating(p.rating)
       setStatuses(s)
@@ -189,6 +213,7 @@ export function Learn({
         onFix={() => setFixing(true)}
         progress={progress}
         activity={activity}
+        openingDue={openingDue}
       />
     )
   }
@@ -272,6 +297,7 @@ function Index({
   onFix,
   progress,
   activity,
+  openingDue,
 }: {
   rating: number
   statuses: TierStatus[]
@@ -283,6 +309,8 @@ function Index({
   onFix: () => void
   progress: ProgressReport | null
   activity: Activity | null
+  /** Opening lines clean before and not shown in a while. */
+  openingDue: number
 }) {
   const cleared = statuses.filter((s) => s.cleared).length
   const openNow = statuses.filter((s) => s.inBand && !s.cleared).length
@@ -432,7 +460,9 @@ function Index({
                 </>
               )}
 
-              <span className="small sec-contents">{contentsOf(s.key, lessonsAtLevel)}</span>
+              <span className="small sec-contents">
+                {contentsOf(s.key, lessonsAtLevel, openingDue)}
+              </span>
               <span className="sec-go small">Open →</span>
             </button>
           )
