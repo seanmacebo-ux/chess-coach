@@ -25,7 +25,7 @@
  * is teaching you to be over-confident in the one position where it costs most.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   OPENINGS,
   mainLine,
@@ -38,6 +38,13 @@ import { OpeningTrainer } from '../OpeningTrainer'
 import { MiddlegameTrainer } from '../MiddlegameTrainer'
 import { plansForOpening } from '../../content/middlegame'
 import { coachedPlies } from '../../content/coaching'
+import { db } from '../../data/db'
+import {
+  progress,
+  summarise,
+  summaryLine,
+  type LineProgress,
+} from '../../coach/repertoire'
 
 const ROLE_LABEL: Record<LineRole, string> = {
   main: 'Main line',
@@ -88,10 +95,51 @@ export interface OpeningsSectionProps {
  */
 export function OpeningsSection({ rating }: OpeningsSectionProps) {
   const [openId, setOpenId] = useState<string | null>(null)
+  /*
+   * What you have actually produced, per line.
+   *
+   * OpeningTrainer has written a row for every completed line since it was
+   * built and nothing ever read it back, so a repertoire you had drilled ten
+   * times looked exactly like one you had never opened. Loaded once for the
+   * whole section rather than per card — it is one table scan, and eleven
+   * cards each doing their own would be eleven.
+   */
+  const [byLine, setByLine] = useState<Map<string, LineProgress>>(new Map())
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        /*
+         * By puzzleId, NOT by themes. `themes` is not in the schema's index
+         * list, so `.where('themes')` throws — and the catch below swallowed
+         * it, so every card read "not started" however much you had drilled.
+         * Exactly the bug this feature exists to fix, reintroduced by the
+         * code fixing it, and invisible because the error handling was doing
+         * its job.
+         */
+        const rows = await db.puzzleAttempts.where('puzzleId').startsWith('opening:').toArray()
+        if (!cancelled) setByLine(progress(rows))
+      } catch {
+        // No history is the same as no progress, which is what an empty map
+        // says. A tracker that can break the screen it reports on is worse
+        // than one that is briefly blank.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [openId])
 
   const selected = OPENINGS.find((o) => o.id === openId) ?? null
   if (selected) {
-    return <OpeningDetail opening={selected} rating={rating} onBack={() => setOpenId(null)} />
+    return (
+      <OpeningDetail
+        opening={selected}
+        rating={rating}
+        byLine={byLine}
+        onBack={() => setOpenId(null)}
+      />
+    )
   }
 
   const repertoire = OPENINGS.filter((o) => o.kind === 'repertoire')
@@ -113,9 +161,9 @@ export function OpeningsSection({ rating }: OpeningsSectionProps) {
       </p>
 
       <div className="slots">
-        <Slot label="As White" openings={white} rating={rating} onPick={setOpenId} />
-        <Slot label="Against 1.e4" openings={vsE4} rating={rating} onPick={setOpenId} />
-        <Slot label="Against 1.d4" openings={vsD4} rating={rating} onPick={setOpenId} />
+        <Slot label="As White" openings={white} rating={rating} byLine={byLine} onPick={setOpenId} />
+        <Slot label="Against 1.e4" openings={vsE4} rating={rating} byLine={byLine} onPick={setOpenId} />
+        <Slot label="Against 1.d4" openings={vsD4} rating={rating} byLine={byLine} onPick={setOpenId} />
       </div>
 
       {traps.length > 0 && (
@@ -127,6 +175,7 @@ export function OpeningsSection({ rating }: OpeningsSectionProps) {
                 key={o.id}
                 opening={o}
                 rating={rating}
+                byLine={byLine}
                 onPick={() => setOpenId(o.id)}
               />
             ))}
@@ -141,11 +190,13 @@ function Slot({
   label,
   openings,
   rating,
+  byLine,
   onPick,
 }: {
   label: string
   openings: Opening[]
   rating: number
+  byLine: Map<string, LineProgress>
   onPick: (id: string) => void
 }) {
   return (
@@ -160,6 +211,7 @@ function Slot({
               key={o.id}
               opening={o}
               rating={rating}
+              byLine={byLine}
               onPick={() => onPick(o.id)}
             />
           ))}
@@ -172,23 +224,44 @@ function Slot({
 function OpeningCard({
   opening,
   rating,
+  byLine,
   onPick,
 }: {
   opening: Opening
   rating: number
+  byLine: Map<string, LineProgress>
   onPick: () => void
 }) {
   const main = mainLine(opening)
   const inBand = rating >= opening.band[0] && rating <= opening.band[1]
   const ahead = opening.band[0] > rating
+  const s = summarise(opening.id, opening.lines.map((l) => l.id), byLine)
   return (
     <button className={'op-card' + (inBand ? '' : ' off-band')} onClick={onPick}>
-      <span className="op-name">{opening.name}</span>
+      <span className="op-name">
+        {opening.name}
+        {/* Due is the one thing that must never be hidden: a repertoire that
+            has gone stale looks identical to one you know until something
+            says otherwise, which was the whole complaint. */}
+        {s.due > 0 && <span className="op-due">{s.due} due</span>}
+      </span>
       <span className="op-moves">{firstMoves(main.moves, 6)}</span>
       <span className="op-meta">
-        {opening.lines.length} lines ·{' '}
+        {summaryLine(s)} ·{' '}
         {inBand ? 'at your level' : ahead ? `aimed at ${opening.band[0]}+` : 'below you now'}
       </span>
+      {/* How much of this opening you have actually produced, as a bar. Known
+          and due are both lines you have had clean once, so they fill the bar
+          together and due is marked rather than subtracted — you have not
+          unlearned it, it has gone quiet. */}
+      {s.total > 0 && (
+        <span className="op-bar" aria-hidden="true">
+          <i className="op-bar-known" style={{ flexGrow: s.known }} />
+          <i className="op-bar-due" style={{ flexGrow: s.due }} />
+          <i className="op-bar-shaky" style={{ flexGrow: s.learning }} />
+          <i className="op-bar-rest" style={{ flexGrow: s.untried }} />
+        </span>
+      )}
     </button>
   )
 }
@@ -208,10 +281,12 @@ function firstMoves(moves: string[], n: number): string {
 function OpeningDetail({
   opening,
   rating,
+  byLine,
   onBack,
 }: {
   opening: Opening
   rating: number
+  byLine: Map<string, LineProgress>
   onBack: () => void
 }) {
   const inBand = rating >= opening.band[0] && rating <= opening.band[1]
@@ -277,6 +352,24 @@ function OpeningDetail({
           >
             <span className="var-role">{ROLE_LABEL[l.role]}</span>
             <span className="var-name">{l.name}</span>
+            {/* Per line, because "4 of 6 known" does not tell you WHICH two
+                to open. The states are deliberately not a score: a tick means
+                you produced it cleanly and it is still fresh, nothing more. */}
+            {(() => {
+              const p = byLine.get(`${opening.id}:${l.id}`)
+              if (!p) return null
+              const mark =
+                p.state === 'known'
+                  ? { cls: 'known', text: '✓', title: `Clean ${p.streak}x — next look in ${p.restDays}d` }
+                  : p.state === 'due'
+                    ? { cls: 'due', text: '●', title: 'Clean before, time to show it again' }
+                    : { cls: 'shaky', text: '○', title: `Played ${p.tries}x, never clean` }
+              return (
+                <span className={`var-state var-state-${mark.cls}`} title={mark.title}>
+                  {mark.text}
+                </span>
+              )
+            })()}
           </button>
         ))}
       </div>

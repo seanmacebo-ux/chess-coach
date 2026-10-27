@@ -24,6 +24,7 @@
     "verify:book": "tsx scripts/verify-book.ts",
     "verify:vision": "tsx scripts/verify-vision.ts",
     "verify:headtohead": "tsx scripts/verify-headtohead.ts",
+    "verify:repertoire": "tsx scripts/verify-repertoire.ts",
     "verify:theirplan": "tsx scripts/verify-theirplan.ts",
     "verify:clarity": "tsx scripts/verify-clarity.ts",
     "verify:endgames": "tsx scripts/verify-endgames.ts",
