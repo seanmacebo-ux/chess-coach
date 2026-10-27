@@ -6054,3 +6054,58 @@ button.act-cell.on {
   line-height: 1.45;
   color: var(--text-muted);
 }
+
+/* ==================================================================
+ * WHAT YOU KNOW OF AN OPENING
+ *
+ * "even learning from opening its hard to tell and to track." The data
+ * was always there — every trained line writes a row — and nothing on
+ * screen read it, so a repertoire you had drilled looked exactly like
+ * one you had never opened.
+ * ================================================================== */
+
+.op-due {
+  margin-left: var(--s2);
+  padding: 0 var(--s1h);
+  border-radius: var(--radius-pill);
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+}
+
+/* Four segments, one bar. Known and due sit together because a line that
+   has gone quiet is not a line you never learned — the colour says which
+   it is without the bar pretending you have gone backwards. */
+.op-bar {
+  display: flex;
+  /* The card is a flex column with align-items: flex-start, so a child with
+     no content is zero wide — which is what this was, invisibly, until
+     something measured it rather than looked at it. */
+  align-self: stretch;
+  height: 4px;
+  margin-top: var(--s1h);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.op-bar-known { background: var(--accent); }
+.op-bar-due { background: var(--warn); }
+.op-bar-shaky { background: color-mix(in srgb, var(--text-muted) 70%, transparent); }
+.op-bar-rest { background: transparent; }
+
+/* The per-line mark on a variation chip. Small on purpose: it answers
+   "which two should I open", and a chip that shouts its score stops
+   being a chip. */
+.var-state {
+  margin-left: var(--s1h);
+  font-size: var(--t-micro);
+  line-height: 1;
+}
+
+.var-state-known { color: var(--accent); }
+.var-state-due { color: var(--warn); }
+.var-state-shaky { color: var(--text-muted); }
