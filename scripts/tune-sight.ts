@@ -20,11 +20,32 @@
  * of the policy anywhere.
  *
  * WHY NOT JUST USE calibrate. Because calibrate plays whole games: forty
- * minutes a pass, six games a cell, and a sample too small to tune on — the
+ * minutes a pass, and at six games a cell a sample too small to tune on — the
  * ladder's own history is three rounds of tuning on differences smaller than
  * the noise. A fixed position set gives the same quantity, deterministically,
  * in a couple of minutes, with as many rolls per position as you want. Tune
  * here, confirm with calibrate.
+ *
+ * AND DO CONFIRM, BECAUSE THIS IS NOT THE THING THE LADDER IS MADE OF.
+ *
+ * Hitting every acpl target is not the same as the levels being spaced right,
+ * and the measurement says so plainly. With the table tuned here to within
+ * 4% of target at five of eight bands, a thirty-game head-to-head gave:
+ *
+ *     800 vs 1000   acpl ratio 1.26x   ->  87%
+ *    1000 vs 1200   acpl ratio 1.37x   ->  73%
+ *    1200 vs 1400   acpl ratio 1.21x   ->  93%
+ *
+ * The LARGEST accuracy gap produced the LOWEST score and the smallest
+ * produced the highest. Average centipawn loss is a summary of a
+ * distribution, and what decides a game is the tail of it — one 400cp move
+ * loses the game whatever the other thirty-nine cost. Two bots can shed the
+ * same mean from very different shapes.
+ *
+ * So treat this script as what it is: a fast way to put a band in the right
+ * NEIGHBOURHOOD before spending an hour on games. The ladder is settled by
+ * `calibrate --only ladder --games 30`, and nothing here should ever be
+ * described as having fixed it.
  *
  *   npm run tune-sight
  *   npm run tune-sight -- --build 80 --rolls 6
