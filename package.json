@@ -16,6 +16,7 @@
     "measure-acpl": "tsx scripts/measure-acpl.ts",
     "diag:bots": "tsx scripts/diag-bots.ts",
     "diag:punish": "tsx scripts/diag-punish.ts",
+    "diag:speed": "tsx scripts/diag-speed.ts",
     "tune-sight": "tsx scripts/tune-sight.ts",
     "diag:character": "tsx scripts/diag-character.ts",
     "diag:floor": "tsx scripts/diag-floor.ts",
