@@ -1,3 +1,4 @@
 {"at":"2026-07-26T13:08:24.157Z","config":{"games":4,"refDepth":16,"maxPlies":160,"quick":false},"acplRatio":{"800":0.47,"1000":0.75,"1200":0.63,"1400":0.57,"1600":0.55,"1800":0.66,"2000":0.46,"2200":0.43},"ladderMedian":191,"styleMaxGap":191}
 {"at":"2026-10-25T14:52:14.604Z","config":{"games":6,"refDepth":16,"maxPlies":200,"quick":false},"acplRatio":{},"ladderMedian":798,"styleMaxGap":null}
 {"at":"2026-10-27T18:33:24.431Z","config":{"games":6,"refDepth":16,"maxPlies":200,"quick":false},"acplRatio":{},"ladderMedian":191,"styleMaxGap":null}
+{"at":"2026-10-27T18:46:08.602Z","config":{"games":30,"refDepth":16,"maxPlies":200,"quick":false},"acplRatio":{},"ladderMedian":176,"styleMaxGap":null}
