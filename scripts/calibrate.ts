@@ -52,6 +52,21 @@ const GAMES = arg('games', 4)
 const MAX_PLIES = arg('max-plies', 200)
 const STYLE_BAND = arg('style-band', 1400) as Band
 const QUICK = process.argv.includes('--quick')
+/**
+ * Run only some of the three sections, e.g. `--only ladder,style`.
+ *
+ * The sections are deterministic — same seeds, same games, same numbers — so
+ * re-running one you already have costs forty minutes of a single core and
+ * tells you nothing you did not already know. The ladder is usually the
+ * section with the answer in it, and it is the one that runs last.
+ */
+const ONLY = (() => {
+  const i = process.argv.indexOf('--only')
+  const raw = i >= 0 ? process.argv[i + 1] : undefined
+  if (!raw) return null
+  return new Set(raw.split(',').map((x) => x.trim()))
+})()
+const runs = (section: 'acpl' | 'ladder' | 'style'): boolean => !ONLY || ONLY.has(section)
 /** Eval margin (cp) above which a ply-capped game is scored as won. */
 const ADJUDICATE_CP = arg('adjudicate-cp', 150)
 
@@ -215,6 +230,28 @@ function impliedElo(score: number): number {
   return Math.round(-400 * Math.log10(1 / s - 1))
 }
 
+/**
+ * What a clean sweep is actually allowed to claim.
+ *
+ * A 6-0 reported "implied gap 798" — which is not a measurement, it is the
+ * clamp above printing itself. Six from six at 95% confidence is a true score
+ * anywhere from 0.61 upwards, i.e. a gap of at least 78 Elo and no more than
+ * that can be said. Printing 798 invites the reading that the bands are 800
+ * points apart, which six games cannot possibly establish.
+ *
+ * Wilson again, same as diag-punish, for the same reason: a number without an
+ * interval next to it is the number people quote.
+ */
+function eloFloor(points: number, games: number): number {
+  if (games === 0) return 0
+  const z = 1.96
+  const p = points / games
+  const d = 1 + (z * z) / games
+  const c = p + (z * z) / (2 * games)
+  const spread = z * Math.sqrt((p * (1 - p)) / games + (z * z) / (4 * games * games))
+  return impliedElo(Math.max(0, (c - spread) / d))
+}
+
 function bar(value: number, max: number, width = 22): string {
   const n = Math.max(0, Math.min(width, Math.round((value / max) * width)))
   return '#'.repeat(n) + '.'.repeat(width - n)
@@ -232,7 +269,6 @@ const bands = QUICK ? ([1200, 1400, 1600] as Band[]) : BANDS
 
 /* --- 1. ACPL per band ------------------------------------------------- */
 
-console.log('1. ACPL per band (self-play, style=human)')
 const bandRows: {
   band: Band
   targetAcpl: number
@@ -241,7 +277,8 @@ const bandRows: {
   moves: number
 }[] = []
 
-for (const band of bands) {
+if (runs('acpl')) console.log('1. ACPL per band (self-play, style=human)')
+for (const band of runs('acpl') ? bands : []) {
   const all: number[] = []
   for (let g = 0; g < GAMES; g++) {
     const r = await playGame(
@@ -274,11 +311,11 @@ for (const band of bands) {
 
 /* --- 2. Ladder: does higher actually beat lower? ---------------------- */
 
-console.log('\n2. Ladder (higher band vs next lower, colours alternated)')
+if (runs('ladder')) console.log('\n2. Ladder (higher band vs next lower, colours alternated)')
 const pairRows: { higher: Band; lower: Band; score: number; impliedElo: number; games: number }[] =
   []
 
-for (let i = 1; i < bands.length; i++) {
+for (let i = runs('ladder') ? 1 : bands.length; i < bands.length; i++) {
   const higher = bands[i]!
   const lower = bands[i - 1]!
   let points = 0
@@ -296,20 +333,28 @@ for (let i = 1; i < bands.length; i++) {
   }
   const score = points / n
   const elo = impliedElo(score)
+  // What the sample actually licenses, as opposed to the point estimate.
+  const floor = eloFloor(points, n)
   pairRows.push({ higher, lower, score, impliedElo: elo, games: n })
-  const flag = elo < 40 ? '  <-- BANDS NOT SEPARATED' : ''
+  const flag =
+    floor < 40
+      ? '  <-- BANDS NOT SEPARATED'
+      : floor > 200
+        ? '  <-- GAP WIDER THAN THE LABELS CLAIM'
+        : ''
   console.log(
     `   ${lower} vs ${higher}:  ${higher} scored ${(score * 100).toFixed(0).padStart(3)}%  ` +
-      `implied gap ${String(elo).padStart(5)} (nominal 200)${flag}`,
+      `(${points}/${n})  gap at least ${String(floor).padStart(4)} ` +
+      `(nominal 200)${flag}`,
   )
 }
 
 /* --- 3. Style parity at one band -------------------------------------- */
 
-console.log(`\n3. Style parity at ${STYLE_BAND} (each style vs human, same band)`)
+if (runs('style')) console.log(`\n3. Style parity at ${STYLE_BAND} (each style vs human, same band)`)
 const styleRows: { style: Style; score: number; acpl: number; games: number }[] = []
 
-for (const s of STYLES) {
+for (const s of runs('style') ? STYLES : []) {
   if (s.id === 'human') continue
   let points = 0
   const losses: number[] = []
