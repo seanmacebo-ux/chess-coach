@@ -311,7 +311,16 @@ for (const band of runs('acpl') ? bands : []) {
 
 /* --- 2. Ladder: does higher actually beat lower? ---------------------- */
 
-if (runs('ladder')) console.log('\n2. Ladder (higher band vs next lower, colours alternated)')
+if (runs('ladder')) if (runs('ladder')) {
+  console.log('\n2. Ladder (higher band vs next lower, colours alternated)')
+  if (GAMES < 20) {
+    console.log(
+      `   ${GAMES} games a rung resolves very little — a correct 76% still floors` +
+        ` below zero.\n   Use --games 30 for a verdict; this pass can only rule` +
+        ` shapes out.`,
+    )
+  }
+}
 const pairRows: { higher: Band; lower: Band; score: number; impliedElo: number; games: number }[] =
   []
 
@@ -333,19 +342,32 @@ for (let i = runs('ladder') ? 1 : bands.length; i < bands.length; i++) {
   }
   const score = points / n
   const elo = impliedElo(score)
-  // What the sample actually licenses, as opposed to the point estimate.
   const floor = eloFloor(points, n)
   pairRows.push({ higher, lower, score, impliedElo: elo, games: n })
+  /*
+   * FLAG ON THE POINT ESTIMATE, not on the interval — and the previous
+   * version of this line had it exactly backwards.
+   *
+   * It read `floor < 40 -> BANDS NOT SEPARATED`, which sounds careful and is
+   * nonsense at this sample size. At six games a CORRECT rung (76%, i.e.
+   * 5/6) has a Wilson floor of -44, so the flag fired on every result except
+   * a clean sweep: it shouted "not separated" precisely when the ladder was
+   * right and stayed silent on the one shape that is definitely wrong.
+   *
+   * Asserting separation at the nominal 200-point gap needs about thirty
+   * games a rung (77% then floors at +64). Six games can only ever rule
+   * things OUT, so that is all this says now, and the interval is printed
+   * beside the estimate so nobody reads six games as a verdict.
+   */
   const flag =
-    floor < 40
-      ? '  <-- BANDS NOT SEPARATED'
-      : floor > 200
-        ? '  <-- GAP WIDER THAN THE LABELS CLAIM'
+    score <= 0.55
+      ? '  <-- NOT SEPARATED'
+      : score >= 0.95
+        ? '  <-- WIDER THAN THE LABELS CLAIM'
         : ''
   console.log(
     `   ${lower} vs ${higher}:  ${higher} scored ${(score * 100).toFixed(0).padStart(3)}%  ` +
-      `(${points}/${n})  gap at least ${String(floor).padStart(4)} ` +
-      `(nominal 200)${flag}`,
+      `(${points}/${n}, floor ${String(floor).padStart(5)})  want 76%${flag}`,
   )
 }
 

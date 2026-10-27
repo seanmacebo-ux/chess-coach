@@ -1,18 +1,24 @@
 /**
  * What a player at this rating does not see coming.
  *
- * WHY THIS EXISTS. Sean: "the difficulty levels don't work well." The ANCHORS
- * table in policy.ts says why. From 800 up to 2200 the only things that change
- * are temperature, depth and multipv; blunderChance collapses to 0.022 at 800
- * and never moves again. Every bot above 800 is the same bot with a tighter
- * softmax — and a player cannot feel a softmax. The measurements agree: with
- * the opening book in, diag:bots reports material left hanging on 4.5% of
- * moves at 800 and 4.0% at 1400. The one thing anybody actually notices is
- * flat across two-thirds of the ladder.
+ * WHY THIS EXISTS. Sean: "the difficulty levels don't work well." The old
+ * ANCHORS table said why. From 800 to 2200 the only things that moved were
+ * temperature, depth and multipv, and the one-ply share sat at 0.022 the
+ * whole way: every bot above 800 was the same bot with a tighter softmax, and
+ * a player cannot feel a softmax. The calibration harness agreed in the
+ * bluntest possible terms — four of seven rungs were clean sweeps and 1400
+ * and 1600 scored 50% against each other, i.e. were one opponent with two
+ * names.
  *
  * What differs between a 400 and a 1700 is not how finely they rank moves. It
  * is WHAT THEY MISS. The 400 plays a move that looks winning and does not see
  * the knight coming back. The 1700 sees the knight.
+ *
+ * So this is no longer an extra error source bolted onto the side of the
+ * policy — it IS the strength dial. `sightAt` is the curve, BandProfile.sight
+ * is the per-band value, and depth, multipv and temperature have been demoted
+ * to finding candidate moves and breaking ties. See the long note above
+ * ANCHORS in policy.ts for the measurements that forced it.
  *
  * THE REFUTATION WAS ALREADY THERE. weighCandidates did this:
  *
@@ -105,18 +111,29 @@ export function shapeOfReply(
  * The numbers are a first fit, not a measurement. scripts/diag-bots.ts
  * reports a punish-rate and the acpl ladder; those are what move them.
  */
-export function seesReply(shape: ReplyShape | null, elo: number): number {
+/**
+ * The sight a rating starts from, before the shape of the move is considered.
+ *
+ * 350 sees about half of what is coming; 2200 sees essentially all of it.
+ * Logistic rather than linear so the bottom of the ladder has room to
+ * differentiate — the gap between a 350 and a 550 matters more to the person
+ * playing them than the gap between 1800 and 2000.
+ *
+ * Exported because it is now THE strength dial rather than one of four.
+ * policy.ts reads it into BandProfile, calibration can scale it, and the
+ * tuner can sweep it — none of which is possible while a curve is buried
+ * inside the function that uses it.
+ */
+export function sightAt(elo: number): number {
+  return 0.42 + 0.56 / (1 + Math.exp(-(elo - 950) / 330))
+}
+
+export function seesReply(shape: ReplyShape | null, sight: number): number {
   // No reply on record (shallow search, illegal move) — treat as seen, so
   // blindness can never be an artefact of the search being too short.
   if (shape === null) return 1
 
-  /*
-   * 350 sees about half of what is coming; 2200 sees essentially all of it.
-   * Logistic rather than linear so the bottom of the ladder has room to
-   * differentiate — the gap between a 350 and a 550 matters more to the
-   * person playing them than the gap between 1800 and 2000.
-   */
-  const base = 0.42 + 0.56 / (1 + Math.exp(-(elo - 950) / 330))
+  const base = Math.max(0.05, Math.min(0.995, sight))
 
   /*
    * THE MODIFIERS SCALE WHAT YOU MISS, NOT WHAT YOU SEE.
@@ -157,10 +174,10 @@ export function isBlindTo(
   fenAfterOurMove: string,
   reply: UciMove | undefined,
   ourDestination: string,
-  elo: number,
+  sight: number,
   rng: () => number,
 ): boolean {
   if (!reply) return false
   const shape = shapeOfReply(fenAfterOurMove, reply, ourDestination)
-  return rng() >= seesReply(shape, elo)
+  return rng() >= seesReply(shape, sight)
 }

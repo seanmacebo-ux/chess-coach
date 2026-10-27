@@ -13,7 +13,7 @@
  */
 
 import { Chess } from 'chess.js'
-import { seesReply, shapeOfReply, isBlindTo, type ReplyShape } from '../src/engine/vision'
+import { seesReply, shapeOfReply, isBlindTo, type ReplyShape, sightAt } from '../src/engine/vision'
 import { weighCandidates, seededRng } from '../src/engine/policy'
 import type { Line } from '../src/engine/types'
 
@@ -34,31 +34,31 @@ const quiet = shape()
 let last = -1
 let monotone = true
 for (let elo = 300; elo <= 2300; elo += 50) {
-  const p = seesReply(quiet, elo)
+  const p = seesReply(quiet, sightAt(elo))
   if (p < last - 1e-9) monotone = false
   last = p
 }
 check('a stronger player never sees less', monotone)
-check('a 350 misses a fair amount', seesReply(quiet, 350) < 0.75, seesReply(quiet, 350).toFixed(3))
-check('a 2200 sees nearly everything', seesReply(quiet, 2200) > 0.9, seesReply(quiet, 2200).toFixed(3))
+check('a 350 misses a fair amount', seesReply(quiet, sightAt(350)) < 0.75, seesReply(quiet, sightAt(350)).toFixed(3))
+check('a 2200 sees nearly everything', seesReply(quiet, sightAt(2200)) > 0.9, seesReply(quiet, sightAt(2200)).toFixed(3))
 check('the gap at the bottom is bigger than at the top',
-      seesReply(quiet, 550) - seesReply(quiet, 350) > seesReply(quiet, 2000) - seesReply(quiet, 1800),
-      `${(seesReply(quiet,550)-seesReply(quiet,350)).toFixed(3)} vs ${(seesReply(quiet,2000)-seesReply(quiet,1800)).toFixed(3)}`)
+      seesReply(quiet, sightAt(550)) - seesReply(quiet, sightAt(350)) > seesReply(quiet, sightAt(2000)) - seesReply(quiet, sightAt(1800)),
+      `${(seesReply(quiet, sightAt(550))-seesReply(quiet, sightAt(350))).toFixed(3)} vs ${(seesReply(quiet, sightAt(2000))-seesReply(quiet, sightAt(1800))).toFixed(3)}`)
 
 /* --------------------------------------------------- shaped like sight - */
 
 for (const elo of [350, 800, 1400, 2200]) {
   check(`${elo}: a recapture is the most visible move there is`,
-        seesReply(shape({ isRecapture: true, isCapture: true }), elo) >= seesReply(quiet, elo),
-        `${seesReply(shape({ isRecapture: true, isCapture: true }), elo).toFixed(2)} vs ${seesReply(quiet, elo).toFixed(2)}`)
+        seesReply(shape({ isRecapture: true, isCapture: true }), sightAt(elo)) >= seesReply(quiet, sightAt(elo)),
+        `${seesReply(shape({ isRecapture: true, isCapture: true }), sightAt(elo)).toFixed(2)} vs ${seesReply(quiet, sightAt(elo)).toFixed(2)}`)
   check(`${elo}: a knight is harder to see than a quiet move`,
-        seesReply(shape({ isKnight: true }), elo) < seesReply(quiet, elo))
+        seesReply(shape({ isKnight: true }), sightAt(elo)) < seesReply(quiet, sightAt(elo)))
   check(`${elo}: a retreat is harder to see than a move forward`,
-        seesReply(shape({ isBackward: true }), elo) < seesReply(quiet, elo))
+        seesReply(shape({ isBackward: true }), sightAt(elo)) < seesReply(quiet, sightAt(elo)))
   check(`${elo}: a long move is harder to see than a short one`,
-        seesReply(shape({ distance: 6 }), elo) < seesReply(shape({ distance: 1 }), elo))
+        seesReply(shape({ distance: 6 }), sightAt(elo)) < seesReply(shape({ distance: 1 }), sightAt(elo)))
   check(`${elo}: a check is more visible than a quiet move`,
-        seesReply(shape({ givesCheck: true }), elo) > seesReply(quiet, elo))
+        seesReply(shape({ givesCheck: true }), sightAt(elo)) > seesReply(quiet, sightAt(elo)))
 }
 
 /*
@@ -66,14 +66,14 @@ for (const elo of [350, 800, 1400, 2200]) {
  * far more often than a strong player does — that is the difference in kind
  * the ladder has been missing.
  */
-const forkAt = (elo: number) => 1 - seesReply(shape({ isKnight: true, distance: 3 }), elo)
+const forkAt = (elo: number) => 1 - seesReply(shape({ isKnight: true, distance: 3 }), sightAt(elo))
 check('a 350 misses a knight fork several times as often as a 1700',
       forkAt(350) / forkAt(1700) > 3,
       `${forkAt(350).toFixed(3)} vs ${forkAt(1700).toFixed(3)} = ${(forkAt(350)/forkAt(1700)).toFixed(1)}x`)
 
 /* ------------------------------------------ never blind without a reply - */
 
-check('no reply on record means it counts as seen', seesReply(null, 350) === 1)
+check('no reply on record means it counts as seen', seesReply(null, sightAt(350)) === 1)
 check('...at every rating', [350, 1400, 2200].every((e) => seesReply(null, e) === 1))
 check('an undefined reply is never blind',
       !isBlindTo(new Chess().fen(), undefined, 'e4', 350, () => 0))

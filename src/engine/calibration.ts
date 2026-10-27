@@ -71,7 +71,15 @@ export interface BandObservation {
   moves: number
   sumLoss: number
   games: number
-  /** Learned multiplier on the band's temperature. 1 = untouched. */
+  /**
+   * Learned multiplier on how loose this band should be. 1 = untouched.
+   *
+   * Applied to SIGHT first and foremost — inverted, since the factor says
+   * "shed more" and sight says "err less" — and to the one-ply share at half
+   * strength. It used to multiply temperature, which was right while
+   * temperature was the error source and became a no-op when the policy was
+   * rebuilt around sight. See profileFor in policy.ts.
+   */
   factor: number
 }
 
@@ -165,11 +173,16 @@ export function measuredAcpl(band: Band): number | null {
 }
 
 /**
- * Where the temperature should move, given what this band measured.
+ * How much looser this band should be, given what it actually measured.
  *
  * Too accurate for its label (measured below target) means the bot needs to
  * play looser, so the factor rises. The move is damped and clamped: one
  * strange game must not be able to redefine a band.
+ *
+ * Deliberately a single scalar rather than a correction per knob. What the
+ * app can observe from real games is one number — the loss this band sheds —
+ * and a correction with more degrees of freedom than its evidence is how the
+ * old table ended up with temperature rising across the top of the ladder.
  */
 function nextFactor(band: Band, o: BandObservation, current: number): number {
   if (o.moves < MIN_MOVES) return current

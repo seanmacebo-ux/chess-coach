@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2026-10-27T18:46:08.602Z",
+  "finishedAt": "2026-10-27T19:48:32.631Z",
+  "config": {
+    "games": 30,
+    "refDepth": 16,
+    "maxPlies": 200,
+    "quick": false
+  },
+  "bands": [],
+  "pairings": [
+    {
+      "higher": 1000,
+      "lower": 800,
+      "score": 0.8666666666666667,
+      "impliedElo": 325,
+      "games": 30
+    },
+    {
+      "higher": 1200,
+      "lower": 1000,
+      "score": 0.7333333333333333,
+      "impliedElo": 176,
+      "games": 30
+    },
+    {
+      "higher": 1400,
+      "lower": 1200,
+      "score": 0.9333333333333333,
+      "impliedElo": 458,
+      "games": 30
+    },
+    {
+      "higher": 1600,
+      "lower": 1400,
+      "score": 0.6833333333333333,
+      "impliedElo": 134,
+      "games": 30
+    },
+    {
+      "higher": 1800,
+      "lower": 1600,
+      "score": 0.7333333333333333,
+      "impliedElo": 176,
+      "games": 30
+    },
+    {
+      "higher": 2000,
+      "lower": 1800,
+      "score": 0.7333333333333333,
+      "impliedElo": 176,
+      "games": 30
+    },
+    {
+      "higher": 2200,
+      "lower": 2000,
+      "score": 0.6833333333333333,
+      "impliedElo": 134,
+      "games": 30
+    }
+  ],
+  "styleParity": {
+    "band": 1400,
+    "rows": []
+  },
+  "note": "Report only. PROFILES in src/engine/policy.ts is not modified by this script."
+}

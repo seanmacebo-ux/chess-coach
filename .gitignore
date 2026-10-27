@@ -16,3 +16,4 @@ books/*
 !books/README.md
 scripts/browser-check/dist/
 scripts/data/punish-corpus.json
+scripts/data/tune-corpus.json

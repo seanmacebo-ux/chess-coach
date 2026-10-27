@@ -29,13 +29,14 @@ const check = (name: string, cond: boolean, detail = '') => {
 
 const ladder = [...BOTS].sort((a, b) => a.elo - b.elo)
 
-console.log('  bot          elo   acpl   temp  mpv  depth  blunder')
+console.log('  bot          elo   acpl  sight   temp  mpv  depth   naive')
 for (const b of ladder) {
   const p = profileFor(b.elo)
   console.log(
     `  ${b.name.padEnd(11)} ${String(b.elo).padStart(4)} ${String(p.targetAcpl).padStart(6)}` +
+      ` ${p.sight.toFixed(2).padStart(6)}` +
       ` ${String(p.temperature).padStart(6)} ${String(p.multipv).padStart(4)}` +
-      ` ${String(p.depth).padStart(6)} ${p.blunderChance.toFixed(3).padStart(8)}`,
+      ` ${String(p.depth).padStart(6)} ${p.naiveShare.toFixed(3).padStart(7)}`,
   )
 }
 console.log('')
@@ -61,7 +62,9 @@ for (let i = 1; i < ladder.length; i++) {
 const seen = new Map<string, string>()
 for (const b of ladder) {
   const p = profileFor(b.elo)
-  const key = `${p.targetAcpl}/${p.temperature}/${p.multipv}/${p.depth}/${p.blunderChance.toFixed(4)}`
+  const key =
+    `${p.targetAcpl}/${p.sight.toFixed(4)}/${p.temperature}/` +
+    `${p.multipv}/${p.depth}/${p.naiveShare.toFixed(4)}`
   const clash = seen.get(key)
   check(`${b.name} ${b.elo} is not a copy of another bot`, clash === undefined, `identical to ${clash}`)
   seen.set(key, `${b.name} ${b.elo}`)
@@ -77,6 +80,50 @@ for (let elo = 300; elo <= 2300; elo += 25) {
 }
 check('target acpl never goes up as rating goes up', monotone)
 
+/*
+ * SIGHT IS THE DIAL, so it has to behave like one. The old table moved four
+ * things at once and two of them turned around mid-ladder — temperature rose
+ * from 1400 upwards — which is how 1400 and 1600 ended up scoring 50% against
+ * each other in the calibration harness. A dial that is not monotone is not a
+ * dial, and nothing here was checking.
+ */
+let lastSight = -Infinity
+let sightMonotone = true
+let sightWhere = ''
+for (let elo = 300; elo <= 2300; elo += 25) {
+  const sight = profileFor(elo).sight
+  if (sight < lastSight - 1e-9) {
+    sightMonotone = false
+    sightWhere = `${elo}: ${lastSight.toFixed(3)} -> ${sight.toFixed(3)}`
+  }
+  lastSight = sight
+}
+check('sight never goes down as rating goes up', sightMonotone, sightWhere)
+
+/* And the same for the one-ply share, which used to fall off a cliff. */
+let lastNaive: number | null = null
+let naiveMonotone = true
+let worstStep = 1
+for (let elo = 300; elo <= 2300; elo += 25) {
+  const n = profileFor(elo).naiveShare
+  if (lastNaive !== null) {
+    if (n > lastNaive + 1e-9) naiveMonotone = false
+    if (n > 0) worstStep = Math.max(worstStep, lastNaive / n)
+  }
+  lastNaive = n
+}
+check('the one-ply share never goes up as rating goes up', naiveMonotone)
+/*
+ * It fell thirteenfold in one step at 800 — the ladder's biggest cliff, and
+ * the reason the 800 punished free material less often than the 550, since
+ * the one-ply policy is the half of the bot that grabs what is hanging.
+ */
+check(
+  'and it falls smoothly rather than off a cliff',
+  worstStep < 1.6,
+  `steepest 25-point step multiplies it by ${worstStep.toFixed(2)}`,
+)
+
 check('below the bottom of the ladder clamps rather than extrapolating',
       profileFor(100).targetAcpl === profileFor(350).targetAcpl)
 check('above the top clamps too',
@@ -89,8 +136,26 @@ check('a 1100 sits between the 1000 and the 1200',
       `${profileFor(1000).targetAcpl} / ${mid.targetAcpl} / ${profileFor(1200).targetAcpl}`)
 check('search depth rises with rating',
       profileFor(350).depth < profileFor(2200).depth)
-check('the candidate pool narrows as rating rises',
-      profileFor(350).multipv > profileFor(2200).multipv)
+/*
+ * THE SHORTLIST IS FLAT, and that is the design rather than an oversight.
+ *
+ * This check used to read "the candidate pool narrows as rating rises", on
+ * the theory that a weak bot should pick from a wide list. It is backwards:
+ * nobody considers thirty-four moves, and a wide list is only a device for
+ * letting a softmax reach a bad one. It also cost the 800 its free material —
+ * a capture two pawns better than everything else got twice the weight of any
+ * one of twenty-seven alternatives, and lost most of the time.
+ *
+ * A person shortlists a handful whatever their rating. What changes is
+ * whether they see what is wrong with the one they pick, and that is sight.
+ */
+const widths = new Set<number>()
+for (let elo = 350; elo <= 2200; elo += 50) widths.add(profileFor(elo).multipv)
+check(
+  'the shortlist is the same handful at every rating',
+  widths.size === 1 && [...widths][0]! <= 8,
+  `widths seen: ${[...widths].sort((a, b) => a - b).join(', ')}`,
+)
 
 /* ------------------------------------------------- the one-ply path ---- */
 
