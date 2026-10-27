@@ -785,12 +785,19 @@ export function weighCandidates(
    * that it reasoned about an analytic model instead. Nothing in the app
    * passes this.
    */
-  override?: { sight?: number },
+  override?: { sight?: number; temperature?: number },
 ): Candidate[] {
   if (lines.length === 0) return []
 
   const banded = bandProfile(elo)
-  const profile = override?.sight === undefined ? banded : { ...banded, sight: override.sight }
+  const profile =
+    override === undefined
+      ? banded
+      : {
+          ...banded,
+          ...(override.sight === undefined ? {} : { sight: override.sight }),
+          ...(override.temperature === undefined ? {} : { temperature: override.temperature }),
+        }
   const t0 = Math.max(10, profile.temperature)
 
   const scored = lines
@@ -993,7 +1000,7 @@ export function chooseMoveDetailed(
   style: Style,
   rng: Rng = Math.random,
   /** Tuner seam — see weighCandidates. Nothing in the app passes this. */
-  override?: { sight?: number },
+  override?: { sight?: number; temperature?: number },
 ): Choice {
   const candidates = weighCandidates(fen, lines, elo, style, rng, override)
   const spread =

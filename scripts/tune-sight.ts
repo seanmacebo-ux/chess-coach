@@ -50,6 +50,15 @@ const REF_DEPTH = arg('ref-depth', 14)
 const ROLLS = arg('rolls', 4)
 /** Override every band's sight, to sweep it without editing the anchors. */
 const SIGHT = process.argv.includes('--sight') ? arg('sight', NaN) : null
+/** Same, for temperature. Sweeping one knob at a time is the whole point. */
+const TEMP = process.argv.includes('--temperature') ? arg('temperature', NaN) : null
+const OVERRIDE =
+  SIGHT === null && TEMP === null
+    ? undefined
+    : {
+        ...(SIGHT === null ? {} : { sight: SIGHT }),
+        ...(TEMP === null ? {} : { temperature: TEMP }),
+      }
 
 const RATINGS: number[] = (() => {
   const i = process.argv.indexOf('--bands')
@@ -166,9 +175,10 @@ async function main() {
   console.log(
     `\n${fens.length} positions x ${ROLLS} rolls, reference depth ${REF_DEPTH}` +
       (SIGHT === null ? '' : `, sight forced to ${SIGHT}`) +
+      (TEMP === null ? '' : `, temperature forced to ${TEMP}`) +
       `\nreport only — nothing is written back to ANCHORS.\n`,
   )
-  console.log('   band  target  measured            sight  naive   ratio')
+  console.log('   band  target  measured            sight  temp   naive   ratio')
 
   const rows: { band: number; target: number; measured: number; half: number }[] = []
   for (const band of RATINGS) {
@@ -189,7 +199,7 @@ async function main() {
           band,
           'human',
           rng(0xbeef + i * 7919 + roll * 104729),
-          SIGHT === null ? undefined : { sight },
+          OVERRIDE,
         )
         const uci = c.uci ?? a.bestMove
         if (!uci) continue
@@ -205,7 +215,8 @@ async function main() {
     console.log(
       `   ${String(band).padStart(4)}  ${String(profile.targetAcpl).padStart(6)}  ` +
         `${mean.toFixed(1).padStart(6)} +/- ${half.toFixed(1).padStart(4)}  ` +
-        `${sight.toFixed(2).padStart(5)}  ${profile.naiveShare.toFixed(3)}  ` +
+        `${sight.toFixed(2).padStart(5)}  ${String(TEMP ?? profile.temperature).padStart(4)}  ` +
+        `${profile.naiveShare.toFixed(3)}  ` +
         `${ratio.toFixed(2).padStart(5)}${flag}`,
     )
   }
