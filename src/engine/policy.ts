@@ -303,51 +303,68 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  * measurement from there; scripts/tune-sight.ts is the instrument.
  */
 /*
- * ROUND ONE OF THE MEASUREMENT, and what it moved.
+ * THE MEASUREMENTS THAT SET THIS TABLE.
  *
- * The first table built on this design measured, over tune-sight's fixed
- * position set:
+ * Round one of the rebuilt design measured, over tune-sight's fixed position
+ * set: 800 at 114.8 against a 150 target, 1400 at 72.5 against 75, 2200 at
+ * 38.1 against 30. Strictly ordered — the first time this ladder had been —
+ * but too strong at the bottom and too weak at the top, so the bands sat
+ * closer together than their labels claimed.
  *
- *      800  target 150   measured 114.8   0.77
- *     1000         120             92.9   0.77
- *     1200          95             82.4   0.87
- *     1400          75             72.5   0.97
- *     1600          60             61.1   1.02
- *     1800          48             58.6   1.22
- *     2000          38             44.7   1.18
- *     2200          30             38.1   1.27
+ * Round two dropped temperature and steepened sight: 119.7 / 87.6 / 77.5 /
+ * 71.4 / 53.8 / 43.1 / 31.1 / 21.8. Still ordered, spread now a factor of
+ * 5.5 where the targets want 5.0, and uniformly about 17% too strong.
  *
- * Strictly ordered — the first time this ladder has been — so the dial works.
- * What it was not was correctly SCALED: too strong at the bottom, too weak at
- * the top, which means the bands sit closer together than their labels claim.
- * Measured spread 114.8 to 38.1 is a factor of 3.0 where the targets want 5.0.
+ * Then one knob at a time at band 800, which is the only way this file has
+ * ever learned anything true about itself. Sight, with everything else held:
  *
- * Two corrections, both of which steepen it:
+ *     0.05  128.6     0.50  119.7     0.80   92.3
+ *     0.20  129.2     0.65  103.6     0.95   74.0
+ *     0.35  120.6
  *
- *   SIGHT falls further at the bottom. There was room: 0.64 was never a
- *   beginner's sight, and the top of the dial is nearly spent at 0.98 so the
- *   slack has to come from below.
+ * Fifty-five centipawns of range — but look at which END. Sight can make a
+ * band much STRONGER and tops out around 129 when the bot is effectively
+ * blind, which is below the 150 the 800 is supposed to shed. You cannot
+ * reach the bottom of this ladder by taking sight away, because a bot
+ * choosing among six engine-ranked moves has no move bad enough to find.
  *
- *   TEMPERATURE drops to where the design always said it belonged. At 62 the
- *   2200 still gave a move 60cp worse than the best about a third of the
- *   best's weight, which is a blunder generator rather than a tie-break —
- *   and it is the floor the top bands could not get under no matter what
- *   sight did, because sight cannot push a band below the loss its own
- *   softmax is handing out. At 28 a move 60cp worse gets a tenth of the
- *   weight, which is what "decides between moves that look equally fine"
- *   actually means.
+ * Temperature, same band, everything else held:
+ *
+ *      40  108.1     100  124.0     190  137.3
+ *      70  116.8     140  134.6     250  138.4
+ *
+ * So the honest shape of this design is NOT the one dial it was pitched as.
+ * It is three, and what matters is that they are monotone and do not fight:
+ *
+ *   AT THE BOTTOM, error is sloppiness among plausible moves plus one-ply
+ *   greed. Temperature and naiveShare carry it. That is also a fair
+ *   description of the player — a 400 is not someone with sharp judgement
+ *   and a blind spot, they are loose about everything.
+ *
+ *   AT THE TOP, every candidate is good and the softmax is sharp, so the only
+ *   way left to lose centipawns is to miss what a move allows. Sight carries
+ *   it, and has to, because temperature that low cannot generate the error.
+ *
+ * That is a model of how people actually improve rather than one parameter
+ * scaled, and the ladder it produces is ordered, which the old four-knob
+ * table never was.
+ *
+ * THE RULE THAT REPLACED "ONE DIAL": every column below is monotone in
+ * rating, and verify:policy fails if one stops being. Non-monotonicity is
+ * what put 1400 and 1600 at 50% against each other; having more than one
+ * parameter never was.
  */
 const ANCHORS: Anchor[] = [
-  { elo: 350, targetAcpl: 210, sight: 0.3, naiveShare: 0.45, temperature: 68, depth: 8, multipv: 6 },
-  { elo: 550, targetAcpl: 180, sight: 0.4, naiveShare: 0.26, temperature: 64, depth: 8, multipv: 6 },
-  { elo: 800, targetAcpl: 150, sight: 0.5, naiveShare: 0.13, temperature: 60, depth: 9, multipv: 6 },
-  { elo: 1000, targetAcpl: 120, sight: 0.6, naiveShare: 0.07, temperature: 56, depth: 9, multipv: 6 },
-  { elo: 1200, targetAcpl: 95, sight: 0.7, naiveShare: 0.035, temperature: 52, depth: 10, multipv: 6 },
-  { elo: 1400, targetAcpl: 75, sight: 0.79, naiveShare: 0.018, temperature: 48, depth: 10, multipv: 6 },
-  { elo: 1600, targetAcpl: 60, sight: 0.86, naiveShare: 0.009, temperature: 44, depth: 11, multipv: 6 },
-  { elo: 1800, targetAcpl: 48, sight: 0.92, naiveShare: 0.005, temperature: 40, depth: 11, multipv: 6 },
-  { elo: 2000, targetAcpl: 38, sight: 0.96, naiveShare: 0.002, temperature: 34, depth: 12, multipv: 6 },
-  { elo: 2200, targetAcpl: 30, sight: 0.985, naiveShare: 0.001, temperature: 28, depth: 13, multipv: 6 },
+  { elo: 350, targetAcpl: 210, sight: 0.4, naiveShare: 0.46, temperature: 190, depth: 8, multipv: 6 },
+  { elo: 550, targetAcpl: 180, sight: 0.44, naiveShare: 0.36, temperature: 160, depth: 8, multipv: 6 },
+  { elo: 800, targetAcpl: 150, sight: 0.48, naiveShare: 0.26, temperature: 130, depth: 9, multipv: 6 },
+  { elo: 1000, targetAcpl: 120, sight: 0.56, naiveShare: 0.14, temperature: 95, depth: 9, multipv: 6 },
+  { elo: 1200, targetAcpl: 95, sight: 0.64, naiveShare: 0.06, temperature: 72, depth: 10, multipv: 6 },
+  { elo: 1400, targetAcpl: 75, sight: 0.77, naiveShare: 0.02, temperature: 54, depth: 10, multipv: 6 },
+  { elo: 1600, targetAcpl: 60, sight: 0.83, naiveShare: 0.01, temperature: 52, depth: 11, multipv: 6 },
+  { elo: 1800, targetAcpl: 48, sight: 0.9, naiveShare: 0.005, temperature: 46, depth: 11, multipv: 6 },
+  { elo: 2000, targetAcpl: 38, sight: 0.93, naiveShare: 0.002, temperature: 40, depth: 12, multipv: 6 },
+  { elo: 2200, targetAcpl: 30, sight: 0.95, naiveShare: 0.001, temperature: 36, depth: 13, multipv: 6 },
 ]
 
 /** Linear between a and b at position t in [0,1]. */
