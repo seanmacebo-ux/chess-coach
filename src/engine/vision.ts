@@ -105,18 +105,29 @@ export function shapeOfReply(
  * The numbers are a first fit, not a measurement. scripts/diag-bots.ts
  * reports a punish-rate and the acpl ladder; those are what move them.
  */
-export function seesReply(shape: ReplyShape | null, elo: number): number {
+/**
+ * The sight a rating starts from, before the shape of the move is considered.
+ *
+ * 350 sees about half of what is coming; 2200 sees essentially all of it.
+ * Logistic rather than linear so the bottom of the ladder has room to
+ * differentiate — the gap between a 350 and a 550 matters more to the person
+ * playing them than the gap between 1800 and 2000.
+ *
+ * Exported because it is now THE strength dial rather than one of four.
+ * policy.ts reads it into BandProfile, calibration can scale it, and the
+ * tuner can sweep it — none of which is possible while a curve is buried
+ * inside the function that uses it.
+ */
+export function sightAt(elo: number): number {
+  return 0.42 + 0.56 / (1 + Math.exp(-(elo - 950) / 330))
+}
+
+export function seesReply(shape: ReplyShape | null, sight: number): number {
   // No reply on record (shallow search, illegal move) — treat as seen, so
   // blindness can never be an artefact of the search being too short.
   if (shape === null) return 1
 
-  /*
-   * 350 sees about half of what is coming; 2200 sees essentially all of it.
-   * Logistic rather than linear so the bottom of the ladder has room to
-   * differentiate — the gap between a 350 and a 550 matters more to the
-   * person playing them than the gap between 1800 and 2000.
-   */
-  const base = 0.42 + 0.56 / (1 + Math.exp(-(elo - 950) / 330))
+  const base = Math.max(0.05, Math.min(0.995, sight))
 
   /*
    * THE MODIFIERS SCALE WHAT YOU MISS, NOT WHAT YOU SEE.
@@ -157,10 +168,10 @@ export function isBlindTo(
   fenAfterOurMove: string,
   reply: UciMove | undefined,
   ourDestination: string,
-  elo: number,
+  sight: number,
   rng: () => number,
 ): boolean {
   if (!reply) return false
   const shape = shapeOfReply(fenAfterOurMove, reply, ourDestination)
-  return rng() >= seesReply(shape, elo)
+  return rng() >= seesReply(shape, sight)
 }

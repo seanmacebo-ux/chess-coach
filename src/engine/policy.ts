@@ -4,90 +4,60 @@
  * Naive weakening (`UCI_LimitStrength`) produces a bot that plays four
  * grandmaster moves then hangs a rook for no reason. Humans don't fail like
  * that — they play slightly-off moves constantly and catastrophically-off
- * moves rarely. So instead of crippling the search we run a FULL search, take
- * the top N candidates, and sample among them with a temperature calibrated to
- * the average centipawn loss real players at that rating actually produce.
+ * moves rarely.
  *
- * Style then re-weights that same candidate pool. Two bots at 1400 shed a
- * similar number of centipawns per move; style decides which moves they shed
- * them on. That keeps strength and personality independent, which is the whole
- * point — you can face an aggressive 1400 and a solid 1400 and lose to both
- * for completely different reasons.
+ * Style re-weights the same candidate pool rather than changing its strength.
+ * Two bots at 1400 shed a similar number of centipawns per move; style decides
+ * which moves they shed them on. That keeps strength and personality
+ * independent, which is the whole point — you can face an aggressive 1400 and
+ * a solid 1400 and lose to both for completely different reasons.
  *
- * WHY THE POOL IS SO WIDE AT THE BOTTOM, which is the whole story.
+ * WHAT THIS FILE USED TO SAY, AND WHY IT NO LONGER SAYS IT.
  *
- * The first version sampled among the engine's top 8-10 moves at every band
- * and raised the temperature to weaken play. Calibration said every band was
- * far stronger than its label — 800 shedding 70cp against a 150 target — and
- * the reason turned out to be arithmetic rather than tuning:
- * scripts/tune-bands.ts computes the expected loss of this policy in closed
- * form, and reported the target as UNREACHABLE for seven of the eight bands.
- * Even sampling UNIFORMLY over a strong engine's top ten moves is too strong,
- * because all ten are decent. No temperature fixes a pool with no bad moves
- * in it.
+ * For a long time the answer here was a WIDE candidate pool — 800 chose among
+ * twenty-eight engine moves — with temperature deciding how far down the list
+ * the bot reached. The reasoning was sound and the measurement behind it was
+ * real: sampling uniformly over a strong engine's top ten is still too strong,
+ * because all ten are decent, and no temperature fixes a pool with no bad
+ * moves in it. If the only way to make a bad move is to pick one off a list,
+ * the list has to contain bad moves.
  *
- * So weak bands now choose from a much wider list — 800 sees twenty-eight
- * candidates — which is also the more honest description of the thing being
- * modelled: a weak player has not discarded the bad moves yet and a strong
- * one has. Temperature then decides how far down that list they reach.
+ * That premise is what changed. engine/vision.ts gives the policy a second
+ * way to make a bad move, and a truer one: play a move whose refutation you
+ * did not see. A bad move no longer has to be fetched from the twenty-eighth
+ * slot of a list nobody would consider — it can be the second move you looked
+ * at, which you played because you missed the knight coming back.
  *
- * And blunderChance is cut to roughly a third across the board. The blunder
- * path plays a move the engine never shortlisted at all — a genuinely random
- * legal move — so at 0.18 the 800 bot threw a piece away every fifth or sixth
- * move while playing well above its rating in between. Strong, then abruptly
- * absurd. Sean's words were "too easy and simple", and that one shape
- * produces both halves of it. The loss should come from playing consistently
- * loose, which is what humans at that rating actually do.
+ * And the wide pool was doing damage that was invisible until something
+ * measured the right thing. scripts/diag-punish.ts sat every band down to one
+ * fixed exam of positions where a capture wins a piece and is the engine's own
+ * best move by two clear pawns. The 800 took it 21.3% of the time — less often
+ * than the 550 — because with twenty-eight candidates at temperature 286, a
+ * move two pawns better than the alternatives gets twice the weight of any ONE
+ * of twenty-seven others, and loses to the crowd. A wide pool does not only
+ * let a bot find bad moves; it stops it finding obvious good ones.
  *
- * AND THE MODEL WAS WRONG THE FIRST TIME, which is why the measurement runs.
+ * ONE DIAL NOW: SIGHT. The long note above ANCHORS has the calibration data
+ * that forced it, including the ladder in which four rungs out of seven were
+ * clean sweeps and 1400 and 1600 turned out to be the same opponent. The
+ * short version: depth and multipv now only FIND candidate moves, temperature
+ * only breaks ties between moves that look equally fine, the one-ply share
+ * supplies the bottom of the ladder, and every mistake above that comes from
+ * not seeing what the move allows.
  *
- * The analytic solver's first answer was applied and calibrate.ts caught it
- * overshooting hard: band 800 was predicted at 150 and measured 246.9 in real
- * play, with 41% of its moves losing 200cp or more. Not a weak bot — a
- * useless one.
+ * CALIBRATION HONESTY. The targets are drawn from published rating-band
+ * averages, and the numbers in ANCHORS are a starting point rather than a
+ * result. scripts/tune-sight.ts measures what each band actually sheds over a
+ * fixed position set — running THIS policy, not a model of it, which is the
+ * mistake its predecessor made — and scripts/calibrate.ts plays whole games
+ * and decides. calibrate has overruled this table three times.
  *
- * The cause is compounding, and it is not an arithmetic bug. The model
- * evaluates independent positions from master games, where the candidate
- * moves sit close together because the position is sound. A loose bot does
- * not stay in positions like that: one sloppy move reaches a worse one, where
- * the spread between best and tenth-best is far wider, so the next sloppy
- * move costs more than the model's average. Error feeds on itself and a
- * per-position expectation cannot see it. The measured factor was about 1.6,
- * and tune-bands.ts now aims at target/1.6.
- *
- * So the shape that survived is: a WIDE pool, a MODERATE temperature and a
- * LOW blunder rate. The bot mostly plays sensible moves and now and then
- * reaches further down a long list — which is what a weak human looks like —
- * rather than alternating between engine moves and random ones.
- *
- * THE TEMPERATURES BELOW COME FROM MEASUREMENT, NOT FROM THE MODEL.
- *
- * The analytic solver takes a correction factor for compounding, and the
- * factor turned out to depend on the very setting it is correcting towards:
- * 1.6 measured at temperature 766, 1.12 at temperature 142. A looser bot
- * spends the game in worse positions, where the gap between best and
- * tenth-best is wider, so its errors compound harder. One constant cannot
- * extrapolate across that.
- *
- * So the last step is a fit to real games instead. Two calibration runs at
- * band 800 with the same pool give two points — temperature 142 measured
- * 105.4 ACPL, temperature 766 measured 246.9 — and ACPL goes as temperature
- * to the power 0.505 between them, near enough a square root. Solving that
- * for 150 gives 286, almost exactly double the current setting, and the
- * same doubling is applied across the ladder.
- *
- * CALIBRATION HONESTY: the targets are drawn from published rating-band
- * averages. scripts/calibrate.ts plays real games and is the thing that
- * decides. It has overruled this table twice already, and the numbers here
- * are its own two measurements extrapolated — which is a better guess than
- * the model made, and still a guess until it has been run again.
- *
- * That guess is no longer the last word. `bandProfile` applies whatever
- * calibration.ts has measured from games actually played, so the table below
- * is a starting point that the app corrects with use rather than a constant
- * somebody has to remember to edit. The correction is bounded, damped, needs
- * a real sample before it does anything, and — importantly — never reads the
- * RESULT of a game, only the bot's own move quality. See calibration.ts.
+ * And the table is not the last word at runtime either. `bandProfile` applies
+ * whatever calibration.ts has measured from games actually played. The
+ * correction is bounded, damped, needs a real sample before it does anything,
+ * and never reads the RESULT of a game — only the bot's own move quality. It
+ * now moves SIGHT rather than temperature, because a correction applied to a
+ * knob that no longer drives strength would quietly do nothing.
  */
 
 import { Chess } from 'chess.js'
@@ -100,13 +70,35 @@ export interface BandProfile {
   band: Band
   /** Average centipawn loss we're aiming to reproduce. */
   targetAcpl: number
-  /** Softmax temperature, in centipawns. Higher = looser play. */
+  /**
+   * THE STRENGTH DIAL: how reliably this rating sees a refutation coming,
+   * before the shape of the move is taken into account. 0..1.
+   *
+   * Everything else in this interface is support. See the note above ANCHORS
+   * for why strength is one monotone parameter now instead of four that
+   * fought each other.
+   */
+  sight: number
+  /**
+   * Softmax temperature, in centipawns.
+   *
+   * Small and nearly flat across the ladder now. It decides WHICH of several
+   * moves that look equally fine gets played — it is not where mistakes come
+   * from any more.
+   */
   temperature: number
-  /** Chance of ignoring the ranking entirely and picking near-uniformly. */
-  blunderChance: number
+  /**
+   * Share of moves taken from the one-ply policy — looking at what a move
+   * wins and never at the answer.
+   *
+   * Kept because it is a real description of a beginner and it is the only
+   * thing with enough headroom to reach 210 acpl, but it now falls smoothly
+   * instead of dropping thirteenfold in one step at 800.
+   */
+  naiveShare: number
   /** Search depth for candidate generation. */
   depth: number
-  /** How many candidates to consider. */
+  /** How many candidates to consider — the shortlist. */
   multipv: number
 }
 
@@ -253,17 +245,109 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  * it. ACPL is a proxy; scripts/calibrate.ts measures RESULTS and is the
  * thing that settles this one. Run that before touching 1400's temperature.
  */
+/*
+ * ONE DIAL, AND WHY THE LADDER NEEDED REBUILDING AROUND IT.
+ *
+ * The old table moved four things at once — temperature, multipv, depth and
+ * the one-ply share — and the calibration harness measured what that produced:
+ *
+ *      800 vs 1000   1000 won 6-0
+ *     1000 vs 1200   1200 won 6-0
+ *     1200 vs 1400   1400 scored 67%
+ *     1400 vs 1600   1600 scored 50%   <-- the same opponent twice
+ *     1600 vs 1800   1800 won 6-0
+ *     1800 vs 2000   2000 scored 83%
+ *     2000 vs 2200   2200 won 6-0
+ *
+ * A 200-point step should score about 76%. Four of seven rungs were clean
+ * sweeps and one was a coin toss: a dial with cliffs AND a dead zone, which
+ * is what "the difficulty levels don't work well" feels like from the other
+ * side of the board.
+ *
+ * The cause was the knobs fighting. Temperature stopped falling above 1400
+ * and began RISING (138 -> 153 -> 165) because multipv was shrinking at the
+ * same time and the two had been tuned against each other; that crossover is
+ * exactly where 1400 and 1600 collapsed into one bot. At the bottom the
+ * one-ply share fell thirteenfold in a single step and took the ladder's
+ * biggest cliff with it.
+ *
+ * So strength is ONE monotone parameter now: SIGHT, how reliably this rating
+ * sees the refutation of a move it is considering. The rest stop being error
+ * sources:
+ *
+ *   DEPTH is no longer a handicap. A weak human does not search shallowly and
+ *   accurately — they search selectively and miss things, which is what sight
+ *   models. Searching at depth 8 and being blind is a far better description
+ *   of a beginner than searching at depth 4 and being sharp, and it has a
+ *   second benefit the old table could not have: at depth 4 only 56-82% of
+ *   lines came back with a pv[1] at all, so the refutation the whole model
+ *   rests on was missing a third of the time at the bands that needed it most.
+ *
+ *   MULTIPV is the shortlist, and it is flat. Nobody considers thirty-four
+ *   moves. A person looks at a handful and asks "does this work?" — and the
+ *   answer to THAT is what they get wrong. The wide candidate list was only
+ *   ever a device for letting a softmax reach a bad move; sight does that job
+ *   properly, and without also throwing away moves a player would obviously
+ *   find. It is what made the 800 punish free material less often than the
+ *   550 (21.3% against 28.7%).
+ *
+ *   TEMPERATURE is small and nearly flat. It decides which of several moves
+ *   that look equally fine gets played. That is all it was ever good for.
+ *
+ *   THE ONE-PLY SHARE survives, because looking at what a move wins and never
+ *   at the answer IS what a beginner does, and at 221 acpl measured it is the
+ *   only thing with the headroom to reach the 350's target. It now falls
+ *   smoothly instead of off a cliff.
+ *
+ * The sight column starts from vision.ts's own curve and is tuned against
+ * measurement from there; scripts/tune-sight.ts is the instrument.
+ */
+/*
+ * ROUND ONE OF THE MEASUREMENT, and what it moved.
+ *
+ * The first table built on this design measured, over tune-sight's fixed
+ * position set:
+ *
+ *      800  target 150   measured 114.8   0.77
+ *     1000         120             92.9   0.77
+ *     1200          95             82.4   0.87
+ *     1400          75             72.5   0.97
+ *     1600          60             61.1   1.02
+ *     1800          48             58.6   1.22
+ *     2000          38             44.7   1.18
+ *     2200          30             38.1   1.27
+ *
+ * Strictly ordered — the first time this ladder has been — so the dial works.
+ * What it was not was correctly SCALED: too strong at the bottom, too weak at
+ * the top, which means the bands sit closer together than their labels claim.
+ * Measured spread 114.8 to 38.1 is a factor of 3.0 where the targets want 5.0.
+ *
+ * Two corrections, both of which steepen it:
+ *
+ *   SIGHT falls further at the bottom. There was room: 0.64 was never a
+ *   beginner's sight, and the top of the dial is nearly spent at 0.98 so the
+ *   slack has to come from below.
+ *
+ *   TEMPERATURE drops to where the design always said it belonged. At 62 the
+ *   2200 still gave a move 60cp worse than the best about a third of the
+ *   best's weight, which is a blunder generator rather than a tie-break —
+ *   and it is the floor the top bands could not get under no matter what
+ *   sight did, because sight cannot push a band below the loss its own
+ *   softmax is handing out. At 28 a move 60cp worse gets a tenth of the
+ *   weight, which is what "decides between moves that look equally fine"
+ *   actually means.
+ */
 const ANCHORS: Anchor[] = [
-  { elo: 350, targetAcpl: 210, temperature: 950, blunderChance: 0.45, depth: 4, multipv: 34 },
-  { elo: 550, targetAcpl: 180, temperature: 560, blunderChance: 0.29, depth: 5, multipv: 31 },
-  { elo: 800, targetAcpl: 150, temperature: 286, blunderChance: 0.022, depth: 6, multipv: 28 },
-  { elo: 1000, targetAcpl: 120, temperature: 227, blunderChance: 0.022, depth: 7, multipv: 24 },
-  { elo: 1200, targetAcpl: 95, temperature: 181, blunderChance: 0.022, depth: 8, multipv: 20 },
-  { elo: 1400, targetAcpl: 75, temperature: 138, blunderChance: 0.022, depth: 9, multipv: 16 },
-  { elo: 1600, targetAcpl: 60, temperature: 153, blunderChance: 0.019, depth: 10, multipv: 12 },
-  { elo: 1800, targetAcpl: 48, temperature: 165, blunderChance: 0.012, depth: 11, multipv: 9 },
-  { elo: 2000, targetAcpl: 38, temperature: 157, blunderChance: 0.007, depth: 12, multipv: 7 },
-  { elo: 2200, targetAcpl: 30, temperature: 149, blunderChance: 0.004, depth: 13, multipv: 5 },
+  { elo: 350, targetAcpl: 210, sight: 0.3, naiveShare: 0.45, temperature: 68, depth: 8, multipv: 6 },
+  { elo: 550, targetAcpl: 180, sight: 0.4, naiveShare: 0.26, temperature: 64, depth: 8, multipv: 6 },
+  { elo: 800, targetAcpl: 150, sight: 0.5, naiveShare: 0.13, temperature: 60, depth: 9, multipv: 6 },
+  { elo: 1000, targetAcpl: 120, sight: 0.6, naiveShare: 0.07, temperature: 56, depth: 9, multipv: 6 },
+  { elo: 1200, targetAcpl: 95, sight: 0.7, naiveShare: 0.035, temperature: 52, depth: 10, multipv: 6 },
+  { elo: 1400, targetAcpl: 75, sight: 0.79, naiveShare: 0.018, temperature: 48, depth: 10, multipv: 6 },
+  { elo: 1600, targetAcpl: 60, sight: 0.86, naiveShare: 0.009, temperature: 44, depth: 11, multipv: 6 },
+  { elo: 1800, targetAcpl: 48, sight: 0.92, naiveShare: 0.005, temperature: 40, depth: 11, multipv: 6 },
+  { elo: 2000, targetAcpl: 38, sight: 0.96, naiveShare: 0.002, temperature: 34, depth: 12, multipv: 6 },
+  { elo: 2200, targetAcpl: 30, sight: 0.985, naiveShare: 0.001, temperature: 28, depth: 13, multipv: 6 },
 ]
 
 /** Linear between a and b at position t in [0,1]. */
@@ -315,8 +399,11 @@ export function profileFor(elo: number): BandProfile {
   const { lo, hi, t } = bracket(elo)
   const base: Omit<BandProfile, 'band'> = {
     targetAcpl: Math.round(lerp(lo.targetAcpl, hi.targetAcpl, t)),
+    // Linear: sight is a probability between two probabilities, not a scale
+    // parameter, and halfway between 0.46 and 0.98 really is 0.72.
+    sight: lerp(lo.sight, hi.sight, t),
     temperature: Math.round(glerp(lo.temperature, hi.temperature, t)),
-    blunderChance: glerp(lo.blunderChance, hi.blunderChance, t),
+    naiveShare: glerp(lo.naiveShare, hi.naiveShare, t),
     depth: Math.round(lerp(lo.depth, hi.depth, t)),
     multipv: Math.round(lerp(lo.multipv, hi.multipv, t)),
   }
@@ -329,6 +416,16 @@ export function profileFor(elo: number): BandProfile {
   return {
     band,
     ...base,
+    /*
+     * The learned correction now moves SIGHT, because sight is what strength
+     * is. Multiplying temperature was the right lever when temperature was
+     * the error source; it is not any more, and a correction applied to a
+     * knob that no longer drives strength would quietly do nothing.
+     *
+     * Inverted, because the factor is "shed more" and sight is "err less":
+     * a band measured too strong gets factor > 1 and should SEE less.
+     */
+    sight: Math.max(0.2, Math.min(0.995, base.sight / Math.max(0.5, factor))),
     temperature: Math.round(base.temperature * factor),
     /*
      * The one-ply path is the knob with real headroom — the softmax can only
@@ -343,12 +440,12 @@ export function profileFor(elo: number): BandProfile {
      * beginner rather than as a fault. Measured at 221 acpl on its own, which
      * is a real player and not noise.
      */
-    blunderChance: Math.min(0.6, base.blunderChance * (1 + (factor - 1) * 0.5)),
+    naiveShare: Math.min(0.6, base.naiveShare * (1 + (factor - 1) * 0.5)),
   }
 }
 
 /**
- * Kept for the band-keyed harnesses (calibrate, tune-bands, measure-acpl),
+  * Kept for the band-keyed harnesses (calibrate, tune-sight, measure-acpl),
  * which iterate BANDS and mean exactly those values. Identical to profileFor
  * at every band, because every band is an anchor.
  */
@@ -680,10 +777,20 @@ export function weighCandidates(
    * the position IS, not what the bot hallucinated about it.
    */
   rng?: Rng,
+  /**
+   * Force part of the profile, for the tuner.
+   *
+   * Deliberately a parameter rather than a module-level switch: the tuner has
+   * to run THE policy, not a copy of it, and the last tuner's fatal flaw was
+   * that it reasoned about an analytic model instead. Nothing in the app
+   * passes this.
+   */
+  override?: { sight?: number },
 ): Candidate[] {
   if (lines.length === 0) return []
 
-  const profile = bandProfile(elo)
+  const banded = bandProfile(elo)
+  const profile = override?.sight === undefined ? banded : { ...banded, sight: override.sight }
   const t0 = Math.max(10, profile.temperature)
 
   const scored = lines
@@ -734,7 +841,7 @@ export function weighCandidates(
     } catch {
       return s.score
     }
-    if (!isBlindTo(board.fen(), s.reply, dest, elo, rng)) return s.score
+    if (!isBlindTo(board.fen(), s.reply, dest, profile.sight, rng)) return s.score
     blind[i] = true
     return Math.max(s.score, best - BLIND_RESIDUAL_CP)
   })
@@ -885,8 +992,10 @@ export function chooseMoveDetailed(
   elo: number,
   style: Style,
   rng: Rng = Math.random,
+  /** Tuner seam — see weighCandidates. Nothing in the app passes this. */
+  override?: { sight?: number },
 ): Choice {
-  const candidates = weighCandidates(fen, lines, elo, style, rng)
+  const candidates = weighCandidates(fen, lines, elo, style, rng, override)
   const spread =
     candidates.length > 1 ? Math.max(...candidates.map((c) => c.loss)) : 0
   const none: Choice = { uci: null, source: 'forced', loss: null, spread: 0, candidates: 0 }
@@ -914,7 +1023,7 @@ export function chooseMoveDetailed(
   // it wins THIS move with no thought at all for the answer. It is allowed to
   // land on a good move, because sometimes the greedy move is the right one
   // and pretending otherwise is its own kind of tell.
-  if (rng() < profile.blunderChance) {
+  if (rng() < profile.naiveShare) {
     const naive = naiveMove(fen, rng)
     if (naive) {
       return { uci: naive, source: 'wild', loss: null, spread, candidates: candidates.length }
