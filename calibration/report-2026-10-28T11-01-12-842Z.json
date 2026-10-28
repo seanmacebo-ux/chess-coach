@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-10-28T11:01:12.842Z",
+  "finishedAt": "2026-10-28T11:15:00.683Z",
+  "config": {
+    "games": 30,
+    "refDepth": 16,
+    "maxPlies": 200,
+    "quick": false
+  },
+  "bands": [],
+  "pairings": [
+    {
+      "higher": 550,
+      "lower": 350,
+      "score": 0.8,
+      "impliedElo": 241,
+      "games": 30
+    },
+    {
+      "higher": 800,
+      "lower": 550,
+      "score": 0.8833333333333333,
+      "impliedElo": 352,
+      "games": 30
+    },
+    {
+      "higher": 1400,
+      "lower": 1200,
+      "score": 0.7,
+      "impliedElo": 147,
+      "games": 30
+    },
+    {
+      "higher": 1600,
+      "lower": 1400,
+      "score": 0.7333333333333333,
+      "impliedElo": 176,
+      "games": 30
+    }
+  ],
+  "styleParity": {
+    "band": 1400,
+    "rows": []
+  },
+  "note": "Report only. PROFILES in src/engine/policy.ts is not modified by this script."
+}
