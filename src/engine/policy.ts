@@ -383,6 +383,16 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  * 0.67. Kit up a little (sight 0.42, one-ply 0.33) to open Bud -> Kit (67%)
  * and ease Kit -> Pip (80%).
  *
+ * Round five: 350 vs 550 87% (overshot), 550 vs 800 78%, 1200 vs 1400 82%
+ * (UNCHANGED — the same 24.5/30 as round four), 1400 vs 1600 65%.
+ *
+ * The unchanged rung is informative. calibrate seeds every game, so a change
+ * that alters few decisions in those thirty games replays the same thirty
+ * results, and taking sight from 0.71 to 0.67 evidently altered few. At 1400
+ * sight is a weak lever on who wins, so the 1400 moves on temperature
+ * instead — 54 -> 64, still strictly between 1200's 72 and 1600's 52 so the
+ * column stays monotone. Kit goes to the midpoint of the two settings tried.
+ *
  *   350 and 550 sight down to 0.30 and 0.38. Below about 0.35 sight barely
  *   moves the search path (the band-800 sweep: 128.6 at 0.05, 129.2 at 0.20),
  *   so this is nearly free in centipawns — but naiveMove now has to NOTICE a
@@ -391,11 +401,11 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  */
 const ANCHORS: Anchor[] = [
   { elo: 350, targetAcpl: 210, sight: 0.3, naiveShare: 0.46, temperature: 190, depth: 8, multipv: 6 },
-  { elo: 550, targetAcpl: 180, sight: 0.42, naiveShare: 0.33, temperature: 160, depth: 8, multipv: 6 },
+  { elo: 550, targetAcpl: 180, sight: 0.4, naiveShare: 0.345, temperature: 160, depth: 8, multipv: 6 },
   { elo: 800, targetAcpl: 150, sight: 0.48, naiveShare: 0.26, temperature: 130, depth: 9, multipv: 6 },
   { elo: 1000, targetAcpl: 120, sight: 0.56, naiveShare: 0.14, temperature: 95, depth: 9, multipv: 6 },
   { elo: 1200, targetAcpl: 95, sight: 0.64, naiveShare: 0.06, temperature: 72, depth: 10, multipv: 6 },
-  { elo: 1400, targetAcpl: 75, sight: 0.67, naiveShare: 0.02, temperature: 54, depth: 10, multipv: 6 },
+  { elo: 1400, targetAcpl: 75, sight: 0.67, naiveShare: 0.02, temperature: 64, depth: 10, multipv: 6 },
   { elo: 1600, targetAcpl: 60, sight: 0.83, naiveShare: 0.01, temperature: 52, depth: 11, multipv: 6 },
   { elo: 1800, targetAcpl: 48, sight: 0.9, naiveShare: 0.005, temperature: 46, depth: 11, multipv: 6 },
   { elo: 2000, targetAcpl: 38, sight: 0.93, naiveShare: 0.002, temperature: 40, depth: 12, multipv: 6 },
