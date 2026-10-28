@@ -49,6 +49,18 @@ function arg(name: string, fallback: number): number {
 }
 
 const GAMES = arg('games', 4)
+/**
+ * Which games, as opposed to how many.
+ *
+ * Every ladder game is seeded, so the same table replays the same thirty
+ * games — which is what makes a change comparable, and also why a change that
+ * alters few decisions comes back with the identical score (1200 vs 1400 read
+ * 24.5/30 two rounds running across a real sight change). After a few rounds
+ * of tuning against one fixed sample, the table is fitted partly to THOSE
+ * games. A different --seed is a fresh, independent sample: the way to tell a
+ * real gap from the particular thirty games that produced it.
+ */
+const SEED = arg('seed', 0)
 const MAX_PLIES = arg('max-plies', 200)
 const STYLE_BAND = arg('style-band', 1400) as Band
 const QUICK = process.argv.includes('--quick')
@@ -362,7 +374,7 @@ for (let i = runs('ladder') ? 1 : LADDER.length; i < LADDER.length; i++) {
     const r = await playGame(
       { band: higherIsWhite ? higher : lower, style: 'human' },
       { band: higherIsWhite ? lower : higher, style: 'human' },
-      higher * 7919 + lower * 104729 + g,
+      higher * 7919 + lower * 104729 + g + SEED * 1_000_003,
       false,
     )
     points += higherIsWhite ? r.score : 1 - r.score
