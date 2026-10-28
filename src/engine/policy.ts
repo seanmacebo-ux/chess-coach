@@ -376,6 +376,13 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  *
  *   2200 sight 0.95 -> 0.975. 68% from 2000 with a floor of +3.
  *
+ * Round four's thirty-game results on those changes: 350 vs 550 67%,
+ * 550 vs 800 80%, 800 vs 1000 78%, 1200 vs 1400 82%, 1400 vs 1600 55%,
+ * 2000 vs 2200 75%. Chaining the rungs into rough Elo puts 1400 too close to
+ * 1600 and too far from 1200 — one cause, so one fix: 1400 down again, 0.71 ->
+ * 0.67. Kit up a little (sight 0.42, one-ply 0.33) to open Bud -> Kit (67%)
+ * and ease Kit -> Pip (80%).
+ *
  *   350 and 550 sight down to 0.30 and 0.38. Below about 0.35 sight barely
  *   moves the search path (the band-800 sweep: 128.6 at 0.05, 129.2 at 0.20),
  *   so this is nearly free in centipawns — but naiveMove now has to NOTICE a
@@ -384,11 +391,11 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  */
 const ANCHORS: Anchor[] = [
   { elo: 350, targetAcpl: 210, sight: 0.3, naiveShare: 0.46, temperature: 190, depth: 8, multipv: 6 },
-  { elo: 550, targetAcpl: 180, sight: 0.38, naiveShare: 0.36, temperature: 160, depth: 8, multipv: 6 },
+  { elo: 550, targetAcpl: 180, sight: 0.42, naiveShare: 0.33, temperature: 160, depth: 8, multipv: 6 },
   { elo: 800, targetAcpl: 150, sight: 0.48, naiveShare: 0.26, temperature: 130, depth: 9, multipv: 6 },
   { elo: 1000, targetAcpl: 120, sight: 0.56, naiveShare: 0.14, temperature: 95, depth: 9, multipv: 6 },
   { elo: 1200, targetAcpl: 95, sight: 0.64, naiveShare: 0.06, temperature: 72, depth: 10, multipv: 6 },
-  { elo: 1400, targetAcpl: 75, sight: 0.71, naiveShare: 0.02, temperature: 54, depth: 10, multipv: 6 },
+  { elo: 1400, targetAcpl: 75, sight: 0.67, naiveShare: 0.02, temperature: 54, depth: 10, multipv: 6 },
   { elo: 1600, targetAcpl: 60, sight: 0.83, naiveShare: 0.01, temperature: 52, depth: 11, multipv: 6 },
   { elo: 1800, targetAcpl: 48, sight: 0.9, naiveShare: 0.005, temperature: 46, depth: 11, multipv: 6 },
   { elo: 2000, targetAcpl: 38, sight: 0.93, naiveShare: 0.002, temperature: 40, depth: 12, multipv: 6 },
