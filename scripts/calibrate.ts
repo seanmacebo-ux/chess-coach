@@ -267,6 +267,32 @@ await engine.init()
 
 const bands = QUICK ? ([1200, 1400, 1600] as Band[]) : BANDS
 
+/*
+ * THE LADDER STARTS WHERE THE ROSTER DOES, not where BANDS does.
+ *
+ * BANDS begins at 800, so for as long as this harness has existed the two
+ * weakest bots — Bud at 350 and Kit at 550, which are what a beginner plays
+ * first and most — have never once been tested against each other or against
+ * Pip. The ACPL section can stay on BANDS (calibration learns per band), but
+ * "does the next bot up actually beat this one" is a question about the
+ * roster, and the roster starts at 350.
+ */
+const LADDER: number[] = QUICK ? [...bands] : [350, 550, ...bands]
+
+/**
+ * Only some rungs, e.g. `--rungs 800-1000,1200-1400`.
+ *
+ * A rung depends on its two bands and nothing else, so after changing two
+ * anchors there is no reason to replay an hour of games on the other five.
+ * The thirty-game verdict needs thirty games; it does not need them on rungs
+ * nobody touched.
+ */
+const RUNGS: Set<string> | null = (() => {
+  const i = process.argv.indexOf('--rungs')
+  const raw = i >= 0 ? process.argv[i + 1] : undefined
+  return raw ? new Set(raw.split(',').map((x) => x.trim())) : null
+})()
+
 /* --- 1. ACPL per band ------------------------------------------------- */
 
 const bandRows: {
@@ -324,9 +350,10 @@ if (runs('ladder')) if (runs('ladder')) {
 const pairRows: { higher: Band; lower: Band; score: number; impliedElo: number; games: number }[] =
   []
 
-for (let i = runs('ladder') ? 1 : bands.length; i < bands.length; i++) {
-  const higher = bands[i]!
-  const lower = bands[i - 1]!
+for (let i = runs('ladder') ? 1 : LADDER.length; i < LADDER.length; i++) {
+  const higher = LADDER[i]! as Band
+  const lower = LADDER[i - 1]! as Band
+  if (RUNGS && !RUNGS.has(`${lower}-${higher}`)) continue
   let points = 0
   const n = GAMES
   for (let g = 0; g < n; g++) {

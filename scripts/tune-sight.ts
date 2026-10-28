@@ -199,7 +199,7 @@ async function main() {
       (TEMP === null ? '' : `, temperature forced to ${TEMP}`) +
       `\nreport only — nothing is written back to ANCHORS.\n`,
   )
-  console.log('   band  target  measured            sight  temp   naive   ratio')
+  console.log('   band  target  measured            sight  temp   naive   ratio   blund   big')
 
   const rows: { band: number; target: number; measured: number; half: number }[] = []
   for (const band of RATINGS) {
@@ -230,6 +230,16 @@ async function main() {
     }
 
     const { mean, half } = wilsonish(losses)
+    /*
+     * THE TAIL, because the mean does not decide games. A thirty-game ladder
+     * on a table tuned to within 4% of every acpl target still gave 87%, 73%
+     * and 93% for acpl ratios of 1.26x, 1.37x and 1.21x — the biggest
+     * accuracy gap produced the lowest score. One 400cp move loses a game
+     * whatever the other thirty-nine cost, so these two columns are the
+     * candidates for what actually predicts the ladder.
+     */
+    const blund = losses.length ? losses.filter((l) => l >= 200).length / losses.length : 0
+    const big = losses.length ? losses.filter((l) => l >= 400).length / losses.length : 0
     rows.push({ band, target: profile.targetAcpl, measured: mean, half })
     const ratio = profile.targetAcpl > 0 ? mean / profile.targetAcpl : 0
     const flag = ratio < 0.8 ? '  too strong' : ratio > 1.25 ? '  too weak' : ''
@@ -238,7 +248,8 @@ async function main() {
         `${mean.toFixed(1).padStart(6)} +/- ${half.toFixed(1).padStart(4)}  ` +
         `${sight.toFixed(2).padStart(5)}  ${String(TEMP ?? profile.temperature).padStart(4)}  ` +
         `${profile.naiveShare.toFixed(3)}  ` +
-        `${ratio.toFixed(2).padStart(5)}${flag}`,
+        `${ratio.toFixed(2).padStart(5)}  ${(blund * 100).toFixed(1).padStart(5)}%  ` +
+        `${(big * 100).toFixed(1).padStart(4)}%${flag}`,
     )
   }
 

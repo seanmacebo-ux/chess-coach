@@ -64,7 +64,7 @@ import { Chess } from 'chess.js'
 import type { Band, Line, Style, UciMove } from './types'
 import { BANDS, lineScore, nearestBand } from './types'
 import { factorFor, registerTargets } from './calibration'
-import { isBlindTo } from './vision'
+import { isBlindTo, seesReply, shapeOfReply } from './vision'
 
 export interface BandProfile {
   band: Band
@@ -354,17 +354,45 @@ interface Anchor extends Omit<BandProfile, 'band'> {
  * what put 1400 and 1600 at 50% against each other; having more than one
  * parameter never was.
  */
+/*
+ * ROUND FOUR: TUNED AGAINST THE HEAD-TO-HEAD, BECAUSE NOTHING CHEAPER WORKS.
+ *
+ * The thirty-game ladder on round three's table:
+ *
+ *     800 vs 1000  87%     1400 vs 1600  68%     2000 vs 2200  68%
+ *    1000 vs 1200  73%     1600 vs 1800  73%
+ *    1200 vs 1400  93%     1800 vs 2000  73%
+ *
+ * Two rungs too wide, two clearing separation by three Elo. And no fast proxy
+ * predicts which: neither the acpl ratio nor the blunder rate nor the rate of
+ * 400cp moves lines up with those scores, because tune-sight's positions come
+ * from random play and nothing in a fixed position set captures one bad move
+ * dragging a whole game somewhere worse. So the changes below are each aimed
+ * at a measured rung and are checked by replaying that rung:
+ *
+ *   1400 sight 0.77 -> 0.71. It was the largest sight step on the ladder,
+ *   0.13, and sat between the widest rung (93% from 1200) and one of the two
+ *   narrowest (68% to 1600). One move closes the first and opens the second.
+ *
+ *   2200 sight 0.95 -> 0.975. 68% from 2000 with a floor of +3.
+ *
+ *   350 and 550 sight down to 0.30 and 0.38. Below about 0.35 sight barely
+ *   moves the search path (the band-800 sweep: 128.6 at 0.05, 129.2 at 0.20),
+ *   so this is nearly free in centipawns — but naiveMove now has to NOTICE a
+ *   capture at this sight, and the bottom of the ladder took free material at
+ *   a flat 41 / 37.5 / 37.5 because the one-ply policy never missed one.
+ */
 const ANCHORS: Anchor[] = [
-  { elo: 350, targetAcpl: 210, sight: 0.4, naiveShare: 0.46, temperature: 190, depth: 8, multipv: 6 },
-  { elo: 550, targetAcpl: 180, sight: 0.44, naiveShare: 0.36, temperature: 160, depth: 8, multipv: 6 },
+  { elo: 350, targetAcpl: 210, sight: 0.3, naiveShare: 0.46, temperature: 190, depth: 8, multipv: 6 },
+  { elo: 550, targetAcpl: 180, sight: 0.38, naiveShare: 0.36, temperature: 160, depth: 8, multipv: 6 },
   { elo: 800, targetAcpl: 150, sight: 0.48, naiveShare: 0.26, temperature: 130, depth: 9, multipv: 6 },
   { elo: 1000, targetAcpl: 120, sight: 0.56, naiveShare: 0.14, temperature: 95, depth: 9, multipv: 6 },
   { elo: 1200, targetAcpl: 95, sight: 0.64, naiveShare: 0.06, temperature: 72, depth: 10, multipv: 6 },
-  { elo: 1400, targetAcpl: 75, sight: 0.77, naiveShare: 0.02, temperature: 54, depth: 10, multipv: 6 },
+  { elo: 1400, targetAcpl: 75, sight: 0.71, naiveShare: 0.02, temperature: 54, depth: 10, multipv: 6 },
   { elo: 1600, targetAcpl: 60, sight: 0.83, naiveShare: 0.01, temperature: 52, depth: 11, multipv: 6 },
   { elo: 1800, targetAcpl: 48, sight: 0.9, naiveShare: 0.005, temperature: 46, depth: 11, multipv: 6 },
   { elo: 2000, targetAcpl: 38, sight: 0.93, naiveShare: 0.002, temperature: 40, depth: 12, multipv: 6 },
-  { elo: 2200, targetAcpl: 30, sight: 0.95, naiveShare: 0.001, temperature: 36, depth: 13, multipv: 6 },
+  { elo: 2200, targetAcpl: 30, sight: 0.975, naiveShare: 0.001, temperature: 36, depth: 13, multipv: 6 },
 ]
 
 /** Linear between a and b at position t in [0,1]. */
@@ -942,12 +970,44 @@ const NAIVE_TEMPERATURE = 220
  * search: "what does this policy shed, and how often does it hang something"
  * is a question about this function alone.
  */
-export function naiveMove(fen: string, rng: Rng): UciMove | null {
+export function naiveMove(fen: string, rng: Rng, sight?: number): UciMove | null {
   const board = new Chess(fen)
   const moves = board.moves({ verbose: true })
   if (moves.length === 0) return null
 
-  const weights = moves.map((m) => Math.exp(faceValue(m) / NAIVE_TEMPERATURE))
+  /*
+   * A ONE-PLY PLAYER STILL HAS TO NOTICE THE CAPTURE.
+   *
+   * Without `sight` this function sees every capture on the board, because
+   * faceValue reads `captured` straight off the move list — and that made it
+   * the best free-material spotter in the roster's bottom half. On a fixed
+   * exam of positions where taking a piece wins two clear pawns, Bud (350)
+   * took it 41.3% of the time, Kit (550) 37.5% and Pip (800) 37.5%: flat,
+   * with the weakest bot on top, because Bud runs this policy on 46% of his
+   * moves and this policy never misses.
+   *
+   * A real beginner misses free pieces constantly — that is most of what
+   * being a beginner IS. So when a sight is given, each capture and each
+   * check is noticed with the same probability vision.ts uses for seeing a
+   * reply coming, shaped the same way: a knight capture from across the
+   * board is the classic one to overlook, a pawn taking the piece in front
+   * of it is not. An unnoticed capture is still a legal move, it just looks
+   * like the quiet move it would otherwise be.
+   *
+   * Optional so the diagnostics can still characterise the policy on its own.
+   */
+  const noticed = (m: (typeof moves)[number]): boolean => {
+    if (sight === undefined) return true
+    if (!m.captured && !m.san.includes('+') && !m.san.includes('#')) return true
+    const uci = `${m.from}${m.to}${m.promotion ?? ''}` as UciMove
+    // Describing the move from the position it is played in; '' as the
+    // destination so it is never mistaken for a recapture.
+    return rng() < seesReply(shapeOfReply(fen, uci, ''), sight)
+  }
+  const value = (m: (typeof moves)[number]): number =>
+    noticed(m) ? faceValue(m) : faceValue({ ...m, captured: undefined, san: m.san.replace(/[+#]/g, '') })
+
+  const weights = moves.map((m) => Math.exp(value(m) / NAIVE_TEMPERATURE))
   const total = weights.reduce((a, c) => a + c, 0)
   if (!(total > 0) || !Number.isFinite(total)) {
     // A forced mate makes faceValue large enough to overflow the exponential
@@ -1048,7 +1108,7 @@ export function chooseMoveDetailed(
   // land on a good move, because sometimes the greedy move is the right one
   // and pretending otherwise is its own kind of tell.
   if (rng() < profile.naiveShare) {
-    const naive = naiveMove(fen, rng)
+    const naive = naiveMove(fen, rng, profile.sight)
     if (naive) {
       return { uci: naive, source: 'wild', loss: null, spread, candidates: candidates.length }
     }

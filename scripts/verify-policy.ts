@@ -185,6 +185,37 @@ const hangingQueen = 'rnb1kbnr/pppp1ppp/8/4p3/6q1/5P2/PPPPP1PP/RNBQKBNR w KQkq -
   check('a one-ply player takes the free queen most of the time', took / 400 > 0.5, `${took}/400`)
   check('...but not every single time — it is a policy, not a rule', picks.size > 1,
         `${picks.size} distinct moves`)
+
+  /*
+   * WITH A SIGHT, IT HAS TO NOTICE THE QUEEN FIRST.
+   *
+   * Without this the one-ply policy saw every capture on the board, so the
+   * weakest bot — which runs it on nearly half its moves — took free
+   * material as often as the 800 and more often than the 550. A beginner
+   * who never misses a hanging piece is not a beginner.
+   */
+  const rate = (sight: number) => {
+    let n = 0
+    for (let i = 0; i < 600; i++) {
+      const uci = naiveMove(hangingQueen, rng, sight)!
+      if (legal.get(uci) === 'q') n++
+    }
+    return n / 600
+  }
+  const blind = rate(0.3)
+  const sharp = rate(0.95)
+  check('a low-sight one-ply player misses the free queen more often',
+        blind < sharp - 0.1, `sight 0.30 took ${(blind * 100).toFixed(0)}%, 0.95 took ${(sharp * 100).toFixed(0)}%`)
+  /*
+   * The ceiling is the policy's own, not sight's: at NAIVE_TEMPERATURE 220 a
+   * free queen beats thirty quiet moves about three times in four whatever
+   * anyone can see. So a sharp player should match the unsighted policy —
+   * sight takes captures away, it never invents them.
+   */
+  const unsighted = took / 400
+  check('...and a sharp one plays like the policy with nothing hidden',
+        Math.abs(sharp - unsighted) < 0.08,
+        `sight 0.95 ${(sharp * 100).toFixed(0)}% vs unsighted ${(unsighted * 100).toFixed(0)}%`)
 }
 
 /*
